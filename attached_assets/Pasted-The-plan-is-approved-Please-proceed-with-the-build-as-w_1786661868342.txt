@@ -1,0 +1,151 @@
+The plan is approved. Please proceed with the build as written, with the following final requirements incorporated before implementation.
+
+## 1. Firmware-Facing Interface Specification
+
+Generate a concise firmware-facing interface specification directly from the active LSN Device Profile.
+
+This should give the firmware engineer a single checklist/table showing, at minimum:
+
+* Symbolic field name
+* Direction
+* Data type
+* Access
+* CIP service
+* Class
+* Instance
+* Attribute
+* Assembly mapping where applicable
+* Implementation status
+* Expected firmware behavior
+* Expected reported response
+* Notes
+
+The purpose is to let the firmware engineer work directly from this interface specification without having to search through the application architecture or other documentation.
+
+The specification should update automatically as the active Device Profile changes.
+
+It should be viewable inside the application and exportable in a simple human-readable format.
+
+## 2. Protocol Implementation Status Tracking
+
+Add an implementation-status field to protocol/profile items so incremental firmware bring-up can be tracked clearly.
+
+Support at least:
+
+* TBD
+* IMPLEMENTING
+* TESTING
+* IMPLEMENTED
+* VERIFIED
+
+Example:
+
+Ready
+Status: VERIFIED
+
+EmissionEnableRequest
+Status: TESTING
+
+TimerState
+Status: IMPLEMENTED
+
+LifetimeEmissionTimeMs
+Status: IMPLEMENTING
+
+EnableCount
+Status: TBD
+
+Display these states in the Device Profile/interface specification and wherever useful in Firmware Developer Mode.
+
+Do not confuse implementation status with validation-test PASS/FAIL. They are separate concepts.
+
+## 3. Expanded Firmware Update Failure Simulation
+
+Because local Ethernet firmware updating is intended to become a permanent LSN feature, expand the firmware-update simulator and test framework to include failure and recovery scenarios.
+
+At minimum simulate:
+
+* network connection lost during firmware transfer
+* interrupted/incomplete firmware transfer
+* corrupted firmware image
+* hash/checksum verification failure
+* incompatible hardware target
+* incompatible protocol version where applicable
+* firmware validation failure after reboot
+* automatic rollback to previous firmware
+* power loss/restart before the new image is selected for boot
+* power loss/restart after the new OTA image is selected
+* previous known-good firmware remaining available for recovery
+* device disappearing during reboot and later being rediscovered
+
+The simulator should clearly show:
+
+* what stage failed
+* whether the currently running firmware was affected
+* whether the previous firmware remains bootable
+* whether rollback occurred
+* resulting firmware version
+* resulting device state
+* recommended engineering next step
+
+Do not imply that every possible physical power-loss case can be perfectly reproduced by a software simulator. Clearly identify simulated versus physically validated behavior.
+
+## 4. Hardware Mode Status During Initial Development
+
+Until real LSN EtherNet/IP mappings and the local firmware-maintenance endpoint have been supplied and validated against physical WT32-ETH01 hardware, Hardware Mode must clearly indicate that the transport framework is ready but specific real-device functions are awaiting firmware implementation.
+
+Do not present simulated or placeholder Hardware Mode operations as though they are communicating with actual LSN hardware.
+
+For unresolved functionality, use clear states such as:
+
+**AWAITING FIRMWARE IMPLEMENTATION**
+
+**PROTOCOL MAPPING TBD**
+
+**MAINTENANCE ENDPOINT NOT YET IMPLEMENTED**
+
+**HARDWARE VALIDATION REQUIRED**
+
+Controls whose required protocol mapping is unresolved must not transmit anything.
+
+Once real mappings are added to the active Device Profile and the transport implementation is available, those functions can become active without changing the core UI or test architecture.
+
+## 5. Preserve the Existing Approved Architecture
+
+Otherwise proceed with the plan exactly as written.
+
+In particular, preserve these architectural decisions:
+
+* one shared React application for Simulation Mode and Electron Hardware Mode
+* WT32-ETH01 as the current LSN controller platform
+* existing LSN daughterboard treated as established working hardware
+* logical LSN states abstracted from physical GPIO assignments
+* versioned Device Profiles
+* no invented final CIP Class, Instance, Attribute, Assembly, vendor, product, or enum values
+* EtherNet/IP control transport separated from firmware-maintenance transport
+* local Ethernet firmware updating treated as a permanent first-class feature
+* future AWS OTA designed to use the same underlying device-side OTA validation, partitioning, acceptance, and rollback mechanisms
+* firmware-update simulation
+* transparent raw request/response inspection
+* expected versus actual behavior
+* automated validation
+* stress testing
+* exportable logs/reports/support bundles
+* modular future sensor/daughterboard architecture
+* future multi-device support
+* professional local-first engineering UX
+
+The primary goal remains to minimize firmware-engineer time by giving the engineer one tool for:
+
+1. loading firmware over Ethernet once OTA-capable firmware exists
+2. discovering and connecting to LSN
+3. sending exact protocol requests
+4. seeing the raw messages
+5. seeing expected firmware behavior
+6. seeing expected hardware-control behavior
+7. seeing actual reported behavior
+8. running automated tests
+9. identifying failures quickly
+10. exporting useful evidence when troubleshooting
+
+Please incorporate these additions into the approved plan and then proceed with implementation.
