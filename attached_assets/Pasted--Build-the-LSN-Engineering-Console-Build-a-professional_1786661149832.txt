@@ -1,0 +1,2090 @@
+# Build the LSN Engineering Console
+
+Build a professional, local-first desktop engineering application named:
+
+**LSN Engineering Console**
+
+LSN stands for **Laser Safety Network**.
+
+This application will become the permanent engineering, firmware-development, validation, diagnostic, commissioning, service, and reference-client platform for our LSN hardware.
+
+The immediate Phase 1 goal is to help our embedded firmware engineer implement and validate EtherNet/IP communications, LSN control functions, lifetime runtime tracking, and firmware updates on the current WT32-ETH01-based LSN hardware with the least possible engineering overhead.
+
+The firmware engineer should NOT need to create PC test software, temporary test scripts, packet decoders, GUIs, firmware-loading utilities, or repetitive validation procedures.
+
+The console should make the development loop:
+
+**compile firmware → install firmware over Ethernet → reconnect → run tests → inspect exact request/response → fix firmware → repeat**
+
+as fast and transparent as possible.
+
+This is NOT a one-off application for one client.
+
+Build it as the permanent **LSN Engineering Platform** that can expand over time to support:
+
+* sensors
+* additional daughterboards
+* monitored inputs
+* remote-stop hardware
+* relay outputs
+* analog functions
+* environmental monitoring
+* multiple LSN devices
+* commissioning
+* diagnostics
+* firmware management
+* local firmware updates
+* AWS field OTA
+* additional protocols
+* future safety-related architectures
+* future LSN hardware generations
+
+Initial release:
+
+**LSN Engineering Console v0.1**
+
+---
+
+# 1. Confirmed Current LSN Hardware
+
+The current LSN controller hardware consists of:
+
+* Wireless-Tag **WT32-ETH01**
+* ESP32 processor
+* LAN8720A Ethernet PHY
+* RMII Ethernet
+* 10/100BASE-T Ethernet through the built-in RJ45
+* existing custom LSN I/O daughterboard
+
+All relevant WT32-ETH01 I/O is already routed through the existing daughterboard.
+
+The WT32-ETH01 plus daughterboard combination has already operated successfully in field deployments for several years.
+
+Therefore, for Phase 1:
+
+* treat the existing daughterboard as established working hardware
+* do not redesign it
+* do not reverse-engineer it
+* do not require GPIO-level configuration in the normal console workflow
+* do not tie the external EtherNet/IP interface to physical GPIO numbers
+* do not make the PC application dependent on the current daughterboard layout
+
+The console communicates using **logical LSN functions and states**.
+
+The ESP32 firmware is responsible for mapping those logical functions to the existing hardware.
+
+Architecture:
+
+PC Application
+→ EtherNet/IP / CIP
+→ LSN Logical Interface
+→ LSN State Machine
+→ Firmware Hardware Abstraction
+→ Existing Daughterboard
+→ Controlled Hardware
+
+This abstraction is intentional.
+
+Future daughterboards should be replaceable without requiring changes to:
+
+* the external EtherNet/IP interface
+* client integrations
+* the core LSN Engineering Console
+* the logical LSN state model
+
+An optional developer-only Hardware Mapping area may exist later, but exact GPIO definitions are not required for Phase 1.
+
+---
+
+# 2. Core Product Goals
+
+Prioritize in this order:
+
+1. Reduce paid firmware-engineering time.
+2. Make communications completely transparent.
+3. Make firmware updating fast and easy.
+4. Make expected firmware behavior explicit.
+5. Make expected hardware behavior explicit.
+6. Make failures easy to diagnose.
+7. Automate repetitive validation.
+8. Preserve a clean hardware abstraction.
+9. Make protocol mappings data-driven.
+10. Support future modules without redesigning the application.
+11. Support future LSN generations.
+12. Operate locally without requiring cloud connectivity.
+13. Produce useful logs and validation evidence.
+14. Make distribution extremely easy.
+15. Maintain a professional industrial engineering interface.
+
+---
+
+# 3. Application Technology
+
+Use a desktop architecture suitable for direct local Ethernet access.
+
+Preferred stack:
+
+* Electron
+* React
+* TypeScript with strict mode
+* Vite
+* Electron Forge for packaging
+* modular EtherNet/IP / CIP communications layer
+* native Node TCP/UDP networking where necessary
+* an appropriate maintained EtherNet/IP/CIP library where useful
+* GitHub Actions for automated Windows builds
+
+Do not tightly couple the application to one third-party EtherNet/IP library.
+
+Create a protocol/transport adapter abstraction so the underlying communications implementation can be replaced later without rewriting:
+
+* UI
+* tests
+* Device Profiles
+* logs
+* reports
+* simulation
+* LSN module framework
+
+Electron security:
+
+* `contextIsolation` enabled
+* `nodeIntegration` disabled in renderer
+* narrow typed preload API
+* all Ethernet/network communication occurs in Electron main process
+* renderer receives structured application data
+
+---
+
+# 4. Operating Modes
+
+The console must support:
+
+## Simulation Mode
+
+Used in Replit and without physical hardware.
+
+Simulation Mode must use the same UI and test engine as real hardware.
+
+Provide a default simulated device:
+
+Product:
+**LSN Development Controller**
+
+Device Name:
+**LSN-SIM-001**
+
+IP:
+`192.168.1.50`
+
+Firmware:
+`0.1.0-sim`
+
+Protocol Profile:
+`LSN v0.1`
+
+Platform:
+`WT32-ETH01`
+
+Simulate:
+
+* EtherNet/IP discovery
+* connection
+* disconnect
+* Ready
+* enable request
+* disable request
+* actual control-output state
+* interlock
+* remote stop
+* faults
+* fault codes
+* Timer State
+* lifetime runtime
+* Enable Count
+* network ownership
+* dropped communication
+* reconnect
+* persistent storage
+* firmware update
+* reboot
+* successful firmware validation
+* simulated failed update
+* simulated rollback
+
+Allow simulation controls for:
+
+* Interlock OK/Open
+* Remote Stop OK/Open
+* Fault On/Off
+* communication loss
+* delayed response
+* dropped response
+* storage failure
+* firmware validation failure
+* firmware rollback
+
+---
+
+## Hardware Mode
+
+Runs in the packaged desktop application.
+
+Communicates directly with WT32-ETH01-based LSN controllers over the local Ethernet network.
+
+Normal LSN testing must not require:
+
+* Internet access
+* Replit
+* AWS
+* cloud relay
+* Python
+* Node.js installation
+* command-line tools
+
+---
+
+# 5. High-Level Architecture
+
+Separate the application into:
+
+## UI Layer
+
+React only.
+
+## Device Layer
+
+Represents:
+
+* discovered devices
+* connected devices
+* device identity
+* capabilities
+* active profile
+* current logical states
+* firmware information
+* module inventory
+* network ownership
+
+Design for multiple LSN devices in the future.
+
+Version 0.1 may actively control only one selected device at a time.
+
+## Protocol Layer
+
+Protocol-independent interface.
+
+Initial protocol:
+
+**EtherNet/IP**
+
+Additional protocols may be added later.
+
+## EtherNet/IP Transport Layer
+
+Architect support for:
+
+* UDP discovery
+* EtherNet/IP ListIdentity discovery
+* TCP session
+* CIP explicit messaging
+* error decoding
+* timeouts
+* reconnect
+* raw packet logging
+* connected messaging later
+* I/O Assemblies later
+* implicit cyclic I/O later
+* Exclusive Owner style control later
+
+## LSN Maintenance Transport
+
+Separate from normal EtherNet/IP control traffic.
+
+This transport handles:
+
+* local firmware transfer
+* firmware metadata
+* firmware verification
+* installation progress
+* reboot
+* firmware-update status
+
+Do NOT require firmware images to be transported through EtherNet/IP/CIP unless there is a strong future engineering reason.
+
+The same physical RJ45/Ethernet connection is used, but firmware maintenance should remain logically separate from industrial control communications.
+
+## Device Profile Layer
+
+Defines LSN protocol mappings and capabilities.
+
+## Expected Behavior Engine
+
+Defines what firmware and hardware should do.
+
+## Test Engine
+
+Runs automated and guided tests.
+
+## Logging Layer
+
+Records communications and engineering events.
+
+## Report Layer
+
+Exports evidence/results.
+
+## Firmware Update Manager
+
+Handles local firmware package validation, transfer, reboot, rediscovery, and post-update validation.
+
+## Module Framework
+
+Allows future LSN hardware/features to add states, commands, diagnostics, tests, and UI.
+
+---
+
+# 6. Versioned LSN Device Profiles
+
+Do NOT scatter CIP addresses throughout source code.
+
+Create a versioned Device Profile system.
+
+Initial profile:
+
+`profiles/lsn-v0.1.json`
+
+A Device Profile should define:
+
+* profile version
+* LSN protocol version
+* supported firmware versions
+* hardware family
+* capabilities
+* device identity expectations
+* CIP services
+* Class
+* Instance
+* Attribute
+* Assembly mappings
+* byte/bit mappings
+* types
+* units
+* access permissions
+* enumerations
+* fault definitions
+* timing expectations
+* expected behavior
+* tests
+* modules
+
+Use symbolic names throughout the application.
+
+Examples:
+
+`EmissionEnableRequest`
+
+`EmissionControlOutputActive`
+
+`Ready`
+
+`InterlockOK`
+
+`RemoteStopOK`
+
+`Faulted`
+
+`FaultCode`
+
+`TimerState`
+
+`LifetimeEmissionTimeMs`
+
+`EnableCount`
+
+`NetworkControlActive`
+
+`ProtocolVersion`
+
+For mappings not yet selected by the firmware engineer, use:
+
+`null`
+
+or:
+
+`TBD`
+
+Do NOT invent final CIP Class, Instance, Attribute, Assembly, vendor, or product values.
+
+Hardware Mode must refuse to transmit a command with an unresolved mapping.
+
+Display:
+
+**Protocol mapping not yet defined in active LSN Device Profile.**
+
+---
+
+# 7. Phase 1 Logical Interface
+
+## PC → LSN
+
+### EmissionEnableRequest
+
+Boolean.
+
+`0 = disable emission control`
+
+`1 = request emission control`
+
+Do not label this merely:
+
+`Laser On`
+
+Requested state and actual output state must remain separate.
+
+### FaultResetRequest
+
+Momentary request for resettable faults.
+
+### Reserved Control Fields
+
+Design room for future commands.
+
+---
+
+# 8. LSN → PC Status
+
+Support:
+
+### Ready
+
+Boolean.
+
+### EmissionControlOutputActive
+
+Boolean.
+
+Represents LSN's reported physical emission-control/interlock output state.
+
+Do NOT infer actual optical emission from this value.
+
+### InterlockOK
+
+Boolean.
+
+### RemoteStopOK
+
+Boolean where applicable.
+
+### Faulted
+
+Boolean.
+
+### FaultCode
+
+Profile-defined unsigned value.
+
+### TimerState
+
+Enum:
+
+* NotCounting
+* Counting
+* Fault
+* Unknown
+
+### LifetimeEmissionTimeMs
+
+Preferred:
+
+unsigned 64-bit integer.
+
+Display additionally as:
+
+* milliseconds
+* seconds
+* minutes
+* decimal hours
+* formatted duration
+
+This value is read-only through the normal application.
+
+There must be no normal remote reset command.
+
+### EnableCount
+
+Lifetime successful enable/control-cycle count.
+
+Read-only.
+
+### NetworkControlActive
+
+Boolean if implemented.
+
+### ProtocolVersion
+
+Read-only.
+
+### FirmwareVersion
+
+Read-only.
+
+### DeviceSerial
+
+Read-only.
+
+### HardwareRevision
+
+Read-only if available.
+
+### LastDisableReason
+
+Future-capable enum such as:
+
+* ClientRequest
+* ConnectionTimeout
+* InterlockOpened
+* RemoteStopOpened
+* Fault
+* PowerCycle
+* InternalError
+
+Do not assign numerical values until defined in Device Profile.
+
+---
+
+# 9. Requested vs Reported vs Hardware State
+
+Always visibly distinguish:
+
+## REQUESTED STATE
+
+What the PC requested.
+
+## LSN REPORTED STATE
+
+What the firmware/state machine reports.
+
+## HARDWARE CONTROL STATE
+
+What LSN reports its physical control output is doing.
+
+Example:
+
+Requested:
+`ENABLE`
+
+LSN:
+`READY / ENABLE PERMITTED`
+
+Hardware Control:
+`ACTIVE`
+
+Timer:
+`COUNTING`
+
+Blocked example:
+
+Requested:
+`ENABLE`
+
+LSN:
+`BLOCKED`
+
+Reason:
+`REMOTE STOP OPEN`
+
+Hardware Control:
+`INACTIVE`
+
+Timer:
+`NOT COUNTING`
+
+Never assume:
+
+**Request sent = physical action occurred.**
+
+---
+
+# 10. Main Navigation
+
+Create:
+
+1. Dashboard
+2. Device
+3. Control
+4. Status
+5. Runtime Counter
+6. Faults & Diagnostics
+7. Protocol Inspector
+8. Automated Tests
+9. Stress Testing
+10. Firmware
+11. Device Profile
+12. Modules
+13. Logs & Reports
+14. Help / Firmware Guide
+15. Settings
+
+Use a professional industrial engineering UI.
+
+Prioritize:
+
+* useful density
+* readability
+* timestamps
+* state visibility
+* PASS/FAIL
+* copyable engineering data
+* expandable technical details
+
+---
+
+# 11. Dashboard
+
+Display:
+
+* connection status
+* device
+* IP
+* serial
+* firmware revision
+* protocol version
+* hardware revision if available
+* active Device Profile
+* WT32-ETH01 platform
+* Ready
+* requested enable state
+* actual control-output state
+* Interlock OK
+* Remote Stop OK
+* fault state
+* Timer State
+* lifetime runtime
+* Enable Count
+* last latency
+* active control owner where available
+
+Controls:
+
+**DISCOVER LSN DEVICES**
+
+**MANUAL IP**
+
+**CONNECT**
+
+**DISCONNECT**
+
+---
+
+# 12. EtherNet/IP Discovery
+
+Implement standard local EtherNet/IP discovery / ListIdentity behavior.
+
+Display:
+
+* IP
+* product name
+* vendor ID
+* device type
+* product code
+* revision
+* serial
+* device status
+* LSN profile match
+
+Developer Mode may connect to an unknown EtherNet/IP device with a warning:
+
+**No matching LSN Device Profile detected.**
+
+---
+
+# 13. Control Screen
+
+Primary controls:
+
+**ENABLE EMISSION CONTROL**
+
+**DISABLE EMISSION CONTROL**
+
+Do not silently send commands.
+
+For every action show:
+
+## User Action
+
+## Logical Request
+
+## EtherNet/IP / CIP Operation
+
+## Raw Request
+
+## Expected Firmware Behavior
+
+## Expected Hardware Behavior
+
+## Expected Timer Behavior
+
+## Expected Response
+
+## Actual Response
+
+## Actual Device State
+
+## Timing
+
+## PASS / FAIL / WARNING
+
+Enable expected behavior:
+
+1. Receive enable request.
+2. Validate request.
+3. Evaluate blocking conditions.
+4. Determine whether enable is permitted.
+5. Activate output if permitted.
+6. Begin runtime accumulation.
+7. Update reported state.
+8. Return status.
+
+Disable expected behavior:
+
+1. Receive disable request.
+2. Transition hardware control output inactive.
+3. Stop runtime accumulation.
+4. preserve lifetime runtime.
+5. report inactive output.
+6. report TimerState = NotCounting.
+
+---
+
+# 14. Hardware Output Bench Unlock
+
+Physical-output writes in Hardware Mode must start locked.
+
+Provide:
+
+**UNLOCK HARDWARE OUTPUT TESTS**
+
+Require acknowledgement:
+
+"I confirm the connected hardware is configured for safe bench testing and optical output is safely controlled."
+
+Reset this unlock when:
+
+* app restarts
+* selected device changes
+
+Simulation Mode does not require this.
+
+Do not imply that this provides functional safety.
+
+---
+
+# 15. Runtime Counter
+
+Display:
+
+* Timer State
+* raw lifetime milliseconds
+* formatted lifetime
+* first reading in current session
+* current reading
+* delta
+* Enable Count
+* timestamps
+* storage status if firmware exposes it
+
+Controls:
+
+**READ RUNTIME**
+
+**START RUNTIME OBSERVATION**
+
+**STOP RUNTIME OBSERVATION**
+
+**RUN TIMER TEST**
+
+**RUN PERSISTENCE TEST**
+
+---
+
+# 16. Timer Test
+
+Guided/automated:
+
+1. Read initial counter.
+2. Confirm required conditions.
+3. Enable control.
+4. start PC-side measurement.
+5. maintain configured duration.
+6. disable control.
+7. read final counter.
+8. calculate expected delta.
+9. calculate LSN-reported delta.
+10. compare within tolerance.
+11. PASS/FAIL.
+12. preserve evidence.
+
+---
+
+# 17. Persistence Test
+
+1. Read runtime.
+2. Record value.
+3. Ask engineer to power-cycle LSN.
+4. wait for Continue.
+5. rediscover.
+6. reconnect.
+7. reread runtime.
+8. confirm value did not unexpectedly reset or decrease.
+9. save result and notes.
+
+---
+
+# 18. Protocol Inspector
+
+Capture every EtherNet/IP/CIP transaction.
+
+Store/display:
+
+* millisecond timestamp
+* sequence number
+* direction
+* device/IP
+* logical operation
+* EtherNet/IP command
+* CIP service
+* Class
+* Instance
+* Attribute
+* Assembly if applicable
+* request payload
+* raw TX hex
+* raw RX hex
+* decoded request
+* decoded response
+* CIP general status
+* additional status
+* latency
+* timeout
+* success/failure
+* related user action
+* related test
+
+Functions:
+
+* expand/collapse
+* Follow Live
+* filter
+* search
+* copy raw request
+* copy raw response
+* copy decoded transaction
+* export
+
+---
+
+# 19. Expected Behavior Engine
+
+Expected behavior should be data-driven where practical.
+
+Each command/test can define:
+
+### Expected Firmware Behavior
+
+### Expected Logical State
+
+### Expected Hardware Behavior
+
+### Expected Timer Behavior
+
+### Expected Protocol Response
+
+### Timing Expectation
+
+Show expected and actual side-by-side.
+
+---
+
+# 20. Diagnostics
+
+Display:
+
+* network state
+* EtherNet/IP session
+* control ownership
+* last request
+* last response
+* communication age
+* last error
+* CIP errors
+* requested state
+* reported state
+* hardware-control state
+* Timer State
+* NVS/storage state if available
+* Faulted
+* FaultCode
+* fault description
+* protocol/profile compatibility
+* firmware update state
+
+Include an engineering event timeline.
+
+---
+
+# 21. Automated Test Engine
+
+Initial tests:
+
+## Communications
+
+* Discovery
+* Identity Read
+* Session Establishment
+* Basic Explicit Read
+* Unsupported Attribute Handling
+* Disconnect
+* Reconnect
+
+## Control
+
+* Default Disabled
+* Enable Request
+* Enable Feedback
+* Disable Request
+* Disable Feedback
+* Requested vs Actual
+* Blocking Conditions
+
+## Runtime
+
+* Runtime Read
+* Timer Starts
+* Timer Stops
+* Counter Increases
+* Counter Does Not Decrease
+* Enable Count Increases
+* Persistence
+
+## Faults
+
+* Fault State
+* Fault Code
+* Fault Reset if implemented
+* Enable Refused During Blocking Fault
+
+## Network Loss
+
+Guided test.
+
+Clearly distinguish:
+
+* automatically verified result
+* last reported result
+* engineer-observed physical behavior
+
+Allow:
+
+PASS
+FAIL
+NOT TESTED
+
+plus notes.
+
+---
+
+# 22. Validation Suite
+
+Provide:
+
+**RUN VALIDATION SUITE**
+
+Display:
+
+* total tests
+* passed
+* failed
+* warnings
+* skipped
+* manual verification
+* duration
+
+Allow report export.
+
+---
+
+# 23. Stress Testing
+
+Options:
+
+* enable duration
+* disable duration
+* cycle count
+* maximum duration
+* stop on mismatch
+* stop on fault
+* runtime read every N cycles
+* Enable Count read every N cycles
+* optional delay
+
+Display:
+
+* completed cycles
+* errors
+* mismatches
+* average latency
+* minimum latency
+* maximum latency
+* runtime delta
+* Enable Count delta
+* faults
+
+Require Hardware Output Test Unlock in Hardware Mode.
+
+---
+
+# 24. Firmware Management Is a Permanent Core Feature
+
+Local firmware updating through the LSN Engineering Console is NOT a temporary development convenience.
+
+It is intended to remain a supported LSN firmware-delivery method for:
+
+* firmware development
+* engineering testing
+* production testing
+* commissioning
+* final release loading
+* local service
+* offline updates
+* troubleshooting
+* field service where direct network access is available
+
+The programmer may later implement AWS-based remote OTA for deployed fleets.
+
+The architecture must support BOTH.
+
+---
+
+# 25. Firmware Update Architecture
+
+Design the LSN firmware around one common device-side firmware update subsystem:
+
+```text
+Local LSN Console ─────┐
+                       │
+                       ▼
+              Firmware Update Manager
+                       │
+AWS OTA / IoT ─────────┘
+                       │
+                       ▼
+               Validate firmware
+                       │
+               Verify compatibility
+                       │
+                Verify signature
+                       │
+              Write inactive OTA slot
+                       │
+                  Verify image
+                       │
+                    Reboot
+                       │
+                  Device self-test
+                       │
+            Accept firmware or rollback
+```
+
+The transport/source may differ.
+
+But these should be shared:
+
+* package validation
+* target validation
+* version validation
+* cryptographic verification
+* OTA partition handling
+* reboot
+* self-validation
+* firmware acceptance
+* rollback logic
+
+Do not create completely unrelated local and AWS OTA implementations unless required by unavoidable platform constraints.
+
+---
+
+# 26. Local Ethernet Firmware Update
+
+Add a permanent **Firmware** page.
+
+The console should communicate with an LSN firmware-maintenance service over the existing Ethernet connection.
+
+This maintenance service should be logically separate from normal EtherNet/IP control.
+
+Initial UI:
+
+## Device
+
+Device Name
+IP
+Serial
+Hardware Revision
+WT32-ETH01
+
+## Installed Firmware
+
+Version
+Build
+Protocol Version
+Firmware Type
+Validation State
+
+## Selected Firmware Package
+
+Filename
+Version
+Build
+Target Hardware
+Protocol Compatibility
+File Size
+Checksum
+Digital Signature status where implemented
+
+Primary action:
+
+**INSTALL FIRMWARE**
+
+---
+
+# 27. Firmware Package Metadata
+
+Design support for firmware packages containing metadata such as:
+
+* product family
+* hardware target
+* firmware version
+* build ID
+* build date
+* protocol version
+* minimum compatible bootloader
+* image hash
+* digital signature
+* release type
+
+Release types:
+
+* DEVELOPMENT
+* RELEASE CANDIDATE
+* PRODUCTION
+
+Display these prominently.
+
+Example:
+
+**DEVELOPMENT BUILD**
+Not approved for production deployment.
+
+Or:
+
+**PRODUCTION RELEASE**
+Signed and verified.
+
+---
+
+# 28. Firmware Installation Workflow
+
+Before installation:
+
+1. identify device
+2. verify hardware compatibility
+3. verify protocol compatibility
+4. verify package integrity
+5. verify signature where implemented
+6. place LSN in disabled control state
+7. confirm firmware update readiness
+
+Then:
+
+1. transfer image over Ethernet
+2. show transfer progress
+3. verify received image
+4. write/update inactive OTA application partition
+5. verify flash operation
+6. schedule new partition for boot
+7. reboot device
+
+After reboot:
+
+1. rediscover device
+2. reconnect
+3. verify expected firmware version
+4. verify device identity
+5. verify timer data is intact
+6. verify EtherNet/IP operation
+7. automatically run Basic Validation
+8. show final result
+
+Example final screen:
+
+Firmware installed
+Device rediscovered
+Version verified
+EtherNet/IP PASS
+Default Disabled PASS
+Runtime Counter PASS
+Basic Validation PASS
+
+**UPDATE SUCCESSFUL**
+
+---
+
+# 29. OTA Partition / Rollback Architecture
+
+The current firmware engineer should design the ESP32 flash layout for OTA from the beginning.
+
+The Console documentation should expect an OTA-capable partition structure with:
+
+* bootloader
+* partition table
+* persistent configuration/NVS
+* OTA metadata
+* application slot A
+* application slot B
+
+Exact partition sizes are the firmware engineer's decision.
+
+The Console must not hard-code partition offsets.
+
+Support the concept of:
+
+Current Firmware
+→ Install to inactive slot
+→ Reboot into new firmware
+→ New firmware performs self-validation
+→ Mark valid
+OR
+→ Roll back to previous firmware
+
+---
+
+# 30. Firmware Self-Validation
+
+Design support for new firmware reporting its post-boot validation status.
+
+Potential checks:
+
+* Ethernet initialized
+* persistent storage readable
+* lifetime runtime readable
+* state machine initialized
+* control output defaults disabled
+* protocol subsystem initialized
+* critical modules initialized
+
+The firmware engineer decides the final device-side validation requirements.
+
+The Console should display:
+
+**PENDING VALIDATION**
+
+**VALID**
+
+**FAILED**
+
+**ROLLED BACK**
+
+---
+
+# 31. Rollback Visibility
+
+The Console must detect and clearly report situations such as:
+
+Selected firmware:
+`1.2.5`
+
+New firmware boot attempted.
+
+Device returned running:
+`1.2.4`
+
+Status:
+
+**NEW FIRMWARE FAILED VALIDATION AND DEVICE ROLLED BACK**
+
+Preserve logs and support bundle evidence.
+
+---
+
+# 32. Initial Programming and Recovery
+
+Do not assume Ethernet can replace all physical programming forever.
+
+Document that initial provisioning or recovery from severely damaged firmware may still require the WT32-ETH01 serial/programming interface.
+
+However, the intended long-term normal workflow is:
+
+**Ethernet firmware update through LSN Engineering Console**
+
+Physical programming should become:
+
+* first provisioning
+* bootloader/partition provisioning if necessary
+* emergency recovery
+
+The console should not attempt to replace the ESP32 ROM recovery programmer.
+
+---
+
+# 33. Future AWS OTA
+
+Do NOT require AWS for v0.1 local functionality.
+
+However, design the firmware-update architecture so a future AWS OTA transport can feed the same device-side update manager.
+
+Future AWS module may support:
+
+* remote firmware deployment
+* device groups
+* staged rollout
+* firmware version reporting
+* deployment status
+* retry
+* remote diagnostics
+* fleet update history
+
+AWS OTA is a separate transport and fleet-management function.
+
+Do not make local firmware updating depend on AWS.
+
+---
+
+# 34. Firmware Security Architecture
+
+Design for future firmware authenticity verification from the beginning.
+
+Support metadata and architecture for:
+
+* SHA-256 or appropriate image hashing
+* signed firmware packages
+* public-key verification
+* hardware target verification
+* version checking
+* optional downgrade restrictions
+* optional anti-rollback policy
+
+Do not hard-code development secrets into the application.
+
+Do not require production signing infrastructure to be fully implemented in v0.1, but structure the firmware-package format so it can be added without redesigning the application.
+
+---
+
+# 35. Firmware Update Logging
+
+Every firmware operation should log:
+
+* timestamp
+* device
+* serial
+* previous version
+* selected version
+* package metadata
+* hash
+* signature status
+* transfer start
+* transfer completion
+* bytes transferred
+* validation status
+* reboot
+* rediscovery
+* resulting version
+* rollback status
+* post-update test results
+
+Include this in the Support Bundle.
+
+---
+
+# 36. Device Profile Screen
+
+Display:
+
+* symbolic name
+* direction
+* access
+* data type
+* CIP service
+* Class
+* Instance
+* Attribute
+* Assembly
+* byte
+* bit
+* units
+* description
+* mapping state
+
+Highlight:
+
+**TBD**
+
+Provide:
+
+* Import
+* Export
+* Validate
+
+Normal Mode read-only.
+
+Developer Mode may edit a working copy.
+
+---
+
+# 37. Profile Compatibility
+
+Firmware should eventually expose:
+
+`ProtocolVersion`
+
+On connection compare against Device Profile.
+
+Display:
+
+**MATCH**
+
+**COMPATIBILITY WARNING**
+
+**INCOMPATIBLE**
+
+Do not silently use known incompatible mappings.
+
+Firmware installation should also warn if installing firmware that changes protocol compatibility.
+
+---
+
+# 38. Future Module Framework
+
+Build modularity now.
+
+Potential modules:
+
+* Sensor Daughterboard
+* Relay Daughterboard
+* temperature sensing
+* current sensing
+* voltage sensing
+* airflow sensing
+* enclosure monitoring
+* door sensors
+* digital inputs
+* digital outputs
+* analog inputs
+* analog outputs
+* remote-stop stations
+* monitored interlocks
+* external watchdog
+* topology diagnostics
+* network health
+* commissioning
+* firmware utilities
+* additional protocols
+
+A module should be able to contribute:
+
+* status
+* commands
+* UI
+* expected behavior
+* diagnostics
+* tests
+* Device Profile mappings
+* reports
+
+---
+
+# 39. Example Future Sensor Module
+
+Provide one disabled-by-default simulation module:
+
+**Sensor Module Example**
+
+Simulate:
+
+* Sensor 1
+* Sensor 2
+* Temperature
+* Sensor Fault
+
+Demonstrate how a future module contributes to:
+
+* Dashboard
+* Module screen
+* Device Profile
+* tests
+* diagnostics
+* logs
+
+Do not imply that this physical sensor module currently exists.
+
+---
+
+# 40. Multi-Device Future
+
+Do not assume LSN will remain one-device-only.
+
+Architect for:
+
+* multiple discovered devices
+* multiple monitored devices
+* different firmware revisions
+* different Device Profiles
+* different module inventories
+
+Version 0.1 may actively control/update only one selected device at a time.
+
+Future architecture may allow controlled batch firmware updating.
+
+---
+
+# 41. Logging
+
+Keep logs local.
+
+Each record should support:
+
+* timestamp
+* device
+* serial
+* IP
+* firmware
+* protocol version
+* profile
+* event type
+* operation
+* request
+* response
+* decoded state
+* latency
+* result
+* test ID
+* engineering note
+
+Provide:
+
+**EXPORT SESSION LOG**
+
+Formats:
+
+* JSON
+* CSV
+* TXT
+
+---
+
+# 42. Support Bundle
+
+Provide:
+
+**EXPORT SUPPORT BUNDLE**
+
+ZIP containing:
+
+* session log
+* protocol transactions
+* validation results
+* Device Profile
+* app version
+* OS info
+* device identity
+* firmware version
+* protocol version
+* firmware-update history for session
+* module inventory
+* notes
+* safe application settings
+
+---
+
+# 43. Validation Reports
+
+Include:
+
+* Console version
+* date/time
+* engineer name optional
+* device
+* serial
+* firmware
+* hardware revision
+* protocol revision
+* Device Profile
+* tests
+* expected behavior
+* actual behavior
+* PASS/FAIL
+* warnings
+* manual observations
+* transaction references
+* firmware installation information where applicable
+
+Export:
+
+* HTML
+* JSON
+
+HTML should print cleanly to PDF.
+
+---
+
+# 44. Firmware Developer Mode
+
+Provide:
+
+**FIRMWARE DEVELOPER MODE**
+
+Show:
+
+* CIP service
+* Class
+* Instance
+* Attribute
+* Assembly
+* raw TX
+* raw RX
+* timing
+* symbolic field
+* Device Profile mapping
+* expected firmware action
+* expected hardware action
+* protocol error
+* firmware-update details
+* OTA state
+
+---
+
+# 45. Firmware Engineer Workflow
+
+Optimize for:
+
+1. engineer compiles ESP32 firmware
+2. opens LSN Console
+3. discovers controller
+4. connects
+5. opens Firmware
+6. selects new build
+7. clicks Install
+8. device updates over Ethernet
+9. console rediscover/reconnects
+10. version is verified
+11. Basic Validation runs automatically
+12. engineer runs feature-specific test
+13. exact request/response is visible
+14. engineer fixes firmware
+15. repeat
+
+The engineer should normally not need to connect a serial programmer for each development cycle.
+
+---
+
+# 46. First-Run Engineer Experience
+
+1. Connect PC and LSN to same Ethernet network.
+2. Power LSN.
+3. Launch LSN Engineering Console.
+4. Click **DISCOVER LSN DEVICES**.
+5. Select device.
+6. Click **CONNECT**.
+7. Run **BASIC COMMUNICATION TESTS**.
+
+If firmware needs updating:
+
+8. Open **FIRMWARE**.
+9. Select build.
+10. Click **INSTALL FIRMWARE**.
+11. Wait for automatic reconnect/validation.
+
+No Node.js, Python, Replit, Git, or CLI should be required.
+
+---
+
+# 47. Documentation
+
+Generate:
+
+`README.md`
+
+`docs/QUICK_START.md`
+
+`docs/FIRMWARE_HANDOFF.md`
+
+`docs/PROTOCOL_MAP.md`
+
+`docs/TEST_PLAN.md`
+
+`docs/ADDING_LSN_MODULES.md`
+
+`docs/BUILD_AND_RELEASE.md`
+
+`docs/DEVICE_PROFILE_SCHEMA.md`
+
+`docs/WT32_ETH01_PLATFORM.md`
+
+`docs/FIRMWARE_UPDATE_ARCHITECTURE.md`
+
+`docs/LOCAL_OTA_WORKFLOW.md`
+
+`docs/FUTURE_AWS_OTA.md`
+
+`CHANGELOG.md`
+
+The Firmware Handoff should focus on embedded implementation, not Electron internals.
+
+---
+
+# 48. In-App Firmware Guide
+
+Include:
+
+* Getting Started
+* WT32-ETH01
+* Device Discovery
+* EtherNet/IP Architecture
+* Logical State Model
+* Enable/Disable
+* Runtime Counter
+* Faults
+* Communication Loss
+* Firmware Updating
+* OTA Architecture
+* Rollback
+* Testing Workflow
+* Troubleshooting
+* Exporting Logs
+* Device Profiles
+
+---
+
+# 49. Replit Development
+
+Replit preview should use Simulation Mode.
+
+Do not assume Replit cloud can access private LSN Ethernet hardware.
+
+Use the same React application for:
+
+* Replit simulation
+* desktop Hardware Mode
+
+Do not build two unrelated applications.
+
+---
+
+# 50. Windows Distribution
+
+Create a normal Windows application.
+
+Target:
+
+**LSN-Engineering-Console-Setup-x.y.z.exe**
+
+Optionally:
+
+portable ZIP version.
+
+Use Electron Forge.
+
+Create GitHub Actions Windows workflow that:
+
+1. checks out source
+2. installs dependencies
+3. runs lint
+4. runs TypeScript checks
+5. runs unit tests
+6. runs simulator tests
+7. builds Electron
+8. packages Windows build
+9. uploads artifacts
+10. supports future versioned releases
+
+The firmware engineer must not need to build the console.
+
+---
+
+# 51. Optional LSN Developer Portal
+
+Create a separate simple static portal:
+
+**LSN Developer Tools**
+
+Show:
+
+* current Console version
+* Download for Windows placeholder
+* Quick Start
+* current Protocol Profile
+* Firmware Guide
+* Release Notes
+
+The portal does not communicate with hardware.
+
+The local desktop application communicates with LSN.
+
+---
+
+# 52. Application Tests
+
+Test at minimum:
+
+* Device Profile parsing
+* invalid profile
+* unresolved mapping
+* simulated discovery
+* connect/disconnect
+* enable
+* disable
+* blocked enable
+* Interlock Open
+* Remote Stop Open
+* Timer Start
+* Timer Stop
+* timer increment
+* Enable Count
+* fault
+* storage error
+* network loss
+* reconnect
+* firmware package parsing
+* incompatible firmware rejection
+* simulated firmware transfer
+* simulated reboot
+* simulated successful update
+* simulated failed validation
+* simulated rollback
+* firmware version verification
+* post-update Basic Validation
+* logs
+* reports
+* Support Bundle
+* module loading
+
+Use deterministic simulated time where practical.
+
+---
+
+# 53. Safety and Terminology
+
+This is an engineering validation, diagnostic, and firmware-management application.
+
+Do not claim:
+
+* safety certified
+* safety rated
+* guarantees safe operation
+* proves compliance
+* proves optical emission
+
+unless future certified hardware explicitly supports such statements.
+
+Use:
+
+* expected behavior
+* reported state
+* hardware control state
+* engineering observation
+* validation result
+* firmware validation
+
+Prefer:
+
+**Emission Control Output Active**
+
+rather than:
+
+**Laser Is Emitting**
+
+unless actual optical feedback exists.
+
+---
+
+# 54. Phase 1 EtherNet/IP Strategy
+
+Start with EtherNet/IP explicit CIP messaging for rapid firmware bring-up.
+
+Architecture should support later:
+
+* I/O Assemblies
+* connected messaging
+* cyclic implicit I/O
+* Exclusive Owner control
+* connection timeout behavior
+
+Do not force advanced EtherNet/IP implementation into the first successful communications test if it unnecessarily delays bring-up.
+
+---
+
+# 55. Phase 1 Firmware Bring-Up Sequence
+
+Guide approximately:
+
+1. WT32-ETH01 Ethernet operational
+2. EtherNet/IP discovery
+3. Identity
+4. basic CIP read
+5. Ready
+6. Disable
+7. Enable
+8. output-state feedback
+9. TimerState
+10. LifetimeEmissionTimeMs
+11. persistence
+12. EnableCount
+13. Faulted
+14. FaultCode
+15. connection-loss behavior
+16. reconnect
+17. local Ethernet firmware update
+18. firmware reboot/rediscovery
+19. OTA validation
+20. rollback simulation/validation
+21. I/O Assemblies / cyclic communication when selected
+
+---
+
+# 56. Important Firmware Boundary
+
+The Console defines and tests the external logical interface.
+
+It does NOT dictate how firmware maps those logical functions to the existing daughterboard.
+
+Example:
+
+Console:
+
+`EmissionEnableRequest = true`
+
+Firmware:
+
+evaluates LSN state machine
+
+Hardware abstraction:
+
+drives existing daughterboard
+
+Console:
+
+reads `EmissionControlOutputActive`
+
+Preserve this boundary.
+
+---
+
+# 57. v0.1 Completion Criteria
+
+Before calling v0.1 complete demonstrate:
+
+1. Simulation Mode launches.
+2. simulated WT32-ETH01 appears.
+3. discovery works.
+4. connect/disconnect works.
+5. requested/reported/hardware states are visible.
+6. enable/disable works.
+7. Interlock blocking works.
+8. Remote Stop blocking works.
+9. timer starts/stops.
+10. lifetime counter increments.
+11. Enable Count increments.
+12. simulated persistence works.
+13. faults work.
+14. communication loss works.
+15. reconnect works.
+16. Protocol Inspector works.
+17. raw TX/RX visible.
+18. expected vs actual behavior visible.
+19. automated tests work.
+20. Validation Suite works.
+21. Stress Test works.
+22. Device Profile loads.
+23. TBD mappings are clear.
+24. unresolved Hardware Mode commands are blocked.
+25. Sensor Module Example works.
+26. Firmware page works.
+27. firmware package metadata is displayed.
+28. incompatible firmware is rejected.
+29. simulated firmware upload works.
+30. simulated reboot works.
+31. rediscovery works.
+32. version verification works.
+33. post-update validation runs.
+34. simulated rollback works.
+35. firmware logs are captured.
+36. reports export.
+37. Support Bundle exports.
+38. Developer Mode works.
+39. documentation is present.
+40. Windows build workflow exists.
+41. no primary controls are dead.
+42. lint passes.
+43. TypeScript checks pass.
+44. automated tests pass.
+
+---
+
+# 58. Final Product Philosophy
+
+The LSN Engineering Console should become the permanent engineering companion to the LSN platform.
+
+Today it tests and manages:
+
+* EtherNet/IP
+* control requests
+* reported states
+* interlocks
+* remote stop
+* timer
+* lifetime counter
+* faults
+* firmware installation
+* firmware validation
+* rollback
+
+Later it should support:
+
+* sensors
+* additional daughterboards
+* additional I/O
+* multiple devices
+* environmental monitoring
+* commissioning
+* diagnostics
+* additional protocols
+* AWS fleet OTA
+* future LSN platform functions
+
+Favor:
+
+**stable logical interfaces + hardware abstraction + versioned Device Profiles + modular capabilities + shared firmware-update infrastructure**
+
+rather than one-off customer-specific implementations.
+
+When architectural choices conflict, prioritize:
+
+1. firmware-engineer efficiency
+2. reliable local firmware updating
+3. transparent communications
+4. clear expected behavior
+5. modular expansion
+6. hardware abstraction
+7. deterministic testing
+8. offline/local operation
+9. maintainability
+10. professional engineering UX
+
+Do not sacrifice engineering transparency for visual simplicity.
+
+Begin by building the complete v0.1 framework in Simulation Mode.
+
+Implement Hardware Mode structurally.
+
+Leave final CIP mappings as TBD until supplied by the firmware engineer.
+
+Treat **local Ethernet firmware updating through the LSN Engineering Console as a permanent first-class LSN feature**, with the architecture prepared so future AWS field OTA can use the same underlying device-side validation, OTA partitioning, acceptance, and rollback mechanisms.
