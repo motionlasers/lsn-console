@@ -30,6 +30,7 @@ import Modules from '@/pages/modules';
 import Logs from '@/pages/logs';
 import Help from '@/pages/help';
 import SettingsPage from '@/pages/settings';
+import Downloads from '@/pages/downloads';
 
 const queryClient = new QueryClient();
 
@@ -52,6 +53,7 @@ function Router() {
           <Route path="/modules" component={Modules} />
           <Route path="/logs" component={Logs} />
           <Route path="/help" component={Help} />
+          <Route path="/downloads" component={Downloads} />
           <Route path="/settings" component={SettingsPage} />
           <Route component={NotFound} />
         </Switch>

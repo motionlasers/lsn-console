@@ -404,7 +404,7 @@ export function generateInterfaceCsv(fields: DeviceProfileField[]): string {
     field.simulationStatus,
     field.expectedFirmwareBehavior,
     field.expectedReportedResponse,
-    typeof field.description === 'string' ? field.description : field.expectedReportedResponse,
+    typeof field.description === 'string' ? field.description : 'TBD',
     field.notes ?? '',
   ]);
   return [
@@ -420,7 +420,7 @@ export function generateInterfaceMarkdown(
 ): string {
   const sections = fields.map(field => `## ${field.symbolicName}
 
-**Purpose:** ${typeof field.description === 'string' ? field.description : field.expectedReportedResponse}
+**Purpose:** ${typeof field.description === 'string' ? field.description : 'TBD — canonical description not assigned in the Device Profile.'}
 
 **Direction:** ${field.direction === 'PC_TO_LSN' ? 'PC → LSN' : 'LSN → PC'}  
 **Type:** ${field.dataType}  
@@ -499,6 +499,14 @@ Important boundaries
 - Unresolved CIP mappings must be assigned by the firmware engineer.
 - Generated headers never silently invent protocol, enum, packing, or identity values.
 - Canonical Device Profile names remain authoritative even when local C field names use snake_case.
+
+Disabled future capabilities
+----------------------------
+The complete lsn_protocol_profile.json may contain disabled future capabilities
+such as Interlock Monitoring and Remote Stop Monitoring. Fields associated with
+disabled capabilities are not part of the active Phase 1 implementation. Use
+lsn_interface.md, lsn_interface.csv, and the generated active C/C++ headers as
+the Phase 1 implementation checklist.
 `;
 }
 

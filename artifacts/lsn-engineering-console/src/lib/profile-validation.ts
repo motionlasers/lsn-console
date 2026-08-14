@@ -27,6 +27,7 @@ export interface DeviceProfileField {
   capability?: 'interlock' | 'remoteStop' | 'sensors';
   implementationStatus: 'TBD' | 'IMPLEMENTING' | 'TESTING' | 'IMPLEMENTED' | 'VERIFIED';
   simulationStatus: 'NOT_TESTED' | 'TESTING' | 'VERIFIED';
+  description?: string;
   expectedFirmwareBehavior: string;
   expectedReportedResponse: string;
   notes?: string;

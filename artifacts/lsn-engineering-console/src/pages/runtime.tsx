@@ -116,8 +116,8 @@ export default function Runtime() {
               <span className="text-[10px] font-mono text-muted-foreground uppercase tracking-widest">Lifetime Runtime</span>
               <TelemetryValue lastReported={`${logicalState.lifetimeEmissionTimeMs} ms`} className="items-center">
                 <div className="font-mono text-center">
-                  <div className="text-lg text-foreground font-bold">{formatDuration(logicalState.lifetimeEmissionTimeMs)}</div>
-                  <div className="text-[10px] text-muted-foreground mt-1">RAW: {logicalState.lifetimeEmissionTimeMs} ms</div>
+                  <div className="text-lg text-foreground font-bold whitespace-nowrap min-w-[16ch]">{formatDuration(logicalState.lifetimeEmissionTimeMs)}</div>
+                  <div className="text-[10px] text-muted-foreground mt-1 whitespace-nowrap">RAW: {logicalState.lifetimeEmissionTimeMs} ms</div>
                 </div>
               </TelemetryValue>
             </div>

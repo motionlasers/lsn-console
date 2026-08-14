@@ -1,7 +1,7 @@
 import { useStore } from "@/lib/store";
 import { Link, useLocation } from "wouter";
 import { 
-  Activity, ActivityIcon, Cable, Cpu, FileJson, Info, LayoutDashboard, 
+  Activity, ActivityIcon, Cable, Cpu, Download, FileJson, Info, LayoutDashboard, 
   ListTree, Network, PanelLeftClose, PanelLeftOpen, PlaySquare, Settings, ShieldAlert, Terminal, TestTube
 } from "lucide-react";
 import saberLogo from "@assets/Saber-Industrial-Applications-Logo_1786661980178.png";
@@ -28,6 +28,7 @@ const NAV_ITEMS = [
   { path: "/modules", label: "Modules", icon: Settings },
   { path: "/logs", label: "Logs", icon: Terminal },
   { path: "/help", label: "Help", icon: Info },
+  { path: "/downloads", label: "Downloads", icon: Download },
   { path: "/settings", label: "Settings", icon: Settings },
 ];
 

@@ -19,5 +19,5 @@ description = "Verified 35-image external-review set at 1440×1000, including ca
 id = "LOCOjug8gzlPC3tlgH0dr"
 uri = "file://LSN-Firmware-Interface-v0.1.zip"
 type = "unspecified"
-title = "LSN Firmware Interface v0.1"
-description = "Browser-generated firmware integration package for WT32-ETH01 / ESP32. Contains six reviewed files; unresolved CIP, identity, enum, layout, byte/bit, and string details remain explicitly TBD."
+title = "LSN Firmware Interface v0.1 — Corrected Final Package"
+description = "Regenerated package with canonical descriptions for all 15 active Phase 1 fields, independent Purpose/Behavior/Response content, disabled-future-capability guidance, and unchanged safe TBD protocol mappings."

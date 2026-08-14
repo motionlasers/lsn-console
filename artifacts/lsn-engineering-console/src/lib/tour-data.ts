@@ -391,6 +391,33 @@ export const TOUR_STEPS: TourStep[] = [
     description: "Replay Tour always restarts this detailed walkthrough from the first Dashboard section, regardless of the first-launch preference.",
     preferredPlacement: "left",
   },
+  {
+    id: "downloads-release",
+    route: "/downloads",
+    page: "Downloads",
+    target: "downloads-release",
+    title: "Move from the web simulator to local tools",
+    description: "The Windows engineering console will be offered here once an approved desktop build exists. Until then, the build remains clearly unavailable without a dead download link.",
+    preferredPlacement: "right",
+  },
+  {
+    id: "downloads-package",
+    route: "/downloads",
+    page: "Downloads",
+    target: "downloads-package",
+    title: "Generate the current firmware handoff",
+    description: "Create the Firmware Integration Package and individual interface resources directly from the active Device Profile without duplicating protocol definitions.",
+    preferredPlacement: "left",
+  },
+  {
+    id: "downloads-workflow",
+    route: "/downloads",
+    page: "Downloads",
+    target: "downloads-workflow",
+    title: "Begin firmware development",
+    description: "You're ready to begin firmware development. Open Downloads to install the local LSN Engineering Console when available and get the current Firmware Integration Package.",
+    preferredPlacement: "left",
+  },
 ];
 
 export const TOUR_PAGE_COUNT = new Set(TOUR_STEPS.map(step => step.page)).size;

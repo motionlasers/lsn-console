@@ -169,6 +169,28 @@ test('Persistence migration reconstructs the active profile document from legacy
   ).toBe('TESTING');
 });
 
+test('Persistence migration fills missing canonical descriptions without overwriting explicit ones', () => {
+  const state = useStore.getState();
+  const document = structuredClone(state.activeProfileDocument);
+  const ready = document.fields.find(field => field.symbolicName === 'Ready')!;
+  const faulted = document.fields.find(field => field.symbolicName === 'Faulted')!;
+  delete ready.description;
+  faulted.description = 'Imported custom fault description.';
+
+  const migrated = migratePersistedLsnState({
+    profile: state.profile,
+    capabilities: state.capabilities,
+    activeProfileDocument: document,
+  }, 5);
+
+  expect(
+    migrated.activeProfileDocument?.fields.find(field => field.symbolicName === 'Ready')?.description,
+  ).toBe('Reports whether LSN is initialized and ready to evaluate control requests.');
+  expect(
+    migrated.activeProfileDocument?.fields.find(field => field.symbolicName === 'Faulted')?.description,
+  ).toBe('Imported custom fault description.');
+});
+
 test('Phase 1 hides disabled capability fields, tests, and logical state', () => {
   const state = useStore.getState();
   expect(state.capabilities).toEqual({ interlock: false, remoteStop: false, sensors: false });

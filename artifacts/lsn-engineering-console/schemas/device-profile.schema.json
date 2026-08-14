@@ -51,6 +51,7 @@
           "simulationStatus": {
             "enum": ["NOT_TESTED", "TESTING", "VERIFIED"]
           },
+          "description": { "type": "string" },
           "expectedFirmwareBehavior": { "type": "string" },
           "expectedReportedResponse": { "type": "string" },
           "notes": { "type": "string" }

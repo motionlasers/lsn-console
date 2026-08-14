@@ -1,0 +1,205 @@
+Please make one final correction to the **Firmware Integration Package generator**.
+
+Do not change the overall interface architecture, CIP mappings, field types, implementation statuses, simulation behavior, or Device Profile structure beyond the specific corrections below.
+
+## 1. Add canonical descriptions to every active Phase 1 Device Profile field
+
+The current active profile fields have:
+
+`description: null`
+
+This is causing the generated `lsn_interface.md` Purpose fields and the CSV Description column to incorrectly reuse the Expected Response text.
+
+Please add concise canonical descriptions to every active Phase 1 field.
+
+Use the following descriptions unless the existing profile terminology requires a minor wording adjustment:
+
+### EmissionEnableRequest
+
+`Requests activation or deactivation of the LSN emission-control function.`
+
+### EmissionControlOutputActive
+
+`Reports the current state of the LSN emission-control hardware output.`
+
+### Ready
+
+`Reports whether LSN is initialized and ready to evaluate control requests.`
+
+### TimerState
+
+`Reports whether the lifetime runtime counter is currently accumulating time.`
+
+### LifetimeEmissionTimeMs
+
+`Accumulated lifetime emission-control active time in milliseconds.`
+
+### EnableCount
+
+`Accumulated number of successful inactive-to-active emission-control transitions.`
+
+### Faulted
+
+`Reports whether LSN currently has an active fault.`
+
+### FaultCode
+
+`Reports the active profile-defined fault code.`
+
+### NetworkControlActive
+
+`Reports whether a network client currently owns control of LSN.`
+
+### ProtocolVersion
+
+`Reports the implemented LSN communications-interface version.`
+
+### FirmwareVersion
+
+`Reports the currently running LSN application firmware version.`
+
+### DeviceSerial
+
+`Canonical logical device-identity field. Final representation and mapping remain TBD pending the firmware engineer's CIP Identity Object implementation.`
+
+### HardwareRevision
+
+`Reports the LSN hardware revision when available.`
+
+### LastDisableReason
+
+`Reports the reason for the most recent transition from active to inactive emission control.`
+
+### FaultResetRequest
+
+`Momentary request to clear a resettable fault when its blocking condition is no longer present.`
+
+If there are any other active Phase 1 fields not listed above, give them similarly concise canonical descriptions.
+
+## 2. Keep these fields separate
+
+The generator must preserve these as separate concepts:
+
+* Description / Purpose
+* Expected Firmware Behavior
+* Expected Response
+
+Do not substitute Expected Response or Expected Firmware Behavior for Description/Purpose.
+
+For example, the generated Markdown should conceptually show:
+
+```text
+## EmissionEnableRequest
+
+Purpose:
+Requests activation or deactivation of the LSN emission-control function.
+
+Expected Firmware Behavior:
+...
+
+Expected Response:
+...
+```
+
+## 3. Update the generated CSV
+
+The `Description` column in:
+
+`lsn_interface.csv`
+
+must now contain the new canonical description text.
+
+Do not populate Description using Expected Response.
+
+Preserve all existing columns such as:
+
+* Symbolic Name
+* Direction
+* Data Type
+* Access
+* CIP Service
+* Class
+* Instance
+* Attribute
+* Assembly
+* Byte
+* Bit
+* Units
+* Firmware Status
+* Simulation Status
+* Expected Behavior
+* Description
+* Notes
+
+## 4. Update the generated Markdown
+
+The generated:
+
+`lsn_interface.md`
+
+should use the canonical Description as the field's Purpose/Description.
+
+Keep Expected Firmware Behavior and Expected Response as their own sections.
+
+## 5. Add README clarification about disabled future capabilities
+
+Add this clarification, or equivalent wording, to the generated `README.md`:
+
+> The complete `lsn_protocol_profile.json` may contain disabled future capabilities such as Interlock Monitoring and Remote Stop Monitoring. Fields associated with disabled capabilities are not part of the active Phase 1 implementation. Use `lsn_interface.md`, `lsn_interface.csv`, and the generated active C/C++ headers as the Phase 1 implementation checklist.
+
+The goal is to prevent the firmware engineer from seeing future disabled fields in the full JSON profile and assuming they must be implemented now.
+
+## 6. Preserve current correct behavior
+
+Do not change:
+
+* the 15 active Phase 1 interface fields
+* canonical symbolic names
+* field directions
+* data types
+* read/write access
+* Firmware Status values
+* Simulation Status values
+* unresolved CIP mappings
+* Device Profile version
+* Protocol version
+* generated C/C++ naming convention
+* generated headers
+* future capability architecture
+
+All real CIP mappings must remain TBD until assigned by the firmware engineer.
+
+Do not invent:
+
+* CIP Class
+* Instance
+* Attribute
+* Assembly values
+* Vendor ID
+* Product Code
+* protocol enum numerical values
+
+## 7. Regenerate and verify the actual package
+
+After making these changes, regenerate:
+
+`LSN-Firmware-Interface-v0.1.zip`
+
+Then inspect the generated files and verify:
+
+1. `lsn_protocol.h` remains correct.
+2. `lsn_protocol_types.h` remains correct.
+3. `lsn_protocol_profile.json` contains the new descriptions.
+4. `lsn_interface.csv` contains proper Description text.
+5. `lsn_interface.md` contains proper Purpose/Description text.
+6. `README.md` contains the disabled-future-capabilities clarification.
+7. No fake CIP mappings were introduced.
+8. Firmware Status remains separate from Simulation Status.
+
+Provide the regenerated:
+
+`LSN-Firmware-Interface-v0.1.zip`
+
+as a downloadable artifact for final review.
+
+Do not make unrelated application or UI changes as part of this task.

@@ -718,6 +718,24 @@ function documentWithProfileItems(
   };
 }
 
+function withCanonicalDescriptions(document: DeviceProfileDocument): DeviceProfileDocument {
+  const canonicalByName = new Map(
+    INITIAL_PROFILE_DOCUMENT.fields
+      .filter(field => typeof field.description === 'string' && field.description.trim().length > 0)
+      .map(field => [field.symbolicName, field.description as string]),
+  );
+  return {
+    ...structuredClone(document),
+    fields: document.fields.map(field => {
+      const canonicalDescription = canonicalByName.get(field.symbolicName);
+      const hasDescription = typeof field.description === 'string' && field.description.trim().length > 0;
+      return canonicalDescription && !hasDescription
+        ? { ...field, description: canonicalDescription }
+        : field;
+    }),
+  };
+}
+
 export const INITIAL_TESTS: TestResult[] = [
   { id: 't_disc', name: 'Discovery', category: 'Session', status: 'pending', expected: 'Controller responds to discovery beacon', actual: '', duration: 0, evidence: '', manualObservation: false },
   { id: 't_id', name: 'Identity Verification', category: 'Session', status: 'pending', expected: 'Identity matches profile expectations', actual: '', duration: 0, evidence: '', manualObservation: false },
@@ -766,11 +784,14 @@ export function migratePersistedLsnState(
     hardwareFamily: state.device?.platform || INITIAL_PROFILE_DOCUMENT.hardwareFamily,
   };
   const sourceDocument = state.activeProfileDocument ?? fallbackDocument;
+  const describedDocument = persistedVersion < 6
+    ? withCanonicalDescriptions(sourceDocument)
+    : sourceDocument;
   return {
     ...state,
     tests: persistedVersion < 4 ? INITIAL_TESTS : (state.tests ?? INITIAL_TESTS),
     profile,
-    activeProfileDocument: documentWithProfileItems(sourceDocument, profile, capabilities),
+    activeProfileDocument: documentWithProfileItems(describedDocument, profile, capabilities),
   };
 }
 
@@ -2739,7 +2760,7 @@ export const useStore = create<LSNStore>()(
     }),
     {
       name: 'lsn-console-storage',
-      version: 5,
+      version: 6,
       migrate: migratePersistedLsnState,
       partialize: (state) => state.settings.localPersistence ? {
         device: state.device,

@@ -47,6 +47,7 @@
       "assembly": null,
       "implementationStatus": "TBD",
       "simulationStatus": "VERIFIED",
+      "description": "Requests activation or deactivation of the LSN emission-control function.",
       "expectedFirmwareBehavior": "Validate the request, evaluate all blocking conditions, and activate the control output only when permitted.",
       "expectedReportedResponse": "Requested state is acknowledged; reported and hardware-control states remain independently readable.",
       "notes": "This is an emission-control request, not proof of optical emission."
@@ -63,6 +64,7 @@
       "assembly": null,
       "implementationStatus": "TBD",
       "simulationStatus": "TESTING",
+      "description": "Momentary request to clear a resettable fault when its blocking condition is no longer present.",
       "expectedFirmwareBehavior": "Attempt to clear resettable faults without bypassing active blocking conditions.",
       "expectedReportedResponse": "Faulted and FaultCode update to the resulting state.",
       "notes": "No behavior is assigned for non-resettable faults."
@@ -79,6 +81,7 @@
       "assembly": null,
       "implementationStatus": "TBD",
       "simulationStatus": "VERIFIED",
+      "description": "Reports whether LSN is initialized and ready to evaluate control requests.",
       "expectedFirmwareBehavior": "Report whether the LSN state machine is initialized and able to evaluate control requests.",
       "expectedReportedResponse": "Boolean Ready state.",
       "notes": "Ready does not mean emission control is active."
@@ -95,6 +98,7 @@
       "assembly": null,
       "implementationStatus": "TBD",
       "simulationStatus": "VERIFIED",
+      "description": "Reports the current state of the LSN emission-control hardware output.",
       "expectedFirmwareBehavior": "Report the current state of the LSN emission-control hardware output.",
       "expectedReportedResponse": "Boolean hardware-control state.",
       "notes": "Never infer optical emission from this value."
@@ -145,6 +149,7 @@
       "assembly": null,
       "implementationStatus": "TBD",
       "simulationStatus": "VERIFIED",
+      "description": "Reports whether LSN currently has an active fault.",
       "expectedFirmwareBehavior": "Report whether an active fault is present.",
       "expectedReportedResponse": "Boolean fault state accompanied by FaultCode.",
       "notes": ""
@@ -161,6 +166,7 @@
       "assembly": null,
       "implementationStatus": "TBD",
       "simulationStatus": "TESTING",
+      "description": "Reports the active profile-defined fault code.",
       "expectedFirmwareBehavior": "Report the profile-defined active fault code.",
       "expectedReportedResponse": "Unsigned fault value.",
       "notes": "Final numerical definitions remain TBD."
@@ -177,6 +183,7 @@
       "assembly": null,
       "implementationStatus": "TBD",
       "simulationStatus": "VERIFIED",
+      "description": "Reports whether the lifetime runtime counter is currently accumulating time.",
       "expectedFirmwareBehavior": "Report NotCounting, Counting, Fault, or Unknown according to runtime accumulation.",
       "expectedReportedResponse": "Profile-defined timer-state enum.",
       "notes": "Final numeric enum values remain TBD."
@@ -193,6 +200,7 @@
       "assembly": null,
       "implementationStatus": "TBD",
       "simulationStatus": "VERIFIED",
+      "description": "Accumulated lifetime emission-control active time in milliseconds.",
       "expectedFirmwareBehavior": "Persistently accumulate time only while the emission-control output is active.",
       "expectedReportedResponse": "Monotonic unsigned 64-bit milliseconds.",
       "notes": "No normal remote reset command is permitted."
@@ -209,6 +217,7 @@
       "assembly": null,
       "implementationStatus": "TBD",
       "simulationStatus": "VERIFIED",
+      "description": "Accumulated number of successful inactive-to-active emission-control transitions.",
       "expectedFirmwareBehavior": "Persistently increment once per successful inactive-to-active control transition.",
       "expectedReportedResponse": "Monotonic lifetime enable count.",
       "notes": "Read-only in normal operation."
@@ -225,6 +234,7 @@
       "assembly": null,
       "implementationStatus": "TBD",
       "simulationStatus": "TESTING",
+      "description": "Reports whether a network client currently owns control of LSN.",
       "expectedFirmwareBehavior": "Report whether a network client currently owns control.",
       "expectedReportedResponse": "Boolean ownership state.",
       "notes": "Ownership policy remains to be finalized."
@@ -241,6 +251,7 @@
       "assembly": null,
       "implementationStatus": "TBD",
       "simulationStatus": "TESTING",
+      "description": "Reports the implemented LSN communications-interface version.",
       "expectedFirmwareBehavior": "Expose the implemented logical protocol version.",
       "expectedReportedResponse": "Version string comparable with the active Device Profile.",
       "notes": ""
@@ -257,6 +268,7 @@
       "assembly": null,
       "implementationStatus": "TBD",
       "simulationStatus": "TESTING",
+      "description": "Reports the currently running LSN application firmware version.",
       "expectedFirmwareBehavior": "Expose the running application firmware version.",
       "expectedReportedResponse": "Semantic version/build identifier.",
       "notes": ""
@@ -273,6 +285,7 @@
       "assembly": null,
       "implementationStatus": "TBD",
       "simulationStatus": "NOT_TESTED",
+      "description": "Canonical logical device-identity field. Final representation and mapping remain TBD pending the firmware engineer's CIP Identity Object implementation.",
       "expectedFirmwareBehavior": "Expose a stable unique device identity.",
       "expectedReportedResponse": "Device serial string.",
       "notes": ""
@@ -289,6 +302,7 @@
       "assembly": null,
       "implementationStatus": "TBD",
       "simulationStatus": "NOT_TESTED",
+      "description": "Reports the LSN hardware revision when available.",
       "expectedFirmwareBehavior": "Expose the hardware revision when available.",
       "expectedReportedResponse": "Hardware revision string.",
       "notes": ""
@@ -305,6 +319,7 @@
       "assembly": null,
       "implementationStatus": "TBD",
       "simulationStatus": "TESTING",
+      "description": "Reports the reason for the most recent transition from active to inactive emission control.",
       "expectedFirmwareBehavior": "Record the reason for the latest active-to-inactive transition.",
       "expectedReportedResponse": "Profile-defined disable-reason enum.",
       "notes": "Final numeric enum values remain TBD."

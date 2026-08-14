@@ -1,0 +1,460 @@
+Please add a new top-level navigation area to the **web version of the LSN Engineering Console** named:
+
+# Downloads
+
+The web application will be the primary starting point I send to the firmware engineer.
+
+The intended workflow is:
+
+1. Open the LSN web application.
+2. Take the guided tour.
+3. Review and experiment with the LSN interface in Simulation Mode.
+4. Understand the Device Profile and expected firmware behavior.
+5. Go to **Downloads**.
+6. Download the local Windows LSN Engineering Console.
+7. Download the current Firmware Integration Package.
+8. Begin real WT32-ETH01 firmware development and hardware testing.
+
+The Downloads page should therefore act as the clean handoff point between the web simulator/documentation and real-world firmware development.
+
+Do not redesign the rest of the application as part of this task.
+
+## 1. Add Downloads to the main navigation
+
+Add a new primary navigation item:
+
+**Downloads**
+
+Place it in a logical location near the lower portion of the existing navigation, preferably near:
+
+* Device Profile
+* Help / Firmware Guide
+* Settings
+
+Use the same visual style as the existing navigation.
+
+The page should feel like an engineering release/download center, not a marketing page.
+
+## 2. Page header
+
+Use a heading such as:
+
+**LSN Developer Downloads**
+
+Supporting copy should be concise, for example:
+
+> Download the current desktop engineering tools, firmware interface package, and protocol resources for LSN development and hardware validation.
+
+Also show the current important version information near the top:
+
+* Console Version
+* LSN Protocol Version
+* Active Device Profile
+* Current Target Platform: WT32-ETH01 / ESP32
+
+Example:
+
+```text
+LSN Developer Downloads
+
+Console             v0.1.0
+Protocol            LSN v0.1
+Device Profile      lsn-v0.1
+Target Platform     WT32-ETH01 / ESP32
+```
+
+## 3. Primary download: LSN Engineering Console for Windows
+
+This should be the most prominent download card.
+
+Title:
+
+**LSN Engineering Console for Windows**
+
+Description:
+
+> Local desktop application for direct Ethernet communication, firmware development, diagnostics, testing, and validation with physical LSN hardware.
+
+Show:
+
+* Current Version
+* Platform: Windows
+* Architecture if known
+* Release Type: Internal Engineering / Development
+* Release Date
+* File size when known
+
+Primary button:
+
+**DOWNLOAD FOR WINDOWS**
+
+The expected installer filename is approximately:
+
+`LSN-Engineering-Console-Setup-0.1.0.exe`
+
+Use the actual approved build/version once available.
+
+If a portable build exists, provide a secondary action:
+
+**DOWNLOAD PORTABLE ZIP**
+
+Example:
+
+`LSN-Engineering-Console-Portable-0.1.0.zip`
+
+### Important behavior before the installer exists
+
+Do not create a fake or broken download link.
+
+Until an approved Windows installer has actually been generated, show:
+
+**WINDOWS BUILD PENDING**
+
+or:
+
+**DOWNLOAD AVAILABLE AFTER DESKTOP BUILD**
+
+Once the actual approved installer exists, this card should be able to point to its stable download location without redesigning the page.
+
+The firmware engineer should never need to visit GitHub Actions, Replit internals, or a build-artifact interface.
+
+The normal workflow must remain:
+
+**Web App → Downloads → Download for Windows**
+
+## 4. Firmware Integration Package
+
+Create a second prominent card:
+
+**Firmware Integration Package**
+
+Description:
+
+> Current ESP32 firmware handoff generated from the active LSN Device Profile.
+
+Show:
+
+* Device Profile Version
+* LSN Protocol Version
+* Active Phase 1 field count
+* Number of completed CIP mappings
+* Number of TBD mappings
+* Firmware implementation summary
+* Simulation validation summary
+
+Example:
+
+```text
+Profile               LSN v0.1
+Active Fields         15
+CIP Mappings          0 complete / 15 TBD
+Firmware Status       Awaiting Firmware
+Simulation Status     Verified
+```
+
+Primary button:
+
+**GENERATE & DOWNLOAD PACKAGE**
+
+This must use the same existing Firmware Integration Package generator already implemented in the Console.
+
+Do not create a second independent generator for the Downloads page.
+
+The package should continue to be generated directly from the current active Device Profile.
+
+Expected output:
+
+`LSN-Firmware-Interface-v0.1.zip`
+
+Containing:
+
+```text
+lsn_protocol.h
+lsn_protocol_types.h
+lsn_protocol_profile.json
+lsn_interface.csv
+lsn_interface.md
+README.md
+```
+
+If unresolved mappings remain, display the existing informational warning:
+
+> This package contains unresolved protocol mappings. These entries are intentionally marked TBD for firmware implementation.
+
+Do not block the download because mappings remain TBD.
+
+## 5. Individual firmware resources
+
+Below the Firmware Integration Package, provide an optional section:
+
+**Individual Interface Files**
+
+Allow direct download of the current generated resources where practical:
+
+* Device Profile JSON
+* Firmware Interface Markdown
+* Firmware Interface CSV
+* C/C++ Protocol Types Header
+* C/C++ Protocol Mapping Header
+
+Suggested buttons:
+
+**DOWNLOAD DEVICE PROFILE**
+
+**DOWNLOAD INTERFACE SPEC**
+
+**DOWNLOAD CSV CHECKLIST**
+
+**DOWNLOAD C/C++ HEADERS**
+
+All individual files must derive from the same active Device Profile and generator used by the full Firmware Integration Package.
+
+Do not maintain manually duplicated versions of these files.
+
+## 6. Recommended firmware engineer workflow
+
+Add a concise section on the Downloads page:
+
+**Recommended Development Workflow**
+
+Use approximately:
+
+```text
+1. Review the LSN web simulator and guided tour.
+2. Download and install the Windows LSN Engineering Console.
+3. Download the current Firmware Integration Package.
+4. Review lsn_interface.md and the generated C/C++ headers.
+5. Implement the Phase 1 logical interface in the WT32-ETH01 firmware.
+6. Assign the real EtherNet/IP / CIP mappings for TBD fields.
+7. Update/import the completed mappings into the LSN Device Profile.
+8. Use the local Console to discover and test the physical LSN hardware.
+9. Move each field through implementation and verification status.
+```
+
+Keep this concise and easy to scan.
+
+## 7. Clarify web vs desktop roles
+
+Include a small informational section:
+
+### Web Application
+
+Used for:
+
+* guided tour
+* Simulation Mode
+* reviewing expected LSN behavior
+* Device Profile inspection
+* interface documentation
+* downloading development resources
+
+### Windows Desktop Application
+
+Used for:
+
+* local Ethernet communication with physical LSN hardware
+* EtherNet/IP testing
+* firmware development
+* protocol inspection
+* runtime validation
+* stress testing
+* local firmware updates
+* hardware diagnostics
+
+Make clear that the browser-hosted web application is not expected to directly communicate with arbitrary LSN devices on a private local network.
+
+## 8. Release information
+
+Add a compact section:
+
+**Current Release**
+
+Show:
+
+* Console Version
+* Protocol Version
+* Device Profile Version
+* Release Date
+* Release Type
+* Target Hardware
+* Known Limitations
+
+For the current release, known limitations should include something similar to:
+
+> Real WT32-ETH01 EtherNet/IP hardware communication remains awaiting firmware implementation and final CIP mappings.
+
+Do not imply that real hardware communication is already complete.
+
+## 9. Release notes
+
+Provide:
+
+**VIEW RELEASE NOTES**
+
+This may expand inline or open the existing release notes area.
+
+Current release notes should summarize relevant capabilities such as:
+
+* Simulation Mode
+* WT32-ETH01 target architecture
+* EtherNet/IP interface framework
+* Device Profiles
+* timer/runtime testing
+* automated validation
+* stress testing
+* Protocol Inspector
+* firmware update simulation
+* Firmware Integration Package export
+* logs/reports/support bundles
+* real Hardware Mode awaiting actual firmware implementation
+
+## 10. Previous releases
+
+Architect the Downloads page so older approved versions can be made available later.
+
+Add a collapsed or secondary area:
+
+**Previous Releases**
+
+Do not clutter the current download experience.
+
+For now this section may be empty or hidden if no prior release exists.
+
+Future releases should be able to show:
+
+* version
+* release date
+* protocol compatibility
+* installer
+* Firmware Integration Package
+* release notes
+
+## 11. Guided tour integration
+
+Update the existing guided tour so its final step points the firmware engineer to:
+
+**Downloads**
+
+Suggested final-tour message:
+
+> You're ready to begin firmware development. Open Downloads to install the local LSN Engineering Console and get the current Firmware Integration Package.
+
+Provide an action such as:
+
+**GO TO DOWNLOADS**
+
+The tour should not automatically trigger a download.
+
+## 12. Download integrity and version consistency
+
+The Downloads page must always clearly identify which versions are being downloaded.
+
+Keep these synchronized:
+
+* web Console version
+* desktop Console version
+* Device Profile version
+* LSN Protocol version
+* Firmware Integration Package version
+* release notes
+
+Do not silently mix files from different releases.
+
+When practical, show a SHA-256 checksum for approved downloadable desktop builds and firmware packages.
+
+## 13. Download source architecture
+
+The Windows installer may eventually be hosted through:
+
+* GitHub Releases
+* another approved static artifact location
+* another stable release-storage mechanism
+
+That implementation detail should remain invisible to the firmware engineer.
+
+The page should simply present:
+
+**DOWNLOAD FOR WINDOWS**
+
+Do not require the user to navigate build pipelines or GitHub Actions.
+
+## 14. Failed or unavailable downloads
+
+Handle unavailable resources cleanly.
+
+Do not display dead buttons.
+
+Possible states:
+
+* AVAILABLE
+* BUILD PENDING
+* GENERATING
+* DOWNLOAD READY
+* DOWNLOAD FAILED
+* SUPERSEDED
+
+Provide a useful message when something is unavailable.
+
+## 15. Preserve source-of-truth architecture
+
+The Downloads page must not introduce duplicate manually maintained protocol information.
+
+The source of truth remains:
+
+**Versioned LSN Device Profile**
+
+Therefore:
+
+Device Profile
+→ simulator
+→ firmware interface documents
+→ generated C/C++ files
+→ Firmware Integration Package
+→ Downloads
+
+must stay synchronized.
+
+## 16. Final UI goal
+
+The firmware engineer should be able to receive one URL from me and understand the entire workflow without additional instructions:
+
+```text
+LSN WEB APP
+     ↓
+Guided Tour
+     ↓
+Simulation / Interface Review
+     ↓
+Downloads
+     │
+     ├── Windows LSN Engineering Console
+     │
+     └── Firmware Integration Package
+                 ↓
+          WT32-ETH01 Development
+                 ↓
+        Real Hardware Validation
+```
+
+The Downloads page should make this progression obvious.
+
+## 17. Validation before completion
+
+Before marking this task complete, verify:
+
+1. Downloads appears in the main navigation.
+2. Downloads page works in the web application.
+3. Windows Console card exists.
+4. No fake Windows download is shown before a real artifact exists.
+5. Firmware Integration Package can be generated/downloaded.
+6. Package generation uses the existing active Device Profile.
+7. Individual interface resources can be downloaded where implemented.
+8. Version information is visible.
+9. Web vs desktop roles are clearly explained.
+10. Known Hardware Mode limitations are accurately stated.
+11. Guided tour ends with a path to Downloads.
+12. Future Previous Releases support exists without cluttering v0.1.
+13. No duplicate manually maintained interface definition has been introduced.
+14. Existing Console functionality is not changed or regressed.
+
+Do not make unrelated application changes as part of this task.

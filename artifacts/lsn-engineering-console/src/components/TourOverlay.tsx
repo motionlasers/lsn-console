@@ -50,6 +50,10 @@ export function TourOverlay() {
   const stepData = TOUR_STEPS[currentStep];
   const isLastStep = currentStep === TOUR_STEPS.length - 1;
   const pageProgress = getTourPageProgress(currentStep);
+  const finishTour = () => {
+    setLocation("/downloads");
+    endTour(dontShowAgain);
+  };
 
   useEffect(() => {
     const media = window.matchMedia("(prefers-reduced-motion: reduce)");
@@ -296,11 +300,11 @@ export function TourOverlay() {
               </Button>
               <Button
                 size="sm"
-                onClick={() => isLastStep ? endTour(dontShowAgain) : nextStep()}
+                onClick={() => isLastStep ? finishTour() : nextStep()}
                 className="font-mono text-xs bg-primary text-primary-foreground"
                 data-testid={isLastStep ? "button-tour-finish" : "button-tour-next"}
               >
-                {isLastStep ? "FINISH" : "NEXT"}
+                {isLastStep ? "GO TO DOWNLOADS" : "NEXT"}
                 {!isLastStep && <ChevronRight className="w-4 h-4 ml-1" />}
               </Button>
             </div>

@@ -48,6 +48,17 @@ describe('LSN v0.1 device profile', () => {
     }
   });
 
+  it('defines a canonical description for every active Phase 1 field', () => {
+    const activeFields = profile.fields.filter(field => !field.capability || capabilities[field.capability]);
+    expect(activeFields).toHaveLength(15);
+    for (const field of activeFields) {
+      expect(field.description, `${field.symbolicName} description`).toBeTypeOf('string');
+      expect(field.description.trim(), `${field.symbolicName} description`).not.toBe('');
+      expect(field.description, `${field.symbolicName} description must be distinct from expected response`)
+        .not.toBe(field.expectedReportedResponse);
+    }
+  });
+
   it('describes the Phase 1 output without future Interlock terminology', () => {
     const output = profile.fields.find((field: { symbolicName: string }) =>
       field.symbolicName === 'EmissionControlOutputActive',
@@ -166,12 +177,16 @@ describe('LSN v0.1 device profile', () => {
     expect(csv).toContain('"Byte","Bit","Units"');
     expect(csv).toContain('"Firmware Status","Simulation Status"');
     expect(csv).toContain('"EmissionEnableRequest"');
+    expect(csv).toContain('"Requests activation or deactivation of the LSN emission-control function."');
+    expect(csv).toContain("\"Canonical logical device-identity field. Final representation and mapping remain TBD pending the firmware engineer's CIP Identity Object implementation.\"");
     expect(csv).not.toContain('"InterlockOK"');
     expect(csv).not.toContain('"RemoteStopOK"');
 
     const markdown = await readEntry('lsn_interface.md');
     expect(markdown).toContain('## LifetimeEmissionTimeMs');
     expect(markdown).toContain('**Firmware Status:** TBD');
+    expect(markdown).toContain('**Purpose:** Requests activation or deactivation of the LSN emission-control function.');
+    expect(markdown).toContain('**Expected Response:** Requested state is acknowledged; reported and hardware-control states remain independently readable.');
     expect(markdown).toContain('Simulation validation is test-harness evidence only');
     expect(markdown).not.toContain('## InterlockOK');
 
@@ -185,6 +200,8 @@ describe('LSN v0.1 device profile', () => {
     expect(readme).toContain('Device Profile is the source of truth');
     expect(readme).toContain('Hardware Mode to test the physical implementation');
     expect(readme).toContain('daughterboard hardware is established');
+    expect(readme).toContain('disabled future capabilities');
+    expect(readme).toContain('not part of the active Phase 1 implementation');
   });
 
   it('emits constants only after mappings are explicitly resolved in the profile', async () => {

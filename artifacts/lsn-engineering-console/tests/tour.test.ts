@@ -91,6 +91,7 @@ test('detailed definitions cover every primary route with stable unique targets'
     '/modules': 'modules.tsx',
     '/logs': 'logs.tsx',
     '/help': 'help.tsx',
+    '/downloads': 'downloads.tsx',
     '/settings': 'settings.tsx',
   };
   expect(TOUR_PAGE_COUNT).toBe(Object.keys(routeFiles).length);
@@ -112,9 +113,15 @@ test('page progress reports local and overall page position', () => {
   const firstSettings = TOUR_STEPS.findIndex(step => step.route === '/settings');
   const progress = getTourPageProgress(firstSettings);
   expect(progress.page).toBe('Settings');
-  expect(progress.pageIndex).toBe(TOUR_PAGE_COUNT);
+  expect(progress.pageIndex).toBe(TOUR_PAGE_COUNT - 1);
   expect(progress.stepOnPage).toBe(1);
   expect(progress.stepsOnPage).toBeGreaterThanOrEqual(2);
+
+  const finalProgress = getTourPageProgress(TOUR_STEPS.length - 1);
+  expect(finalProgress.page).toBe('Downloads');
+  expect(finalProgress.pageIndex).toBe(TOUR_PAGE_COUNT);
+  expect(TOUR_STEPS.at(-1)?.route).toBe('/downloads');
+  expect(TOUR_STEPS.at(-1)?.description).toContain("ready to begin firmware development");
 });
 
 test('positioning honors preferred sides when they fit and clamps to safe viewport bounds', () => {
