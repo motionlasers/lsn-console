@@ -45,7 +45,7 @@ export default function Help() {
           <CardHeader className="pb-3">
             <CardTitle className="text-warning flex items-center gap-2 text-sm font-mono tracking-widest uppercase">
               <AlertTriangle className="w-4 h-4" />
-              Safety & Validation Scope
+              Simulation & Validation Scope
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4 text-sm font-mono text-warning/90">
@@ -55,7 +55,8 @@ export default function Help() {
             <ul className="list-disc pl-5 space-y-2 opacity-90">
               <li>Simulation evidence provided by this tool is strictly for logical validation.</li>
               <li>It does NOT constitute physical validation.</li>
-              <li>It does NOT constitute safety certification.</li>
+              <li>It does NOT certify safety or prove regulatory compliance.</li>
+              <li>It does NOT verify optical emission.</li>
             </ul>
           </CardContent>
         </Card>

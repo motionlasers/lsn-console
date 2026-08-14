@@ -1,0 +1,385 @@
+Please add a new firmware-handoff feature to the LSN Engineering Console:
+
+# Export Firmware Integration Package
+
+The goal is to make the Device Profile directly useful to the ESP32 firmware engineer and reduce manual transcription or interpretation.
+
+The Device Profile remains the source of truth for the external LSN interface.
+
+Add a button in the Device Profile / Firmware Developer area:
+
+**EXPORT FIRMWARE INTEGRATION PACKAGE**
+
+This should generate a ZIP containing firmware-facing files derived from the currently active LSN Device Profile.
+
+## Package contents
+
+Create a ZIP such as:
+
+```text
+LSN-Firmware-Interface-v0.1.zip
+```
+
+with contents similar to:
+
+```text
+LSN-Firmware-Interface-v0.1/
+│
+├── lsn_protocol.h
+├── lsn_protocol_types.h
+├── lsn_protocol_profile.json
+├── lsn_interface.csv
+├── lsn_interface.md
+└── README.md
+```
+
+The exact internal organization can follow good engineering practice, but the package should be simple for an ESP-IDF / C or C++ firmware engineer to understand and use.
+
+# 1. lsn_protocol_types.h
+
+Generate C/C++ compatible type definitions for the logical LSN interface.
+
+For example, generate appropriate definitions for fields such as:
+
+* `EmissionEnableRequest`
+* `EmissionControlOutputActive`
+* `Ready`
+* `Faulted`
+* `FaultCode`
+* `TimerState`
+* `LifetimeEmissionTimeMs`
+* `EnableCount`
+* `ProtocolVersion`
+
+Example concept:
+
+```c
+typedef enum {
+    LSN_TIMER_NOT_COUNTING = 0,
+    LSN_TIMER_COUNTING,
+    LSN_TIMER_FAULT,
+    LSN_TIMER_UNKNOWN
+} lsn_timer_state_t;
+```
+
+And appropriate logical structs such as:
+
+```c
+typedef struct {
+    bool emission_enable_request;
+    bool fault_reset_request;
+} lsn_control_t;
+
+typedef struct {
+    bool ready;
+    bool emission_control_output_active;
+    bool faulted;
+    uint16_t fault_code;
+    lsn_timer_state_t timer_state;
+    uint64_t lifetime_emission_time_ms;
+    uint64_t enable_count;
+} lsn_status_t;
+```
+
+The generated code must follow the active Device Profile rather than hard-coding this example.
+
+Use safe portable integer types such as:
+
+* `uint8_t`
+* `uint16_t`
+* `uint32_t`
+* `uint64_t`
+
+where applicable.
+
+Include required standard headers such as:
+
+```c
+#include <stdint.h>
+#include <stdbool.h>
+```
+
+Do not invent values that do not exist in the Device Profile.
+
+# 2. lsn_protocol.h
+
+Generate symbolic constants/macros for the EtherNet/IP / CIP mapping.
+
+For example:
+
+```c
+#define LSN_READY_CIP_CLASS        ...
+#define LSN_READY_CIP_INSTANCE     ...
+#define LSN_READY_CIP_ATTRIBUTE    ...
+```
+
+Do the same where appropriate for all mapped fields.
+
+IMPORTANT:
+
+If a mapping is currently unresolved in the Device Profile, do NOT invent a numerical value.
+
+Represent it clearly as TBD.
+
+Prefer one of these approaches:
+
+```c
+/* TBD: CIP Class not yet assigned */
+```
+
+or a safe compile-time placeholder that cannot accidentally be used as a valid production value.
+
+Do not create fake Class, Instance, Attribute, Assembly, Vendor ID, Product Code, or enum values.
+
+The firmware engineer must be able to immediately see which protocol mappings still need to be selected.
+
+# 3. lsn_protocol_profile.json
+
+Include an exact export of the active Device Profile used to generate the package.
+
+This preserves the complete machine-readable source of truth.
+
+Include:
+
+* profile version
+* protocol version
+* capabilities
+* logical fields
+* data types
+* access
+* CIP mappings
+* status
+* descriptions
+* expected behavior
+* module definitions where applicable
+
+# 4. lsn_interface.csv
+
+Generate a concise spreadsheet-friendly interface table.
+
+Columns should include at minimum:
+
+* Symbolic Name
+* Direction
+* Data Type
+* Access
+* CIP Service
+* Class
+* Instance
+* Attribute
+* Assembly
+* Byte
+* Bit
+* Units
+* Firmware Status
+* Simulation Status
+* Expected Behavior
+* Description
+* Notes
+
+This should be useful as an implementation checklist.
+
+# 5. lsn_interface.md
+
+Generate a human-readable Markdown interface specification.
+
+For each Phase 1 field show:
+
+* canonical symbolic name
+* purpose
+* direction
+* type
+* access
+* CIP mapping
+* current firmware implementation status
+* current simulation validation status
+* expected firmware behavior
+* expected response
+* notes
+
+Example structure:
+
+```text
+## EmissionEnableRequest
+
+Direction:
+PC → LSN
+
+Type:
+BOOL
+
+Access:
+Read/Write
+
+Firmware Status:
+TBD
+
+Simulation Status:
+VERIFIED
+
+CIP Mapping:
+TBD
+
+Purpose:
+Requests activation or deactivation of the LSN emission-control function.
+
+Expected Firmware Behavior:
+...
+```
+
+# 6. README.md
+
+Create a short firmware-engineer README explaining how to use the package.
+
+Keep it practical.
+
+Suggested structure:
+
+```text
+LSN Firmware Integration Package
+================================
+
+This package was generated from:
+LSN Device Profile v0.1
+
+Purpose:
+Provides the canonical external LSN communications interface for the ESP32 firmware implementation.
+
+Recommended workflow:
+
+1. Review lsn_interface.md
+2. Include/use the generated C/C++ headers as useful
+3. Implement the logical fields in ESP32 firmware
+4. Select the real CIP mappings for TBD entries
+5. Return/update those mappings in the LSN Device Profile
+6. Use the LSN Engineering Console to validate each function
+```
+
+Clarify that:
+
+* the generated package defines the external interface
+* the ESP32 programmer remains responsible for implementation details
+* existing daughterboard GPIO mapping remains firmware-internal
+* the package does not dictate the internal state-machine architecture
+* unresolved CIP mappings must be assigned by the firmware engineer
+* generated headers should not silently contain invented protocol values
+
+# Canonical naming
+
+The package should preserve the same canonical symbolic names used by:
+
+* LSN Engineering Console
+* Device Profile
+* automated tests
+* protocol inspector
+* reports
+* firmware documentation
+* future client integration documentation
+
+The goal is to avoid multiple names for the same signal.
+
+For example:
+
+`LifetimeEmissionTimeMs`
+
+should remain the canonical interface name everywhere, even if the firmware engineer internally prefers a different local variable name.
+
+# Naming style in generated C/C++
+
+Use a consistent generated firmware naming convention while keeping the canonical Device Profile name clearly traceable.
+
+For example:
+
+Device Profile:
+
+`LifetimeEmissionTimeMs`
+
+Generated C field:
+
+`lifetime_emission_time_ms`
+
+Generated constant prefix:
+
+`LSN_...`
+
+Include comments showing the canonical symbolic name where useful.
+
+# Versioning
+
+Include package metadata:
+
+* Device Profile version
+* LSN protocol version
+* Console version
+* generation date/time
+* target platform if known
+* package format version
+
+The exported filename should include the profile/protocol version where practical.
+
+# Regeneration
+
+The Firmware Integration Package must always be generated from the current active Device Profile.
+
+Do not maintain a separate manually edited copy of the firmware interface.
+
+If the Device Profile changes, exporting again should generate an updated integration package automatically.
+
+This prevents the Console and firmware documentation from drifting apart.
+
+# Import direction
+
+For v0.1, the required workflow is:
+
+**Device Profile → Export Firmware Integration Package → Firmware engineer implements / selects CIP mappings → mappings are entered back into the Device Profile**
+
+Do not attempt to automatically modify the firmware source project.
+
+Do not require the firmware engineer to import the JSON directly into ESP-IDF.
+
+The generated C/C++ headers, Markdown, CSV, and JSON are the handoff materials.
+
+A future feature may support importing completed mappings back into the Console, but this is not required unless it is already easy to support safely.
+
+# UI
+
+Add the export action somewhere logical within:
+
+**Device Profile**
+
+and/or:
+
+**Firmware Developer Mode**
+
+Suggested button:
+
+**EXPORT FIRMWARE INTEGRATION PACKAGE**
+
+Before export, show:
+
+* active profile
+* protocol version
+* number of mapped fields
+* number of TBD fields
+* firmware implementation status summary
+* simulation validation summary
+
+If TBD mappings remain, allow export but display a clear informational warning:
+
+**This package contains unresolved protocol mappings. These entries are intentionally marked TBD for firmware implementation.**
+
+Do not block export merely because mappings are incomplete.
+
+# Important
+
+This feature is intended to save firmware-engineering time and establish a single source of truth.
+
+Do not:
+
+* invent protocol mappings
+* generate fake production values
+* couple the external interface to GPIO numbers
+* make the firmware engineer reverse-engineer the web UI
+* create a second independent interface definition separate from the Device Profile
+
+Everything must derive from the active versioned LSN Device Profile.

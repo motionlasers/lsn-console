@@ -153,22 +153,6 @@ export default function Profile() {
                     <div className="text-foreground/80">{item.direction.toUpperCase()}</div>
                     <div className="text-[10px] text-primary">{item.dataType} ({item.access.toUpperCase()})</div>
                   </TableCell>
-                  <TableCell>
-                    {settings.devMode ? (
-                      <select
-                        value={item.simulationStatus}
-                        onChange={(e) => updateProfileItem(item.id, { simulationStatus: e.target.value as SimulationStatus })}
-                        className={`bg-black border rounded-sm text-[10px] font-mono p-1 focus:outline-none ${statusColor(item.simulationStatus)}`}
-                      >
-                        {simulationStatusOptions.map(opt => <option key={opt} value={opt} className="bg-background text-foreground">{opt}</option>)}
-                      </select>
-                    ) : (
-                      <span className={`inline-flex items-center gap-1.5 px-2 py-1 border rounded-sm text-[10px] tracking-wider ${statusColor(item.simulationStatus)}`}>
-                        {statusIcon(item.simulationStatus)}
-                        {item.simulationStatus}
-                      </span>
-                    )}
-                  </TableCell>
                   <TableCell className="text-muted-foreground">
                     Class: {item.class} <br/>
                     Inst: {item.instance} <br/>
@@ -189,6 +173,22 @@ export default function Profile() {
                       <span className={`inline-flex items-center gap-1.5 px-2 py-1 border rounded-sm text-[10px] tracking-wider ${statusColor(effectiveFirmwareStatus(item))}`}>
                         {statusIcon(effectiveFirmwareStatus(item))}
                         {effectiveFirmwareStatus(item)}
+                      </span>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    {settings.devMode ? (
+                      <select
+                        value={item.simulationStatus}
+                        onChange={(e) => updateProfileItem(item.id, { simulationStatus: e.target.value as SimulationStatus })}
+                        className={`bg-black border rounded-sm text-[10px] font-mono p-1 focus:outline-none ${statusColor(item.simulationStatus)}`}
+                      >
+                        {simulationStatusOptions.map(opt => <option key={opt} value={opt} className="bg-background text-foreground">{opt}</option>)}
+                      </select>
+                    ) : (
+                      <span className={`inline-flex items-center gap-1.5 px-2 py-1 border rounded-sm text-[10px] tracking-wider ${statusColor(item.simulationStatus)}`}>
+                        {statusIcon(item.simulationStatus)}
+                        {item.simulationStatus}
                       </span>
                     )}
                   </TableCell>

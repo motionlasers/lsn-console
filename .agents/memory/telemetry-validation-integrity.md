@@ -14,3 +14,9 @@ Firmware implementation status and simulation validation status are independent.
 **Why:** Deterministic simulator coverage is useful evidence but does not prove that WT32-ETH01 firmware, CIP mappings, or physical hardware behavior exists or has been validated.
 
 **How to apply:** Keep separate firmware and simulation fields in profiles, UI, reports, exports, and handoff checklists. Hardware transmission stays locked until mappings and firmware validation are real.
+
+Guided timing evidence must compare an actual monotonic PC measurement with independently accumulated simulated-device runtime; never compare a configured duration to itself.
+
+**Why:** A deterministic zero difference can look like validation while proving only that the same input value was copied into both sides of the comparison.
+
+**How to apply:** Wait for the requested interval, measure elapsed PC time, keep exactly one runtime-accrual owner during the test, and retain a failure path when output activation or timing diverges.

@@ -17,6 +17,7 @@ export default function SettingsPage() {
   const { settings, logicalState, updateSettings, updateLogicalState, resetSettings, importState } = useStore();
   const { startTour } = useTourStore();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const selectedBrandLogo = settings.brandLogo ?? 'sia';
 
   const handleExportState = () => {
     const state = useStore.getState();
@@ -67,6 +68,35 @@ export default function SettingsPage() {
         
         <div className="space-y-4">
           <div className="flex items-center justify-between">
+            <div>
+              <div className="text-sm font-mono text-foreground">Navigation Brand</div>
+              <div className="text-xs font-mono text-muted-foreground">Choose the logo shown at the top of the navigation bar</div>
+            </div>
+            <div className="flex rounded-sm border border-border p-1" role="group" aria-label="Navigation brand">
+              {([
+                ['sia', 'SIA'],
+                ['bls', 'BLS'],
+              ] as const).map(([value, label]) => (
+                <Button
+                  key={value}
+                  variant="ghost"
+                  size="sm"
+                  className={`h-7 px-3 font-mono text-xs ${
+                    selectedBrandLogo === value
+                      ? 'bg-primary/20 text-primary hover:bg-primary/20 hover:text-primary'
+                      : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                  onClick={() => updateSettings({ brandLogo: value })}
+                  aria-pressed={selectedBrandLogo === value}
+                  data-testid={`button-brand-${value}`}
+                >
+                  {label}
+                </Button>
+              ))}
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between border-t border-border/50 pt-4">
             <div>
               <div className="text-sm font-mono text-foreground">Developer Mode</div>
               <div className="text-xs font-mono text-muted-foreground">Expose raw diagnostic tools and edit profile spec</div>

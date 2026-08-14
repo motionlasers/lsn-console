@@ -35,6 +35,16 @@ describe('LSN v0.1 device profile', () => {
     }
   });
 
+  it('describes the Phase 1 output without future Interlock terminology', () => {
+    const output = profile.fields.find((field: { symbolicName: string }) =>
+      field.symbolicName === 'EmissionControlOutputActive',
+    );
+    expect(output.expectedFirmwareBehavior).toBe(
+      'Report the current state of the LSN emission-control hardware output.',
+    );
+    expect(output.expectedFirmwareBehavior.toLowerCase()).not.toContain('interlock');
+  });
+
   it('never presents cached implementation success while protocol mapping is unresolved', () => {
     const staleCachedField = {
       ...profile.fields[0],

@@ -1,0 +1,371 @@
+Please capture one final screenshot set of the current LSN Engineering Console after the latest correction pass so I can perform the final review before providing it to the firmware engineer.
+
+Do not redesign or modify anything during this task. I only want screenshots of the current implementation.
+
+## Test setup
+
+Use:
+
+* Simulation Mode
+* simulated device `LSN-SIM-001`
+* normal desktop layout
+* consistent window dimensions
+* realistic simulated values
+* Firmware Developer Mode only where specifically requested
+
+Connect to the simulated device unless a disconnected state is specifically requested.
+
+## Capture these screenshots
+
+### 1. Dashboard, connected
+
+Show the normal connected Dashboard with:
+
+* device identity
+* connection state
+* requested state
+* reported state
+* hardware-control state
+* timer/runtime information
+* fault status
+
+### 2. Control, connected
+
+Show the normal Control screen while connected.
+
+Include the Enable and Disable controls and the current requested/reported/output states.
+
+### 3. Control, disconnected
+
+Disconnect from the simulated device and capture the Control screen.
+
+I specifically want to verify that the disabled-control message clearly explains the real reason, such as:
+
+**CONNECT TO DEVICE TO SEND CONTROL REQUESTS**
+
+rather than a generic "disabled in current mode" message.
+
+### 4. Status, connected
+
+Capture the normal Status screen.
+
+Normal Mode should use human-readable labels and values rather than primarily exposing raw symbolic names/enums.
+
+### 5. Status, disconnected
+
+Capture Status after disconnecting.
+
+Verify that live values become UNKNOWN/STALE/DISCONNECTED and previous values, if shown, are clearly identified as Last Reported rather than current.
+
+### 6. Runtime Counter, normal
+
+Reconnect and capture the complete Runtime Counter page.
+
+Show:
+
+* Timer State
+* formatted Lifetime Runtime
+* raw `LifetimeEmissionTimeMs`
+* first/current reading if shown
+* session delta
+* Enable Count
+* persistence/storage state
+* available runtime-test controls
+
+The screenshot should include:
+
+* READ RUNTIME
+* START RUNTIME OBSERVATION
+* RUN TIMER TEST
+* RUN PERSISTENCE TEST
+
+or their implemented equivalents.
+
+### 7. Runtime Observation active
+
+Start Runtime Observation and capture it while running.
+
+Show where available:
+
+* observation elapsed time
+* starting runtime
+* current runtime
+* LSN-reported increase
+* PC-measured elapsed time
+* current delta
+
+### 8. Timer Test completed
+
+Run the dedicated simulated Timer Test and capture its completed result.
+
+Show:
+
+* Starting Runtime
+* Ending Runtime
+* PC Measured Duration
+* LSN Reported Increase
+* Difference
+* Allowed Tolerance
+* PASS / FAIL
+
+This should be the dedicated Timer Test workflow, not simply the Runtime category of the general validation suite.
+
+### 9. Persistence Test completed
+
+Run the dedicated simulated Persistence Test and capture the result after the simulated restart/reconnect.
+
+Show:
+
+* Before Power Cycle
+* After Power Cycle
+* Difference
+* reconnect/restart result
+* PASS / FAIL
+
+### 10. Automated Tests
+
+Capture the Automated Tests page.
+
+I specifically want to verify that `SAFETY` is no longer a primary Phase 1 category.
+
+Show the current test categories and several representative tests.
+
+### 11. Validation Suite completed
+
+Run the Basic/Validation Suite and capture the completed summary showing:
+
+* passed
+* failed
+* warnings
+* skipped
+* manual verification where applicable
+
+### 12. Stress Testing configuration
+
+Capture the Stress Testing page before starting the test.
+
+Show all available configuration including:
+
+* Enable duration
+* Disable duration
+* Cycle count
+* Maximum duration
+* Stop on mismatch
+* Stop on fault
+* Runtime read every N cycles
+* Enable Count read every N cycles
+* any useful simulation-specific fault controls
+
+### 13. Stress Test completed
+
+Run a short simulated Stress Test and capture its completed results.
+
+Show:
+
+* requested cycles
+* completed cycles
+* communication errors
+* state mismatches
+* fault count
+* average latency
+* minimum latency
+* maximum latency
+* runtime delta
+* Enable Count delta
+* total duration
+* result
+
+### 14. Protocol Inspector summary
+
+Capture the Protocol Inspector transaction list with several simulated transactions.
+
+### 15. Protocol Inspector transaction details
+
+Open one transaction and capture the detailed view showing as much as currently implemented of:
+
+* timestamp
+* logical operation
+* EtherNet/IP command
+* CIP service
+* Class
+* Instance
+* Attribute
+* raw TX
+* raw RX
+* decoded request
+* decoded response
+* latency
+* result
+
+### 16. Device Profile, normal mode
+
+Capture the Device Profile in normal mode.
+
+I want to review:
+
+* symbolic fields
+* descriptions
+* CIP mappings/TBDs
+* current Phase 1 terminology
+
+Make sure the description for:
+
+`EmissionControlOutputActive`
+
+refers to the **LSN emission-control hardware output** and does not describe it as an interlock output.
+
+### 17. Device Profile, Firmware Developer Mode
+
+Enable Firmware Developer Mode and capture the implementation-status area.
+
+For fields whose simulator has been completed but real ESP32 firmware has not yet been implemented, I want to see the distinction clearly:
+
+**Firmware Status:** TBD / AWAITING FIRMWARE
+
+**Simulation Status:** VERIFIED
+
+Do not show real Firmware Status as VERIFIED merely because simulation is working.
+
+### 18. Firmware-facing implementation checklist
+
+Capture the firmware-facing interface specification/checklist if it is a separate screen or panel.
+
+Show several Phase 1 fields with:
+
+* symbolic name
+* type
+* access
+* CIP mapping
+* firmware implementation status
+* simulation validation status
+* expected behavior
+
+### 19. Firmware page with package selected
+
+Select a valid simulated firmware package.
+
+Capture:
+
+* current firmware
+* selected firmware
+* target hardware
+* protocol compatibility
+* checksum/hash status
+* release type
+* Install Firmware control
+
+### 20. Successful firmware update
+
+Run a simulated successful update and capture the final result after:
+
+* transfer
+* reboot
+* rediscovery
+* version verification
+* post-update validation
+
+### 21. Firmware failure / rollback
+
+Run one simulated firmware failure scenario and capture the final recovery/rollback state.
+
+Show:
+
+* failure stage
+* attempted version
+* resulting version
+* rollback/recovery state
+* final device status
+
+### 22. Faults & Diagnostics
+
+Capture the normal diagnostics page while connected.
+
+### 23. Logs & Reports
+
+Capture the Logs & Reports page showing the available session/export/support-bundle functionality.
+
+### 24. Modules, normal mode
+
+Capture the normal Modules screen.
+
+Future capabilities that are not enabled for Phase 1 should not appear as active current functionality.
+
+### 25. Future / Experimental Capabilities
+
+In Firmware Developer Mode, capture the area showing future/experimental capabilities such as:
+
+* Interlock Monitoring
+* Remote Stop Monitoring
+* Sensor Module Example
+
+Confirm that they are:
+
+* disabled by default
+* clearly future/experimental
+* not part of the normal Phase 1 interface
+
+### 26. Help / Firmware Guide
+
+Capture the relevant Help page section.
+
+I specifically want to verify that the heading now uses:
+
+**SIMULATION & VALIDATION SCOPE**
+
+or equivalent rather than `SAFETY & VALIDATION SCOPE`.
+
+The disclaimer may still explain that the console does not certify safety, prove compliance, or verify optical emission.
+
+### 27. Firmware Developer Mode overview
+
+Capture one representative full screen with Firmware Developer Mode enabled so I can review the overall additional engineering information available to the firmware programmer.
+
+## Screenshot requirements
+
+For every screenshot:
+
+* keep application navigation visible where practical
+* use a readable desktop resolution
+* keep text legible
+* do not shrink a long page excessively
+* if necessary, take a second screenshot of a lower portion
+* use consistent dimensions
+* use realistic simulation data
+* avoid unnecessary browser chrome
+* do not expose credentials, secrets, signing keys, or tokens
+* do not alter the application merely to make a screenshot look better
+
+## File naming
+
+Use sequential names, for example:
+
+`01-dashboard-connected.png`
+`02-control-connected.png`
+`03-control-disconnected.png`
+`04-status-connected.png`
+`05-status-disconnected.png`
+`06-runtime-counter.png`
+`07-runtime-observation.png`
+`08-timer-test-result.png`
+`09-persistence-test-result.png`
+
+Continue sequentially through the full set.
+
+If a screen needs more than one capture:
+
+`06-runtime-counter-top.png`
+`06-runtime-counter-bottom.png`
+
+## Delivery
+
+Place all screenshots into:
+
+`lsn-console-final-approval`
+
+Then create:
+
+`lsn-console-final-approval.zip`
+
+Provide the ZIP for external final review.
+
+Do not make any additional application changes as part of this screenshot task.

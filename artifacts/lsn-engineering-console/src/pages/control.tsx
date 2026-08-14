@@ -9,6 +9,12 @@ export default function Control() {
   const telemetry = useTelemetryState();
 
   const disabled = mode === 'hardware' || connectionState !== 'connected';
+  const disabledReason =
+    mode === 'hardware'
+        ? 'HARDWARE OUTPUT TESTS LOCKED · PROTOCOL MAPPING TBD · AWAITING FIRMWARE IMPLEMENTATION'
+      : connectionState !== 'connected'
+        ? 'CONNECT TO DEVICE TO SEND CONTROL REQUESTS'
+        : null;
 
   // Find most recent control transaction
   const recentControlTx = transactions.find(t => t.relatedAction === 'toggleEnable');
@@ -61,7 +67,7 @@ export default function Control() {
               
               {disabled && (
                 <div className="text-center font-mono text-[10px] text-destructive mt-2">
-                  CONTROLS DISABLED IN CURRENT MODE
+                  {disabledReason}
                 </div>
               )}
             </div>

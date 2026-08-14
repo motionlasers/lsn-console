@@ -95,7 +95,7 @@
       "assembly": null,
       "implementationStatus": "TBD",
       "simulationStatus": "VERIFIED",
-      "expectedFirmwareBehavior": "Report the state of the physical emission-control/interlock output.",
+      "expectedFirmwareBehavior": "Report the current state of the LSN emission-control hardware output.",
       "expectedReportedResponse": "Boolean hardware-control state.",
       "notes": "Never infer optical emission from this value."
     },
