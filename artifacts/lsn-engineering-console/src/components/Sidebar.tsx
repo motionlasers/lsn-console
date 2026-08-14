@@ -122,7 +122,7 @@ export function Sidebar() {
                 isActive 
                   ? "bg-primary/10 text-primary border-l-2 border-primary" 
                   : "text-sidebar-foreground hover:bg-white/5 hover:text-white border-l-2 border-transparent",
-                isTourTarget && "relative z-[110] bg-primary/20 text-primary border-primary shadow-[0_0_0_1px_hsl(var(--primary)),0_0_24px_hsl(var(--primary)/0.35)]"
+                isTourTarget && "relative z-[110] bg-tour-accent/15 text-tour-accent border-tour-accent shadow-[0_0_0_1px_hsl(var(--tour-accent)),0_0_24px_hsl(var(--tour-accent)/0.35)]"
               )}
               data-testid={`link-nav-${item.label.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`}
               data-tour-target={isTourTarget ? "true" : undefined}

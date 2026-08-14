@@ -220,7 +220,7 @@ export function TourOverlay() {
       {targetRect && (
         <div
           className={cn(
-            "fixed z-[101] rounded-sm border-2 border-primary pointer-events-none",
+            "fixed z-[101] rounded-sm border-2 pointer-events-none tour-target-glow",
             !reducedMotion && "tour-target-stroke",
           )}
           style={{
@@ -228,7 +228,6 @@ export function TourOverlay() {
             top: targetRect.top,
             width: targetRect.width,
             height: targetRect.height,
-            boxShadow: "0 0 12px hsl(var(--primary) / 0.45)",
           }}
           data-testid="tour-target-highlight"
           aria-hidden="true"
@@ -244,7 +243,7 @@ export function TourOverlay() {
         data-testid="dialog-firmware-tour"
         data-placement={position.placement}
         className={cn(
-          "fixed z-[102] w-[min(440px,calc(100vw-1.5rem))] max-h-[calc(100vh-1.5rem)] overflow-auto shadow-2xl border-primary/60 bg-card flex flex-col pointer-events-auto",
+          "fixed z-[102] w-[min(440px,calc(100vw-1.5rem))] max-h-[calc(100vh-1.5rem)] overflow-auto shadow-[0_0_40px_hsl(var(--tour-accent)/0.15)] border-tour-accent/40 bg-[#081217] text-foreground ring-1 ring-tour-accent/20 flex flex-col pointer-events-auto",
           !reducedMotion && "transition-[left,top] duration-200",
         )}
         style={{ left: position.x, top: position.y }}
@@ -255,11 +254,11 @@ export function TourOverlay() {
             aria-label="Close guided tour"
             data-testid="button-close-tour"
             onClick={() => endTour(dontShowAgain)}
-            className="absolute top-4 right-4 rounded-sm text-muted-foreground hover:text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+            className="absolute top-4 right-4 rounded-sm text-muted-foreground hover:text-foreground focus:outline-none focus:ring-2 focus:ring-tour-accent"
           >
             <X className="w-4 h-4" />
           </button>
-          <div className="flex items-center gap-2 text-primary text-[10px] font-mono tracking-widest font-bold mb-1 pr-8">
+          <div className="flex items-center gap-2 text-tour-accent text-[10px] font-mono tracking-widest font-bold mb-1 pr-8">
             <Info className="w-4 h-4 shrink-0" />
             PAGE {pageProgress.pageIndex}/{pageProgress.pageCount} · {pageProgress.page.toUpperCase()} · SECTION {pageProgress.stepOnPage}/{pageProgress.stepsOnPage}
           </div>
@@ -287,7 +286,7 @@ export function TourOverlay() {
                 checked={dontShowAgain}
                 onChange={(event) => setDontShowAgain(event.target.checked)}
                 data-testid="checkbox-dont-show-tour"
-                className="w-4 h-4 rounded-sm border border-primary/50 bg-black/20 text-primary focus:ring-primary accent-primary"
+                className="w-4 h-4 rounded-sm border border-tour-accent/50 bg-black/20 text-tour-accent focus:ring-tour-accent accent-tour-accent"
               />
               Don&apos;t show again
             </label>
@@ -301,7 +300,7 @@ export function TourOverlay() {
               <Button
                 size="sm"
                 onClick={() => isLastStep ? finishTour() : nextStep()}
-                className="font-mono text-xs bg-primary text-primary-foreground"
+                className="font-mono text-xs bg-tour-accent text-tour-accent-foreground hover:bg-tour-accent/90"
                 data-testid={isLastStep ? "button-tour-finish" : "button-tour-next"}
               >
                 {isLastStep ? "GO TO DOWNLOADS" : "NEXT"}
@@ -318,7 +317,7 @@ export function TourOverlay() {
             aria-valuenow={currentStep + 1}
           >
             <div
-              className={cn("h-full bg-primary", !reducedMotion && "transition-[width] duration-200")}
+              className={cn("h-full bg-tour-accent", !reducedMotion && "transition-[width] duration-200")}
               style={{ width: `${((currentStep + 1) / TOUR_STEPS.length) * 100}%` }}
             />
           </div>

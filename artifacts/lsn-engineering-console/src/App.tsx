@@ -12,6 +12,7 @@ import {
 } from 'wouter';
 import { useHashLocation } from 'wouter/use-hash-location';
 import { AppLayout } from '@/components/AppLayout';
+import { AuthGate } from '@/components/AuthGate';
 import { getRouterRuntimeConfig } from '@/lib/router';
 
 // Pages
@@ -80,7 +81,9 @@ function App() {
           hook={routerConfig.useHashLocation ? useHashLocation : undefined}
           base={routerConfig.base}
         >
-          <Router />
+          <AuthGate>
+            <Router />
+          </AuthGate>
         </WouterRouter>
         <Toaster />
       </TooltipProvider>

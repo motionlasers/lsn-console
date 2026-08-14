@@ -57,6 +57,9 @@
   --color-sidebar-accent-border: var(--sidebar-accent-border);
   --color-sidebar-ring: hsl(var(--sidebar-ring));
 
+  --color-tour-accent: hsl(var(--tour-accent));
+  --color-tour-accent-foreground: hsl(var(--tour-accent-foreground));
+
   --font-sans: var(--app-font-sans);
   --font-serif: var(--app-font-serif);
   --font-mono: var(--app-font-mono);
@@ -97,6 +100,10 @@
   --popover: 240 6% 9%;
   --popover-foreground: 0 0% 90%;
   --popover-border: 240 5% 18%;
+
+  /* Tour Cyan */
+  --tour-accent: 192 90% 55%;
+  --tour-accent-foreground: 192 10% 10%;
 
   /* Laser Amber */
   --primary: 40 100% 50%;
@@ -179,16 +186,20 @@
 @layer utilities {
   @keyframes tour-stroke {
     0%, 100% {
-      border-color: hsl(var(--primary));
-      filter: drop-shadow(0 0 3px hsl(var(--primary) / 0.9));
+      border-color: hsl(var(--tour-accent) / 0.6);
+      box-shadow: 0 0 8px hsl(var(--tour-accent) / 0.3), inset 0 0 4px hsl(var(--tour-accent) / 0.1);
     }
     50% {
-      border-color: hsl(var(--warning));
-      filter: drop-shadow(0 0 10px hsl(var(--primary) / 0.7));
+      border-color: hsl(var(--tour-accent));
+      box-shadow: 0 0 20px hsl(var(--tour-accent) / 0.8), inset 0 0 8px hsl(var(--tour-accent) / 0.4);
     }
   }
+  .tour-target-glow {
+    border-color: hsl(var(--tour-accent) / 0.8);
+    box-shadow: 0 0 12px hsl(var(--tour-accent) / 0.45);
+  }
   .tour-target-stroke {
-    animation: tour-stroke 1.6s ease-in-out infinite;
+    animation: tour-stroke 2.5s ease-in-out infinite;
   }
   @media (prefers-reduced-motion: reduce) {
     .tour-target-stroke {

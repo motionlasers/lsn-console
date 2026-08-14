@@ -1,16 +1,19 @@
 import { type ReactNode, useEffect, useRef } from "react";
 import { Sidebar } from "@/components/Sidebar";
 import { useStore } from "@/lib/store";
-import { ShieldAlert } from "lucide-react";
+import { ShieldAlert, LogOut, User } from "lucide-react";
 import { useTourStore } from "@/hooks/use-tour";
 import { TourOverlay } from "@/components/TourOverlay";
 import lsnLogo from "@assets/LSN-Industrial-transparent_1786661922957.png";
 import { LiveTelemetryBadge, useTelemetryState } from "@/components/TelemetryState";
+import { useAuth } from "@/contexts/AuthContext";
+import { Button } from "@/components/ui/button";
 
 export function AppLayout({ children }: { children: ReactNode }) {
   const { logicalState, hardwareUnlocked, mode, tick, settings } = useStore();
   const telemetry = useTelemetryState();
   const { hasSeenTour, isTourActive, startTour } = useTourStore();
+  const { user, logout } = useAuth();
   const tourMounted = useRef(false);
   const applicationShellRef = useRef<HTMLDivElement>(null);
 
@@ -44,15 +47,15 @@ export function AppLayout({ children }: { children: ReactNode }) {
     };
   }, [isTourActive]);
 
+  const handleLogout = async () => {
+    await logout();
+  };
+
   return (
     <div className="h-screen w-full bg-background text-foreground overflow-hidden font-sans">
       <div ref={applicationShellRef} className="flex h-full w-full">
         <Sidebar />
         <div className="flex-1 flex flex-col min-w-0 relative">
-        {/* Top Status Bar */}
-        <div className="bg-warning/10 text-warning border-b border-warning/20 px-4 py-1.5 text-[10px] font-mono flex items-center justify-center tracking-widest text-center uppercase font-bold shrink-0">
-          DISCLAIMER: SIMULATION EVIDENCE IS NOT PHYSICAL VALIDATION. ALL HARDWARE MODES AWAITING FIRMWARE IMPLEMENTATION.
-        </div>
         <div className="h-12 border-b border-border bg-card flex items-center justify-between px-6 shrink-0 z-10">
           <div className="flex items-center gap-4">
             <h1 className="text-sm font-bold tracking-wider uppercase text-foreground/80 font-mono">
@@ -64,7 +67,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
                </span>
             )}
           </div>
-          <div className="flex items-center gap-4 text-xs font-mono">
+          <div className="flex items-center gap-3 text-xs font-mono">
             <LiveTelemetryBadge />
             {telemetry.isLive && logicalState.faulted && (
               <div className="flex items-center gap-2 text-destructive bg-destructive/10 px-3 py-1 rounded-sm border border-destructive/20 animate-pulse">
@@ -76,6 +79,29 @@ export function AppLayout({ children }: { children: ReactNode }) {
               <div className="flex items-center gap-2 text-primary bg-primary/10 px-3 py-1 rounded-sm border border-primary/20">
                 <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
                 <span>EMISSION CONTROL OUTPUT ACTIVE</span>
+              </div>
+            )}
+            {/* User identity + logout */}
+            {user && (
+              <div className="flex items-center gap-2 border-l border-border/50 pl-3">
+                <User className="w-3 h-3 text-muted-foreground" />
+                <span className="text-muted-foreground text-[11px] font-mono tracking-wider">
+                  {user.username}
+                  {user.isAdmin && (
+                    <span className="ml-1 text-amber-500/70">[ADMIN]</span>
+                  )}
+                </span>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-6 w-6 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                  onClick={handleLogout}
+                  title="Sign out"
+                  aria-label="Sign out"
+                  data-testid="button-logout"
+                >
+                  <LogOut className="h-3.5 w-3.5" />
+                </Button>
               </div>
             )}
           </div>

@@ -7,15 +7,395 @@ import {
   visibleLogicalState,
 } from "@/lib/store";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Settings, RefreshCw, Download, Upload, Play } from "lucide-react";
+import { Settings, RefreshCw, Download, Upload, Play, KeyRound, Users, Trash2, ShieldCheck, Plus, Eye, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { downloadFile } from "@/lib/exports";
-import { useRef } from "react";
+import { useRef, useState, type FormEvent } from "react";
 import { useTourStore } from "@/hooks/use-tour";
+import { useAuth } from "@/contexts/AuthContext";
+import { authApi, adminApi, type AdminUser } from "@/lib/auth-api";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
+// ─── Change Password Card ─────────────────────────────────────────────────────
+function ChangePasswordCard() {
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirm, setConfirm] = useState("");
+  const [showCurrent, setShowCurrent] = useState(false);
+  const [showNew, setShowNew] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+
+  const handleSubmit = async (e: FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    setSuccess(false);
+    if (newPassword.length < 8) {
+      setError("New password must be at least 8 characters.");
+      return;
+    }
+    if (newPassword !== confirm) {
+      setError("Passwords do not match.");
+      return;
+    }
+    setSubmitting(true);
+    const result = await authApi.changePassword(currentPassword, newPassword);
+    setSubmitting(false);
+    if (!result.ok) {
+      setError(result.error);
+      return;
+    }
+    setSuccess(true);
+    setCurrentPassword("");
+    setNewPassword("");
+    setConfirm("");
+  };
+
+  return (
+    <Card className="max-w-2xl border-border bg-card/50 backdrop-blur">
+      <CardHeader className="border-b border-border/50 bg-black/20 pb-4">
+        <CardTitle className="text-sm font-mono tracking-widest text-primary flex items-center gap-2">
+          <KeyRound className="w-4 h-4" />
+          Change Password
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="pt-6">
+        <form onSubmit={handleSubmit} className="space-y-4">
+          {error && (
+            <div role="alert" className="border border-destructive/30 bg-destructive/10 px-3 py-2 text-[11px] font-mono text-destructive">
+              {error}
+            </div>
+          )}
+          {success && (
+            <div role="status" className="border border-success/30 bg-success/10 px-3 py-2 text-[11px] font-mono text-success">
+              Password changed successfully.
+            </div>
+          )}
+
+          <div className="space-y-1">
+            <label className="block text-xs font-mono text-muted-foreground uppercase tracking-widest">
+              Current Password
+            </label>
+            <div className="relative">
+              <input
+                type={showCurrent ? "text" : "password"}
+                value={currentPassword}
+                onChange={(e) => setCurrentPassword(e.target.value)}
+                required
+                autoComplete="current-password"
+                className="w-full bg-black/40 border border-border text-foreground font-mono text-sm px-3 py-2 pr-10 focus:outline-none focus:border-primary/60 focus:ring-1 focus:ring-primary/30"
+              />
+              <button
+                type="button"
+                onClick={() => setShowCurrent((v) => !v)}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                aria-label={showCurrent ? "Hide password" : "Show password"}
+              >
+                {showCurrent ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+              </button>
+            </div>
+          </div>
+
+          <div className="space-y-1">
+            <label className="block text-xs font-mono text-muted-foreground uppercase tracking-widest">
+              New Password
+            </label>
+            <div className="relative">
+              <input
+                type={showNew ? "text" : "password"}
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                required
+                minLength={8}
+                autoComplete="new-password"
+                className="w-full bg-black/40 border border-border text-foreground font-mono text-sm px-3 py-2 pr-10 focus:outline-none focus:border-primary/60 focus:ring-1 focus:ring-primary/30"
+              />
+              <button
+                type="button"
+                onClick={() => setShowNew((v) => !v)}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                aria-label={showNew ? "Hide password" : "Show password"}
+              >
+                {showNew ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+              </button>
+            </div>
+            <div className="text-[10px] font-mono text-muted-foreground">Minimum 8 characters</div>
+          </div>
+
+          <div className="space-y-1">
+            <label className="block text-xs font-mono text-muted-foreground uppercase tracking-widest">
+              Confirm New Password
+            </label>
+            <input
+              type="password"
+              value={confirm}
+              onChange={(e) => setConfirm(e.target.value)}
+              required
+              autoComplete="new-password"
+              className="w-full bg-black/40 border border-border text-foreground font-mono text-sm px-3 py-2 focus:outline-none focus:border-primary/60 focus:ring-1 focus:ring-primary/30"
+            />
+          </div>
+
+          <div className="flex justify-end pt-2">
+            <Button
+              type="submit"
+              disabled={submitting}
+              className="font-mono text-xs tracking-widest"
+            >
+              {submitting ? "UPDATING…" : "UPDATE PASSWORD"}
+            </Button>
+          </div>
+        </form>
+      </CardContent>
+    </Card>
+  );
+}
+
+// ─── Admin user management card ───────────────────────────────────────────────
+function AdminUsersCard() {
+  const { user: selfUser } = useAuth();
+  const qc = useQueryClient();
+  const [newUsername, setNewUsername] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [newIsAdmin, setNewIsAdmin] = useState(false);
+  const [createError, setCreateError] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editPassword, setEditPassword] = useState("");
+  const [editError, setEditError] = useState<string | null>(null);
+
+  const { data: users = [], isLoading } = useQuery({
+    queryKey: ["admin-users"],
+    queryFn: async () => {
+      const result = await adminApi.listUsers();
+      if (!result.ok) throw new Error(result.error);
+      return result.data;
+    },
+  });
+
+  const createMutation = useMutation({
+    mutationFn: (args: { username: string; password: string; isAdmin: boolean }) =>
+      adminApi.createUser(args.username, args.password, args.isAdmin),
+    onSuccess: (result) => {
+      if (!result.ok) { setCreateError(result.error); return; }
+      setCreateError(null);
+      setNewUsername("");
+      setNewPassword("");
+      setNewIsAdmin(false);
+      void qc.invalidateQueries({ queryKey: ["admin-users"] });
+    },
+    onError: (err) => setCreateError(String(err)),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: number) => adminApi.deleteUser(id),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ["admin-users"] }),
+  });
+
+  const editPasswordMutation = useMutation({
+    mutationFn: (args: { id: number; password: string }) =>
+      adminApi.updateUser(args.id, { password: args.password }),
+    onSuccess: (result) => {
+      if (!result.ok) { setEditError(result.error); return; }
+      setEditingId(null);
+      setEditPassword("");
+      setEditError(null);
+      void qc.invalidateQueries({ queryKey: ["admin-users"] });
+    },
+    onError: (err) => setEditError(String(err)),
+  });
+
+  const toggleAdminMutation = useMutation({
+    mutationFn: (args: { id: number; isAdmin: boolean }) =>
+      adminApi.updateUser(args.id, { isAdmin: args.isAdmin }),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ["admin-users"] }),
+  });
+
+  const handleCreate = (e: FormEvent) => {
+    e.preventDefault();
+    setCreateError(null);
+    if (newUsername.trim().length < 2) { setCreateError("Username must be at least 2 characters."); return; }
+    if (newPassword.length < 8) { setCreateError("Password must be at least 8 characters."); return; }
+    createMutation.mutate({ username: newUsername.trim(), password: newPassword, isAdmin: newIsAdmin });
+  };
+
+  const handleEditPassword = (e: FormEvent) => {
+    e.preventDefault();
+    if (!editingId) return;
+    setEditError(null);
+    if (editPassword.length < 8) { setEditError("Password must be at least 8 characters."); return; }
+    editPasswordMutation.mutate({ id: editingId, password: editPassword });
+  };
+
+  return (
+    <Card className="max-w-2xl border-border bg-card/50 backdrop-blur">
+      <CardHeader className="border-b border-border/50 bg-black/20 pb-4">
+        <CardTitle className="text-sm font-mono tracking-widest text-primary flex items-center gap-2">
+          <Users className="w-4 h-4" />
+          User Management
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="pt-6 space-y-6">
+
+        {/* User list */}
+        <div className="space-y-2">
+          <div className="text-xs font-mono text-muted-foreground uppercase tracking-widest mb-3">Accounts</div>
+          {isLoading && (
+            <div className="text-[11px] font-mono text-muted-foreground animate-pulse">Loading…</div>
+          )}
+          {users.map((u: AdminUser) => (
+            <div key={u.id} className="border border-border/50 bg-background/30 p-3 space-y-2">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="text-sm font-mono text-foreground truncate">{u.username}</span>
+                  {u.isAdmin && (
+                    <span className="text-[9px] font-mono text-amber-500 border border-amber-500/30 px-1.5 py-0.5 uppercase tracking-widest">
+                      ADMIN
+                    </span>
+                  )}
+                  {u.forcePasswordChange && (
+                    <span className="text-[9px] font-mono text-warning border border-warning/30 px-1.5 py-0.5 uppercase tracking-widest">
+                      PWD RESET
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center gap-1 shrink-0">
+                  {/* Toggle admin (not self) */}
+                  {u.id !== selfUser?.userId && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className={`font-mono text-[10px] h-7 px-2 ${u.isAdmin ? 'text-amber-500 hover:text-muted-foreground' : 'text-muted-foreground hover:text-amber-500'}`}
+                      onClick={() => toggleAdminMutation.mutate({ id: u.id, isAdmin: !u.isAdmin })}
+                      title={u.isAdmin ? "Remove admin" : "Make admin"}
+                    >
+                      <ShieldCheck className="w-3 h-3" />
+                    </Button>
+                  )}
+                  {/* Edit password */}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="font-mono text-[10px] h-7 px-2 text-muted-foreground hover:text-primary"
+                    onClick={() => {
+                      setEditingId(editingId === u.id ? null : u.id);
+                      setEditPassword("");
+                      setEditError(null);
+                    }}
+                    title="Reset password"
+                  >
+                    <KeyRound className="w-3 h-3" />
+                  </Button>
+                  {/* Delete (not self) */}
+                  {u.id !== selfUser?.userId && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="font-mono text-[10px] h-7 px-2 text-muted-foreground hover:text-destructive"
+                      onClick={() => deleteMutation.mutate(u.id)}
+                      title="Delete user"
+                    >
+                      <Trash2 className="w-3 h-3" />
+                    </Button>
+                  )}
+                </div>
+              </div>
+
+              {/* Inline password edit */}
+              {editingId === u.id && (
+                <form onSubmit={handleEditPassword} className="flex gap-2 pt-1">
+                  {editError && (
+                    <div className="text-[10px] font-mono text-destructive mb-1">{editError}</div>
+                  )}
+                  <input
+                    type="password"
+                    value={editPassword}
+                    onChange={(e) => setEditPassword(e.target.value)}
+                    placeholder="New password (min 8)"
+                    minLength={8}
+                    required
+                    autoFocus
+                    className="flex-1 bg-black/40 border border-border text-foreground font-mono text-xs px-2 py-1.5 focus:outline-none focus:border-primary/60 focus:ring-1 focus:ring-primary/30"
+                  />
+                  <Button type="submit" size="sm" className="font-mono text-[10px] h-7">SET</Button>
+                  <Button type="button" variant="ghost" size="sm" className="font-mono text-[10px] h-7" onClick={() => { setEditingId(null); setEditError(null); }}>
+                    CANCEL
+                  </Button>
+                </form>
+              )}
+            </div>
+          ))}
+        </div>
+
+        {/* Create user form */}
+        <div className="border-t border-border/50 pt-6">
+          <div className="text-xs font-mono text-muted-foreground uppercase tracking-widest mb-3">Add User</div>
+          <form onSubmit={handleCreate} className="space-y-3">
+            {createError && (
+              <div role="alert" className="border border-destructive/30 bg-destructive/10 px-3 py-2 text-[11px] font-mono text-destructive">
+                {createError}
+              </div>
+            )}
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="block text-[10px] font-mono text-muted-foreground uppercase tracking-widest mb-1">
+                  Username
+                </label>
+                <input
+                  type="text"
+                  value={newUsername}
+                  onChange={(e) => setNewUsername(e.target.value)}
+                  placeholder="username"
+                  className="w-full bg-black/40 border border-border text-foreground font-mono text-xs px-3 py-2 focus:outline-none focus:border-primary/60 focus:ring-1 focus:ring-primary/30"
+                />
+              </div>
+              <div>
+                <label className="block text-[10px] font-mono text-muted-foreground uppercase tracking-widest mb-1">
+                  Initial Password
+                </label>
+                <input
+                  type="password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  placeholder="min 8 chars"
+                  className="w-full bg-black/40 border border-border text-foreground font-mono text-xs px-3 py-2 focus:outline-none focus:border-primary/60 focus:ring-1 focus:ring-primary/30"
+                />
+              </div>
+            </div>
+            <div className="flex items-center justify-between">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={newIsAdmin}
+                  onChange={(e) => setNewIsAdmin(e.target.checked)}
+                  className="accent-amber-500"
+                />
+                <span className="text-[11px] font-mono text-muted-foreground">Admin privileges</span>
+              </label>
+              <Button
+                type="submit"
+                disabled={createMutation.isPending}
+                className="font-mono text-xs h-8"
+              >
+                <Plus className="w-3 h-3 mr-1" />
+                {createMutation.isPending ? "CREATING…" : "CREATE USER"}
+              </Button>
+            </div>
+            <div className="text-[10px] font-mono text-muted-foreground">
+              New users will be prompted to change their password on first login.
+            </div>
+          </form>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+// ─── Main settings page ───────────────────────────────────────────────────────
 export default function SettingsPage() {
   const { settings, logicalState, updateSettings, updateLogicalState, resetSettings, importState } = useStore();
   const { startTour } = useTourStore();
+  const { user } = useAuth();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const selectedBrandLogo = settings.brandLogo ?? 'sia';
 
@@ -57,141 +437,149 @@ export default function SettingsPage() {
   };
 
   return (
-    <Card data-tour="settings-overview" className="max-w-2xl border-border bg-card/50 backdrop-blur">
-      <CardHeader className="border-b border-border/50 bg-black/20 pb-4">
-        <CardTitle className="text-sm font-mono tracking-widest text-primary flex items-center gap-2">
-          <Settings className="w-4 h-4" />
-          Console Configuration
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="pt-6 space-y-6">
-        
-        <div data-tour="settings-preferences" className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <div className="text-sm font-mono text-foreground">Navigation Brand</div>
-              <div className="text-xs font-mono text-muted-foreground">Choose the logo shown at the top of the navigation bar</div>
-            </div>
-            <div className="flex rounded-sm border border-border p-1" role="group" aria-label="Navigation brand">
-              {([
-                ['sia', 'SIA'],
-                ['bls', 'BLS'],
-              ] as const).map(([value, label]) => (
-                <Button
-                  key={value}
-                  variant="ghost"
-                  size="sm"
-                  className={`h-7 px-3 font-mono text-xs ${
-                    selectedBrandLogo === value
-                      ? 'bg-primary/20 text-primary hover:bg-primary/20 hover:text-primary'
-                      : 'text-muted-foreground hover:text-foreground'
-                  }`}
-                  onClick={() => updateSettings({ brandLogo: value })}
-                  aria-pressed={selectedBrandLogo === value}
-                  data-testid={`button-brand-${value}`}
-                >
-                  {label}
-                </Button>
-              ))}
-            </div>
-          </div>
-
-          <div className="flex items-center justify-between border-t border-border/50 pt-4">
-            <div>
-              <div className="text-sm font-mono text-foreground">Developer Mode</div>
-              <div className="text-xs font-mono text-muted-foreground">Expose raw diagnostic tools and edit profile spec</div>
-            </div>
-            <Button 
-              variant="outline" 
-              className={`font-mono text-xs border ${settings.devMode ? 'border-primary text-primary' : 'border-border text-muted-foreground'}`}
-              onClick={() => updateSettings({ devMode: !settings.devMode })}
-            >
-              {settings.devMode ? 'ENABLED' : 'DISABLED'}
-            </Button>
-          </div>
-
-          <div className="flex items-center justify-between border-t border-border/50 pt-4">
-            <div>
-              <div className="text-sm font-mono text-foreground">Local Persistence</div>
-              <div className="text-xs font-mono text-muted-foreground">Save console state and logs to browser storage</div>
-            </div>
-            <Button 
-              variant="outline" 
-              className={`font-mono text-xs border ${settings.localPersistence ? 'border-primary text-primary' : 'border-border text-muted-foreground'}`}
-              onClick={() => updateSettings({ localPersistence: !settings.localPersistence })}
-            >
-              {settings.localPersistence ? 'ENABLED' : 'DISABLED'}
-            </Button>
-          </div>
-
-          <div data-tour="settings-tour" className="flex items-center justify-between border-t border-border/50 pt-4">
-            <div>
-              <div className="text-sm font-mono text-foreground">First-Launch Tour</div>
-              <div className="text-xs font-mono text-muted-foreground">Replay the guided console overview</div>
-            </div>
-            <Button 
-              variant="outline" 
-              className="font-mono text-xs border-border text-foreground hover:text-primary hover:border-primary/50"
-              onClick={() => startTour()}
-              data-testid="button-settings-replay-tour"
-            >
-              <Play className="w-3 h-3 mr-2" /> REPLAY TOUR
-            </Button>
-          </div>
+    <div className="space-y-6">
+      <Card data-tour="settings-overview" className="max-w-2xl border-border bg-card/50 backdrop-blur">
+        <CardHeader className="border-b border-border/50 bg-black/20 pb-4">
+          <CardTitle className="text-sm font-mono tracking-widest text-primary flex items-center gap-2">
+            <Settings className="w-4 h-4" />
+            Console Configuration
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="pt-6 space-y-6">
           
-          <div className="flex flex-col gap-2 border-t border-border/50 pt-4">
-            <div className="text-sm font-mono text-foreground">Simulation Timing Profile</div>
-            <div className="text-xs font-mono text-muted-foreground mb-2">Adjust artificial latency for simulation responses</div>
-            <div className="flex gap-2">
-              {[10, 50, 100, 500].map(val => (
-                 <Button 
-                   key={val}
-                   variant="outline"
-                   className={`flex-1 font-mono text-xs ${settings.simulatorTiming === val ? 'bg-primary/20 border-primary text-primary' : 'border-border text-muted-foreground'}`}
-                   onClick={() => updateSettings({ simulatorTiming: val })}
-                 >
-                   {val}ms
-                 </Button>
-              ))}
+          <div data-tour="settings-preferences" className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-sm font-mono text-foreground">Navigation Brand</div>
+                <div className="text-xs font-mono text-muted-foreground">Choose the logo shown at the top of the navigation bar</div>
+              </div>
+              <div className="flex rounded-sm border border-border p-1" role="group" aria-label="Navigation brand">
+                {([
+                  ['sia', 'SIA'],
+                  ['bls', 'BLS'],
+                ] as const).map(([value, label]) => (
+                  <Button
+                    key={value}
+                    variant="ghost"
+                    size="sm"
+                    className={`h-7 px-3 font-mono text-xs ${
+                      selectedBrandLogo === value
+                        ? 'bg-primary/20 text-primary hover:bg-primary/20 hover:text-primary'
+                        : 'text-muted-foreground hover:text-foreground'
+                    }`}
+                    onClick={() => updateSettings({ brandLogo: value })}
+                    aria-pressed={selectedBrandLogo === value}
+                    data-testid={`button-brand-${value}`}
+                  >
+                    {label}
+                  </Button>
+                ))}
+              </div>
             </div>
-          </div>
 
-          <div className="flex flex-col gap-3 border-t border-border/50 pt-4">
-            <div className="text-sm font-mono text-foreground">Simulation Fault Controls</div>
-            <div className="grid grid-cols-2 gap-2">
-              <Button variant="outline" className={`font-mono text-xs ${logicalState.commsLoss ? 'border-destructive text-destructive' : 'border-border'}`} onClick={() => updateLogicalState({ commsLoss: !logicalState.commsLoss })}>
-                COMMUNICATION {logicalState.commsLoss ? 'LOST' : 'NORMAL'}
-              </Button>
-              <Button variant="outline" className={`font-mono text-xs ${logicalState.storageFailure ? 'border-destructive text-destructive' : 'border-border'}`} onClick={() => updateLogicalState({ storageFailure: !logicalState.storageFailure })}>
-                STORAGE {logicalState.storageFailure ? 'FAILED' : 'NORMAL'}
+            <div className="flex items-center justify-between border-t border-border/50 pt-4">
+              <div>
+                <div className="text-sm font-mono text-foreground">Developer Mode</div>
+                <div className="text-xs font-mono text-muted-foreground">Expose raw diagnostic tools and edit profile spec</div>
+              </div>
+              <Button 
+                variant="outline" 
+                className={`font-mono text-xs border ${settings.devMode ? 'border-primary text-primary' : 'border-border text-muted-foreground'}`}
+                onClick={() => updateSettings({ devMode: !settings.devMode })}
+              >
+                {settings.devMode ? 'ENABLED' : 'DISABLED'}
               </Button>
             </div>
-            <div className="text-xs font-mono text-muted-foreground">Dropped response simulation</div>
-            <div className="grid grid-cols-3 gap-2">
-              {[0, 25, 100].map(rate => (
-                <Button key={rate} variant="outline" className={`font-mono text-xs ${settings.droppedResponseRate === rate ? 'border-primary text-primary' : 'border-border'}`} onClick={() => updateSettings({ droppedResponseRate: rate })}>
-                  {rate}%
+
+            <div className="flex items-center justify-between border-t border-border/50 pt-4">
+              <div>
+                <div className="text-sm font-mono text-foreground">Local Persistence</div>
+                <div className="text-xs font-mono text-muted-foreground">Save console state and logs to browser storage</div>
+              </div>
+              <Button 
+                variant="outline" 
+                className={`font-mono text-xs border ${settings.localPersistence ? 'border-primary text-primary' : 'border-border text-muted-foreground'}`}
+                onClick={() => updateSettings({ localPersistence: !settings.localPersistence })}
+              >
+                {settings.localPersistence ? 'ENABLED' : 'DISABLED'}
+              </Button>
+            </div>
+
+            <div data-tour="settings-tour" className="flex items-center justify-between border-t border-border/50 pt-4">
+              <div>
+                <div className="text-sm font-mono text-foreground">First-Launch Tour</div>
+                <div className="text-xs font-mono text-muted-foreground">Replay the guided console overview</div>
+              </div>
+              <Button 
+                variant="outline" 
+                className="font-mono text-xs border-border text-foreground hover:text-primary hover:border-primary/50"
+                onClick={() => startTour()}
+                data-testid="button-settings-replay-tour"
+              >
+                <Play className="w-3 h-3 mr-2" /> REPLAY TOUR
+              </Button>
+            </div>
+            
+            <div className="flex flex-col gap-2 border-t border-border/50 pt-4">
+              <div className="text-sm font-mono text-foreground">Simulation Timing Profile</div>
+              <div className="text-xs font-mono text-muted-foreground mb-2">Adjust artificial latency for simulation responses</div>
+              <div className="flex gap-2">
+                {[10, 50, 100, 500].map(val => (
+                   <Button 
+                     key={val}
+                     variant="outline"
+                     className={`flex-1 font-mono text-xs ${settings.simulatorTiming === val ? 'bg-primary/20 border-primary text-primary' : 'border-border text-muted-foreground'}`}
+                     onClick={() => updateSettings({ simulatorTiming: val })}
+                   >
+                     {val}ms
+                   </Button>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-3 border-t border-border/50 pt-4">
+              <div className="text-sm font-mono text-foreground">Simulation Fault Controls</div>
+              <div className="grid grid-cols-2 gap-2">
+                <Button variant="outline" className={`font-mono text-xs ${logicalState.commsLoss ? 'border-destructive text-destructive' : 'border-border'}`} onClick={() => updateLogicalState({ commsLoss: !logicalState.commsLoss })}>
+                  COMMUNICATION {logicalState.commsLoss ? 'LOST' : 'NORMAL'}
                 </Button>
-              ))}
+                <Button variant="outline" className={`font-mono text-xs ${logicalState.storageFailure ? 'border-destructive text-destructive' : 'border-border'}`} onClick={() => updateLogicalState({ storageFailure: !logicalState.storageFailure })}>
+                  STORAGE {logicalState.storageFailure ? 'FAILED' : 'NORMAL'}
+                </Button>
+              </div>
+              <div className="text-xs font-mono text-muted-foreground">Dropped response simulation</div>
+              <div className="grid grid-cols-3 gap-2">
+                {[0, 25, 100].map(rate => (
+                  <Button key={rate} variant="outline" className={`font-mono text-xs ${settings.droppedResponseRate === rate ? 'border-primary text-primary' : 'border-border'}`} onClick={() => updateSettings({ droppedResponseRate: rate })}>
+                    {rate}%
+                  </Button>
+                ))}
+              </div>
             </div>
           </div>
-        </div>
 
-        <div className="pt-6 border-t border-border/50 flex justify-between">
-          <div className="flex gap-2">
-             <input type="file" ref={fileInputRef} className="hidden" accept=".json" onChange={handleFileChange} />
-             <Button variant="outline" className="font-mono text-xs text-muted-foreground border-border hover:bg-white/10" onClick={handleImportClick}>
-               <Upload className="w-3 h-3 mr-2" /> IMPORT STATE
-             </Button>
-             <Button variant="outline" className="font-mono text-xs text-muted-foreground border-border hover:bg-white/10" onClick={handleExportState}>
-               <Download className="w-3 h-3 mr-2" /> EXPORT STATE
-             </Button>
+          <div className="pt-6 border-t border-border/50 flex justify-between">
+            <div className="flex gap-2">
+               <input type="file" ref={fileInputRef} className="hidden" accept=".json" onChange={handleFileChange} />
+               <Button variant="outline" className="font-mono text-xs text-muted-foreground border-border hover:bg-white/10" onClick={handleImportClick}>
+                 <Upload className="w-3 h-3 mr-2" /> IMPORT STATE
+               </Button>
+               <Button variant="outline" className="font-mono text-xs text-muted-foreground border-border hover:bg-white/10" onClick={handleExportState}>
+                 <Download className="w-3 h-3 mr-2" /> EXPORT STATE
+               </Button>
+            </div>
+            <Button variant="outline" className="font-mono text-xs text-destructive border-destructive/50 hover:bg-destructive hover:text-white" onClick={resetSettings}>
+              <RefreshCw className="w-3 h-3 mr-2" /> RESET DEFAULTS
+            </Button>
           </div>
-          <Button variant="outline" className="font-mono text-xs text-destructive border-destructive/50 hover:bg-destructive hover:text-white" onClick={resetSettings}>
-            <RefreshCw className="w-3 h-3 mr-2" /> RESET DEFAULTS
-          </Button>
-        </div>
-      </CardContent>
-    </Card>
+        </CardContent>
+      </Card>
+
+      {/* Change Password — visible to all authenticated users */}
+      <ChangePasswordCard />
+
+      {/* User Management — admin only */}
+      {user?.isAdmin && <AdminUsersCard />}
+    </div>
   );
 }
