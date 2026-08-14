@@ -1,0 +1,494 @@
+Please build the first **Windows Development Preview** of the LSN Engineering Console from the existing web application and connect it to the new **Downloads** area.
+
+The goal is to get the firmware engineer using the same Console locally as soon as possible so he can review the workflow, suggest changes, and begin real WT32-ETH01 integration while the web simulator and desktop application continue evolving in parallel.
+
+This is an early engineering build, not a production release.
+
+# 1. Preserve One Shared Codebase
+
+The Windows application and web application must remain two deployment targets of the same LSN Engineering Console codebase.
+
+Do NOT create or maintain a second independent Windows UI.
+
+Reuse the existing:
+
+* React components
+* navigation
+* styling
+* guided tour
+* password/auth experience where appropriate
+* Simulation Mode
+* Device Profiles
+* firmware-facing interface specification
+* Firmware Integration Package generator
+* automated tests
+* runtime/timer workflows
+* Protocol Inspector
+* stress testing
+* firmware update simulation
+* modules
+* logs/reports
+* Help / Firmware Guide
+* Downloads content
+* Firmware Developer Mode
+
+Changes to shared UI, Device Profiles, simulator behavior, test definitions, expected behavior, documentation, and modules should benefit both web and desktop versions automatically.
+
+Conceptually:
+
+```text
+Shared LSN Engineering Console
+        |
+        +-- Web build
+        |     Simulation / documentation / downloads
+        |
+        +-- Windows Electron build
+              Simulation
+              +
+              future real Hardware Mode
+              local Ethernet access
+              local firmware maintenance
+```
+
+# 2. Use Electron
+
+Package the existing application as a native Windows desktop application using Electron.
+
+Use:
+
+* Electron
+* existing React/TypeScript frontend
+* Electron Forge for packaging
+
+Do not switch this project to Tauri unless there is a critical technical blocker that must first be explained.
+
+The architecture already assumes Node/Electron main-process networking for future EtherNet/IP and local firmware update transports.
+
+# 3. Desktop Security Architecture
+
+Use appropriate Electron security practices:
+
+* `contextIsolation: true`
+* `nodeIntegration: false` in the renderer
+* narrow typed preload API
+* local Ethernet/network operations belong in the Electron main process
+* renderer communicates through typed IPC/preload interfaces
+* no unnecessary direct filesystem or OS access from the renderer
+
+Do not expose unrestricted Node APIs to the UI.
+
+# 4. Keep Simulation Mode Fully Functional
+
+The first Windows Development Preview must immediately support the same Simulation Mode already available in the web application.
+
+The firmware engineer should be able to:
+
+* launch the Windows app
+* take/replay the guided tour
+* discover `LSN-SIM-001`
+* connect/disconnect
+* use Control
+* inspect Status
+* run Runtime Observation
+* run Timer Test
+* run Persistence Test
+* run Automated Validation
+* run Stress Tests
+* inspect protocol transactions
+* review Device Profile
+* enable Firmware Developer Mode
+* generate the Firmware Integration Package
+* simulate firmware updates and rollback
+* export logs/reports/support bundles
+
+Do not delay the desktop build until physical EtherNet/IP communication is complete.
+
+# 5. Hardware Mode Architecture
+
+Add/retain the desktop-only architecture required for future real WT32-ETH01 access.
+
+Create typed replaceable adapters such as conceptually:
+
+```text
+ControlTransport
+    |
+    +-- SimulationTransport
+    |
+    +-- EtherNetIPHardwareTransport
+```
+
+and:
+
+```text
+FirmwareTransport
+    |
+    +-- SimulationFirmwareTransport
+    |
+    +-- LocalEthernetFirmwareTransport
+```
+
+The actual names may follow current code conventions.
+
+For this Development Preview, Hardware Mode may remain incomplete where the real firmware and CIP mappings do not yet exist.
+
+Clearly show appropriate states such as:
+
+* AWAITING FIRMWARE IMPLEMENTATION
+* PROTOCOL MAPPING TBD
+* HARDWARE VALIDATION REQUIRED
+* MAINTENANCE ENDPOINT NOT YET IMPLEMENTED
+
+Do not fake communication with physical hardware.
+
+# 6. Prepare Real Local Ethernet Access
+
+The Windows app must be structurally capable of direct communication with devices on the local LAN.
+
+The future real transport will communicate with the WT32-ETH01 through its built-in Ethernet connection.
+
+Ensure the desktop architecture can support:
+
+* UDP EtherNet/IP discovery / ListIdentity
+* TCP EtherNet/IP session communication
+* CIP explicit messaging
+* future connected/implicit I/O
+* device timeouts/reconnect
+* raw TX/RX capture
+* local firmware update transport
+* rediscovery after device reboot
+
+These do not all need to be fully operational in this preview if real firmware mappings/endpoints do not yet exist.
+
+# 7. Development Preview Naming
+
+Use a clear development label.
+
+Suggested application display name:
+
+**LSN Engineering Console**
+
+Suggested release label:
+
+**v0.1.0 Development Preview**
+
+Suggested installer:
+
+`LSN-Engineering-Console-Setup-0.1.0-dev.exe`
+
+or another consistent development-preview filename.
+
+If the project already has a version convention, use that consistently.
+
+Inside the application, clearly indicate:
+
+**DEVELOPMENT PREVIEW**
+
+Do not imply this is the final production release.
+
+# 8. Windows Installer
+
+Create an easy normal Windows installation experience.
+
+The firmware engineer should NOT need:
+
+* Replit
+* Node.js
+* npm
+* Python
+* Git
+* a command prompt
+* source code
+
+Target:
+
+**Download installer → run installer → open Console**
+
+Also create a portable ZIP build if practical.
+
+# 9. Build Pipeline
+
+Configure and actually run a Windows build pipeline.
+
+Use a Windows GitHub Actions runner if required.
+
+The build workflow should:
+
+1. check out source
+2. install dependencies
+3. run lint
+4. run TypeScript checks
+5. run automated tests
+6. run simulator tests
+7. build the web/shared frontend
+8. build Electron
+9. package the Windows application
+10. upload the installer artifact
+11. optionally upload the portable ZIP
+12. support future tagged/versioned releases
+
+Do not stop after only creating the workflow configuration.
+
+Actually produce the Windows installer artifact.
+
+# 10. Verify the Desktop Build
+
+Before making the installer available, verify as much as practical that the packaged app:
+
+* launches successfully
+* shows the same approved UI as the web version
+* loads Simulation Mode
+* discovers `LSN-SIM-001`
+* connects to the simulator
+* Dashboard works
+* Control works
+* Status works
+* Runtime Counter works
+* Timer Test works
+* Persistence Test works
+* Protocol Inspector works
+* Automated Tests work
+* Stress Testing works
+* Firmware page works
+* Device Profile works
+* Firmware Integration Package export works
+* Logs & Reports work
+* Help/Tour work
+* Firmware Developer Mode works
+* Downloads area works
+* does not require separate Node/Python installation
+
+Do not change UI behavior merely for desktop packaging unless a desktop-specific behavior is required.
+
+# 11. Desktop-Specific UI Differences
+
+Keep visual differences minimal.
+
+The Windows application should look essentially identical to the web application.
+
+Desktop-specific additions may include:
+
+* native file selection
+* native save/export dialogs
+* a Desktop / Hardware Mode indicator
+* local-network interface selection if needed later
+* application About/version information
+* desktop update/download information
+
+Do not redesign the navigation or primary workflows.
+
+# 12. Downloads Page: Windows Console
+
+Update the existing web-app **Downloads** page.
+
+The primary Windows card should now show the actual Development Preview.
+
+Example:
+
+**LSN Engineering Console for Windows**
+
+Version:
+`v0.1.0 Development Preview`
+
+Platform:
+`Windows`
+
+Target Hardware:
+`WT32-ETH01 / ESP32`
+
+Description:
+
+> Local desktop version of the LSN Engineering Console for Simulation Mode today and direct physical LSN Ethernet testing as firmware integration is completed.
+
+Primary button:
+
+**DOWNLOAD FOR WINDOWS**
+
+The button must point to the actual generated installer.
+
+Do not send the firmware engineer to GitHub Actions or a build-artifact interface.
+
+# 13. Portable Version
+
+If a portable Windows ZIP is generated, provide a secondary action:
+
+**DOWNLOAD PORTABLE VERSION**
+
+Keep the normal installer as the recommended option.
+
+# 14. Downloads Page: Development Status
+
+Clearly identify the current limitations.
+
+Example:
+
+**Current Development Status**
+
+* Simulation Mode: Available
+* Firmware Integration Package: Available
+* Real WT32-ETH01 discovery: Awaiting firmware integration
+* Real CIP mappings: TBD
+* Physical control testing: Awaiting firmware implementation
+* Local Ethernet firmware upload: Architecture prepared, endpoint awaiting firmware implementation
+
+This lets the firmware engineer understand that the desktop app is intentionally being provided before all physical hardware functionality is complete.
+
+# 15. Downloads Page: Firmware Integration Package
+
+Keep the current Firmware Integration Package download/generator available alongside the desktop application.
+
+The firmware engineer should be able to get both from the same page:
+
+1. Windows LSN Engineering Console
+2. Firmware Integration Package
+
+Do not create a separate download destination.
+
+# 16. Web vs Desktop Explanation
+
+Keep/add a concise explanation:
+
+## Web Console
+
+Best for:
+
+* guided tour
+* reviewing the LSN interface
+* Simulation Mode
+* understanding expected behavior
+* reviewing Device Profiles
+* downloading development resources
+
+## Windows Console
+
+Best for:
+
+* same Simulation Mode
+* local development workflow
+* future direct EtherNet/IP communication with WT32-ETH01
+* real hardware validation
+* local firmware updating
+* local network diagnostics
+
+# 17. Guided Tour Update
+
+Update the final guided-tour step to explain that the firmware engineer can now install the Development Preview.
+
+Suggested wording:
+
+> You're ready to begin firmware development. Open Downloads to install the Windows Development Preview and get the current Firmware Integration Package. The desktop Console currently supports the full simulator and will progressively enable real WT32-ETH01 testing as firmware mappings are implemented.
+
+Button:
+
+**GO TO DOWNLOADS**
+
+# 18. Version Synchronization
+
+Keep versions visible and synchronized across:
+
+* web application
+* Windows application
+* Downloads page
+* installer filename
+* Firmware Integration Package
+* Device Profile
+* release notes
+
+Clearly distinguish where these versions are different concepts:
+
+* Console version
+* LSN Protocol version
+* Device Profile version
+
+# 19. Release Notes
+
+Create/update concise release notes for this Development Preview.
+
+Include:
+
+* first Windows desktop build
+* same shared UI as web Console
+* full Simulation Mode
+* Firmware Integration Package
+* Device Profiles
+* Runtime/Timer testing
+* Protocol Inspector
+* Automated Validation
+* Stress Testing
+* Firmware update simulation
+* Firmware Developer Mode
+* logs/reports/support bundle
+* real WT32-ETH01 Hardware Mode awaiting firmware/CIP integration
+
+# 20. Windows SmartScreen / Signing
+
+This is an internal Development Preview.
+
+If the Windows executable is not code-signed yet:
+
+* do not block the build
+* document that Windows SmartScreen may warn about the unsigned internal build
+* keep future production signing as a later release task
+
+Do not include signing secrets in source code or Replit.
+
+# 21. Preserve Parallel Development Workflow
+
+The core project philosophy is now:
+
+```text
+New LSN Feature
+      |
+      v
+Add to Device Profile
+      |
+      v
+Implement in Web Simulation
+      |
+      v
+Review/Test
+      |
+      v
+Shared change appears in Windows Console
+      |
+      v
+Firmware engineer implements it on ESP32
+      |
+      v
+Real Hardware Mode validates it
+```
+
+Do not fork this into two independently maintained applications.
+
+# 22. Final Deliverables
+
+Provide:
+
+1. Actual Windows installer
+2. Portable ZIP if available
+3. Exact Console version
+4. Build/test status
+5. Stable download location used by the web Downloads page
+6. Updated Downloads page
+7. Updated guided tour
+8. Release notes
+9. Known Development Preview limitations
+10. Confirmation that web and desktop use the same shared UI/codebase
+
+# 23. Completion Criteria
+
+Do not mark this task complete until:
+
+1. Electron desktop shell exists.
+2. It uses the existing shared React UI.
+3. Simulation Mode works in desktop build.
+4. Windows build succeeds.
+5. Actual installer artifact exists.
+6. Installer does not require Node/Python/Replit.
+7. Web Downloads page links to the actual installer.
+8. Firmware Integration Package remains downloadable.
+9. Development Preview limitations are clearly stated.
+10. Guided tour points to Downloads.
+11. No fake real-hardware behavior is presented.
+12. Existing web Console functionality has not regressed.
+
+Proceed with building the Windows Development Preview now so the firmware engineer can begin reviewing and using the desktop Console while real WT32-ETH01 firmware integration is developed in parallel.
