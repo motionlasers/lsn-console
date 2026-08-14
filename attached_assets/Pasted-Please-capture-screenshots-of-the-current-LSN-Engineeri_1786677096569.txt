@@ -1,0 +1,66 @@
+Please capture screenshots of the current LSN Engineering Console so I can review the full UI and workflow before we hand it to the firmware engineer.
+
+I want one clear screenshot of each main section in its normal/default state.
+
+Please capture these sections:
+
+1. Dashboard
+2. Device
+3. Control
+4. Status
+5. Runtime Counter
+6. Faults & Diagnostics
+7. Protocol Inspector
+8. Automated Tests
+9. Stress Testing
+10. Firmware
+11. Device Profile
+12. Modules
+13. Logs & Reports
+14. Help / Firmware Guide
+15. Settings
+
+Also capture any separate **Firmware Developer Mode** view if enabling Developer Mode materially changes the screen or exposes additional protocol details.
+
+## Screenshot requirements
+
+For each section:
+
+* use the normal desktop layout
+* use Simulation Mode with `LSN-SIM-001`
+* connect to the simulated device where the screen is more meaningful while connected
+* show realistic simulated data rather than empty placeholders where possible
+* keep the navigation visible so I can understand where the screen sits in the application
+* capture the full useful content area without excessive browser chrome
+* do not crop off important controls, status fields, tables, or diagnostic information
+* use consistent window dimensions for all screenshots where possible
+* name each image clearly based on the section, for example:
+
+  * `01-dashboard.png`
+  * `02-device.png`
+  * `03-control.png`
+  * etc.
+
+For sections that are significantly longer than one screen, capture an additional screenshot of the lower portion rather than shrinking the UI so much that text becomes difficult to read.
+
+## Important
+
+Do not redesign or change the interface as part of this task.
+
+I only want screenshots of the current implementation so the existing UI can be reviewed for:
+
+* firmware-engineer usability
+* clarity of requested vs reported vs hardware-control states
+* unnecessary or premature future features
+* protocol transparency
+* expected vs actual behavior
+* timer/counter workflow
+* firmware-update workflow
+* Device Profile usability
+* testing workflow
+* diagnostics
+* missing functionality
+* confusing terminology
+* information that may be too technical or too hidden
+
+Once all screenshots are captured, place them together in an easy-to-access folder or provide them in a way that I can download/share them for review.
