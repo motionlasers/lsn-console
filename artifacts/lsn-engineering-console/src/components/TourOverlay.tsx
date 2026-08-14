@@ -36,6 +36,49 @@ function paddedRect(rect: DOMRect): TourRect {
   };
 }
 
+/** Render the phase label shown in the coachmark header bar. */
+function PhaseLabel({ progress }: { progress: ReturnType<typeof getTourPageProgress> }) {
+  if (progress.phase === "intro") {
+    return (
+      <span>
+        INTRO · CONSOLE LAYOUT
+      </span>
+    );
+  }
+  if (progress.phase === "overview") {
+    return (
+      <span>
+        OVERVIEW · STEP {progress.overviewIndex} OF {progress.overviewCount}
+      </span>
+    );
+  }
+  // detail
+  return (
+    <span>
+      PAGE {progress.pageIndex}/{progress.pageCount} · {progress.page.toUpperCase()} · SECTION {progress.stepOnPage}/{progress.stepsOnPage}
+    </span>
+  );
+}
+
+/** Build the live-region announcement text for a step. */
+function buildAnnouncement(
+  progress: ReturnType<typeof getTourPageProgress>,
+  stepData: typeof TOUR_STEPS[number],
+  targetMissing: boolean,
+): string {
+  const description = targetMissing
+    ? (stepData.unavailableDescription ?? "This section is unavailable in the current mode or capability set.")
+    : stepData.description;
+
+  if (progress.phase === "intro") {
+    return `Introduction, navigation overview. ${stepData.title}. ${description}`;
+  }
+  if (progress.phase === "overview") {
+    return `Overview, step ${progress.overviewIndex} of ${progress.overviewCount}. ${stepData.title}. ${description}`;
+  }
+  return `${stepData.page}, section ${progress.stepOnPage} of ${progress.stepsOnPage}. ${stepData.title}. ${description}`;
+}
+
 export function TourOverlay() {
   const { isTourActive, currentStep, endTour, nextStep, prevStep } = useTourStore();
   const [location, setLocation] = useLocation();
@@ -202,10 +245,12 @@ export function TourOverlay() {
         placement: "bottom" as const,
       };
 
+  const announcement = buildAnnouncement(pageProgress, stepData, targetMissing);
+
   return (
     <div className="fixed inset-0 z-[100] pointer-events-auto" data-testid="tour-overlay">
       <div className="sr-only" aria-live="assertive" aria-atomic="true" data-testid="tour-live-announcement">
-        {`${stepData.page}, section ${pageProgress.stepOnPage} of ${pageProgress.stepsOnPage}. ${stepData.title}. ${targetMissing ? (stepData.unavailableDescription ?? "This section is unavailable in the current mode or capability set.") : stepData.description}`}
+        {announcement}
       </div>
       {targetRect ? (
         <div aria-hidden="true">
@@ -258,9 +303,12 @@ export function TourOverlay() {
           >
             <X className="w-4 h-4" />
           </button>
-          <div className="flex items-center gap-2 text-tour-accent text-[10px] font-mono tracking-widest font-bold mb-1 pr-8">
+          <div
+            className="flex items-center gap-2 text-tour-accent text-[10px] font-mono tracking-widest font-bold mb-1 pr-8"
+            data-testid="tour-phase-label"
+          >
             <Info className="w-4 h-4 shrink-0" />
-            PAGE {pageProgress.pageIndex}/{pageProgress.pageCount} · {pageProgress.page.toUpperCase()} · SECTION {pageProgress.stepOnPage}/{pageProgress.stepsOnPage}
+            <PhaseLabel progress={pageProgress} />
           </div>
           <CardTitle id="tour-title" className="text-lg font-bold font-sans tracking-tight pr-6">
             {stepData.title}

@@ -1,4 +1,5 @@
 export type TourPlacement = "top" | "right" | "bottom" | "left";
+export type TourPhase = "intro" | "overview" | "detail";
 
 export interface TourStep {
   id: string;
@@ -7,11 +8,33 @@ export interface TourStep {
   target: string;
   title: string;
   description: string;
+  phase?: TourPhase; // defaults to "detail" when absent
   preferredPlacement?: TourPlacement;
   unavailableDescription?: string;
 }
 
+/** All navigation destinations that must each appear in at least one overview step. */
+export const OVERVIEW_NAV_PAGES = [
+  "Dashboard",
+  "Device & Capabilities",
+  "Control",
+  "Status",
+  "Runtime",
+  "Diagnostics",
+  "Protocol",
+  "Tests",
+  "Stress",
+  "Firmware",
+  "Profile",
+  "Modules",
+  "Logs",
+  "Help",
+  "Downloads",
+  "Settings",
+] as const;
+
 export const TOUR_STEPS: TourStep[] = [
+  // ─── INTRO ──────────────────────────────────────────────────────────────
   {
     id: "sidebar-nav",
     route: "/",
@@ -19,8 +42,63 @@ export const TOUR_STEPS: TourStep[] = [
     target: "sidebar-nav",
     title: "Understand the console layout",
     description: "The navigation panel organises the console into sections covering session setup, active control and status, runtime diagnostics and protocol inspection, firmware management, and configuration. The tour visits each section in sequence.",
+    phase: "intro",
     preferredPlacement: "right",
   },
+
+  // ─── OVERVIEW ────────────────────────────────────────────────────────────
+  {
+    id: "overview-nav-session",
+    route: "/",
+    page: "Overview",
+    target: "overview-nav-session",
+    title: "Session setup pages",
+    description: "Dashboard establishes your simulation session, confirms device identity, and displays active logical evidence. Device & Capabilities selects the validation environment, verifies identity requirements, and documents hardware acknowledgement.",
+    phase: "overview",
+    preferredPlacement: "right",
+  },
+  {
+    id: "overview-nav-monitoring",
+    route: "/",
+    page: "Overview",
+    target: "overview-nav-monitoring",
+    title: "Active control and status pages",
+    description: "Control issues and verifies enable requests and reviews safety gates. Status centralizes the complete logical snapshot with capability-filtered fields. Runtime tracks deterministic counters and validates timer accuracy and persistence.",
+    phase: "overview",
+    preferredPlacement: "right",
+  },
+  {
+    id: "overview-nav-analysis",
+    route: "/",
+    page: "Overview",
+    target: "overview-nav-analysis",
+    title: "Analysis and testing pages",
+    description: "Diagnostics injects controlled failures and correlates health evidence. Protocol inspects request and response transactions. Tests runs the validation suite and interprets each result. Stress configures and monitors deterministic cycle runs.",
+    phase: "overview",
+    preferredPlacement: "right",
+  },
+  {
+    id: "overview-nav-management",
+    route: "/",
+    page: "Overview",
+    target: "overview-nav-management",
+    title: "Firmware and profile pages",
+    description: "Firmware stages metadata and rehearses update and recovery scenarios. Profile confirms enabled capabilities, audits the active interface, and exports the firmware handoff. Modules reviews hardware and logical building blocks.",
+    phase: "overview",
+    preferredPlacement: "right",
+  },
+  {
+    id: "overview-nav-support",
+    route: "/",
+    page: "Overview",
+    target: "overview-nav-support",
+    title: "Information and configuration pages",
+    description: "Logs preserves the chronological audit trail for debugging and handoff. Help documents operating workflows and validation boundaries. Downloads offers the local engineering console and firmware integration package. Settings configures branding, persistence, and simulation preferences.",
+    phase: "overview",
+    preferredPlacement: "right",
+  },
+
+  // ─── DETAIL ──────────────────────────────────────────────────────────────
   {
     id: "dashboard-identity",
     route: "/",
@@ -429,19 +507,65 @@ export const TOUR_STEPS: TourStep[] = [
   },
 ];
 
-export const TOUR_PAGE_COUNT = new Set(TOUR_STEPS.map(step => step.page)).size;
+/**
+ * Number of distinct navigation pages in the detailed walkthrough.
+ * Overview and intro steps are excluded from this count.
+ */
+export const TOUR_PAGE_COUNT = new Set(
+  TOUR_STEPS.filter(s => (s.phase ?? "detail") === "detail").map(step => step.page)
+).size;
+
+/** Number of overview steps in the tour opening sequence. */
+export const TOUR_OVERVIEW_COUNT = TOUR_STEPS.filter(s => s.phase === "overview").length;
 
 export function getTourPageProgress(stepIndex: number) {
   const safeIndex = Math.min(Math.max(stepIndex, 0), TOUR_STEPS.length - 1);
-  const page = TOUR_STEPS[safeIndex]?.page ?? "";
-  const pages = Array.from(new Set(TOUR_STEPS.map(step => step.page)));
-  const stepsOnPage = TOUR_STEPS.filter(step => step.page === page);
-  const stepOnPage = stepsOnPage.findIndex(step => step.id === TOUR_STEPS[safeIndex]?.id) + 1;
+  const step = TOUR_STEPS[safeIndex];
+  const phase: TourPhase = step?.phase ?? "detail";
+
+  if (phase === "intro") {
+    return {
+      phase,
+      page: step?.page ?? "",
+      pageIndex: 0,
+      pageCount: TOUR_PAGE_COUNT,
+      stepOnPage: 1,
+      stepsOnPage: 1,
+      overviewIndex: 0,
+      overviewCount: TOUR_OVERVIEW_COUNT,
+    };
+  }
+
+  if (phase === "overview") {
+    const overviewSteps = TOUR_STEPS.filter(s => s.phase === "overview");
+    const overviewIndex = overviewSteps.findIndex(s => s.id === step?.id) + 1;
+    return {
+      phase,
+      page: "Overview",
+      pageIndex: 0,
+      pageCount: TOUR_PAGE_COUNT,
+      stepOnPage: overviewIndex,
+      stepsOnPage: TOUR_OVERVIEW_COUNT,
+      overviewIndex,
+      overviewCount: TOUR_OVERVIEW_COUNT,
+    };
+  }
+
+  // detail
+  const page = step?.page ?? "";
+  const pages = Array.from(
+    new Set(TOUR_STEPS.filter(s => (s.phase ?? "detail") === "detail").map(s => s.page))
+  );
+  const stepsOnPage = TOUR_STEPS.filter(s => (s.phase ?? "detail") === "detail" && s.page === page);
+  const stepOnPage = stepsOnPage.findIndex(s => s.id === step?.id) + 1;
   return {
+    phase,
     page,
     pageIndex: pages.indexOf(page) + 1,
-    pageCount: pages.length,
+    pageCount: TOUR_PAGE_COUNT,
     stepOnPage,
     stepsOnPage: stepsOnPage.length,
+    overviewIndex: 0,
+    overviewCount: TOUR_OVERVIEW_COUNT,
   };
 }

@@ -2,7 +2,13 @@ import { test, expect, beforeEach } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { useTourStore } from '../src/hooks/use-tour';
-import { getTourPageProgress, TOUR_PAGE_COUNT, TOUR_STEPS } from '../src/lib/tour-data';
+import {
+  getTourPageProgress,
+  OVERVIEW_NAV_PAGES,
+  TOUR_OVERVIEW_COUNT,
+  TOUR_PAGE_COUNT,
+  TOUR_STEPS,
+} from '../src/lib/tour-data';
 import {
   computeTourPosition,
   getTourScrollBehavior,
@@ -75,9 +81,84 @@ test('tour navigation clamps both direct and sequential step changes', () => {
   expect(useTourStore.getState().currentStep).toBe(0);
 });
 
+// ─── Opening sequence ordering ─────────────────────────────────────────────
+
+test('tour opens with intro then overview then detail steps in that order', () => {
+  const phases = TOUR_STEPS.map(s => s.phase ?? 'detail');
+  // Find the phase transitions
+  let lastPhase = phases[0];
+  const transitions: string[] = [lastPhase];
+  for (const phase of phases.slice(1)) {
+    if (phase !== lastPhase) {
+      transitions.push(phase);
+      lastPhase = phase;
+    }
+  }
+  // Must be exactly: intro → overview → detail (no re-ordering or interleaving)
+  expect(transitions).toEqual(['intro', 'overview', 'detail']);
+});
+
+test('first step is the intro navigation overview', () => {
+  expect(TOUR_STEPS[0].id).toBe('sidebar-nav');
+  expect(TOUR_STEPS[0].phase).toBe('intro');
+});
+
+test('overview steps immediately follow the intro step', () => {
+  const overviewStart = TOUR_STEPS.findIndex(s => s.phase === 'overview');
+  expect(overviewStart).toBe(1);
+});
+
+test('first detail step is a Dashboard section', () => {
+  const firstDetail = TOUR_STEPS.find(s => (s.phase ?? 'detail') === 'detail');
+  expect(firstDetail?.page).toBe('Dashboard');
+  expect(firstDetail?.route).toBe('/');
+});
+
+// ─── Overview completeness ─────────────────────────────────────────────────
+
+test('all navigation pages are covered in the overview description text', () => {
+  const overviewSteps = TOUR_STEPS.filter(s => s.phase === 'overview');
+  expect(overviewSteps.length).toBe(TOUR_OVERVIEW_COUNT);
+  expect(overviewSteps.length).toBeGreaterThanOrEqual(3);
+
+  const combinedText = overviewSteps.map(s => s.description).join(' ');
+  for (const page of OVERVIEW_NAV_PAGES) {
+    // Match page name or an unambiguous prefix (e.g. "Device &" → "Device & Capabilities")
+    const found = combinedText.includes(page) || combinedText.includes(page.split(' ')[0]);
+    expect(found, `Navigation page "${page}" must be named in an overview step description`).toBe(true);
+  }
+});
+
+test('overview steps have unique ids, unique targets, and sufficient description length', () => {
+  const overviewSteps = TOUR_STEPS.filter(s => s.phase === 'overview');
+  const ids = overviewSteps.map(s => s.id);
+  const targets = overviewSteps.map(s => s.target);
+  expect(new Set(ids).size).toBe(ids.length);
+  expect(new Set(targets).size).toBe(targets.length);
+  for (const step of overviewSteps) {
+    expect(step.description.length, `${step.id} description must be >60 chars`).toBeGreaterThan(60);
+  }
+});
+
+test('overview steps stay on the dashboard route so no route transition occurs', () => {
+  const overviewSteps = TOUR_STEPS.filter(s => s.phase === 'overview');
+  for (const step of overviewSteps) {
+    expect(step.route, `overview step ${step.id} should stay on /`).toBe('/');
+  }
+});
+
+// ─── Target uniqueness across all steps ────────────────────────────────────
+
 // Targets that live in layout components (not page files) and must be excluded
 // from the per-page source file assertion.
-const LAYOUT_TARGETS = new Set(['sidebar-nav']);
+const LAYOUT_TARGETS = new Set([
+  'sidebar-nav',
+  'overview-nav-session',
+  'overview-nav-monitoring',
+  'overview-nav-analysis',
+  'overview-nav-management',
+  'overview-nav-support',
+]);
 
 test('detailed definitions cover every primary route with stable unique targets', () => {
   const routeFiles: Record<string, string> = {
@@ -103,10 +184,12 @@ test('detailed definitions cover every primary route with stable unique targets'
   expect(new Set(TOUR_STEPS.map(step => step.target)).size).toBe(TOUR_STEPS.length);
 
   for (const [route, file] of Object.entries(routeFiles)) {
-    const steps = TOUR_STEPS.filter(step => step.route === route);
-    expect(steps.length, `${route} should have section-level guidance`).toBeGreaterThanOrEqual(2);
+    const detailSteps = TOUR_STEPS.filter(
+      step => step.route === route && (step.phase ?? 'detail') === 'detail',
+    );
+    expect(detailSteps.length, `${route} should have section-level guidance`).toBeGreaterThanOrEqual(2);
     const source = readFileSync(resolve(process.cwd(), 'src/pages', file), 'utf8');
-    for (const step of steps) {
+    for (const step of detailSteps) {
       if (LAYOUT_TARGETS.has(step.target)) continue;
       expect(source, `${step.target} should be a stable landmark in ${file}`).toContain(`data-tour="${step.target}"`);
       expect(step.description.length).toBeGreaterThan(60);
@@ -114,9 +197,34 @@ test('detailed definitions cover every primary route with stable unique targets'
   }
 });
 
-test('page progress reports local and overall page position', () => {
-  const firstSettings = TOUR_STEPS.findIndex(step => step.route === '/settings');
+// ─── Phase-aware progress reporting ───────────────────────────────────────
+
+test('intro step reports phase=intro', () => {
+  const progress = getTourPageProgress(0);
+  expect(progress.phase).toBe('intro');
+  expect(progress.stepsOnPage).toBe(1);
+});
+
+test('overview steps report phase=overview with correct index', () => {
+  const firstOverview = TOUR_STEPS.findIndex(s => s.phase === 'overview');
+  const lastOverview = TOUR_STEPS.findLastIndex(s => s.phase === 'overview');
+
+  const first = getTourPageProgress(firstOverview);
+  expect(first.phase).toBe('overview');
+  expect(first.overviewIndex).toBe(1);
+  expect(first.overviewCount).toBe(TOUR_OVERVIEW_COUNT);
+
+  const last = getTourPageProgress(lastOverview);
+  expect(last.phase).toBe('overview');
+  expect(last.overviewIndex).toBe(TOUR_OVERVIEW_COUNT);
+});
+
+test('page progress reports local and overall page position for detail steps', () => {
+  const firstSettings = TOUR_STEPS.findIndex(
+    step => step.route === '/settings' && (step.phase ?? 'detail') === 'detail',
+  );
   const progress = getTourPageProgress(firstSettings);
+  expect(progress.phase).toBe('detail');
   expect(progress.page).toBe('Settings');
   expect(progress.pageIndex).toBe(TOUR_PAGE_COUNT - 1);
   expect(progress.stepOnPage).toBe(1);
@@ -128,6 +236,8 @@ test('page progress reports local and overall page position', () => {
   expect(TOUR_STEPS.at(-1)?.route).toBe('/downloads');
   expect(TOUR_STEPS.at(-1)?.description).toContain("ready to begin firmware development");
 });
+
+// ─── Positioning and helpers ───────────────────────────────────────────────
 
 test('positioning honors preferred sides when they fit and clamps to safe viewport bounds', () => {
   const viewport = { width: 1200, height: 800 };

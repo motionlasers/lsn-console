@@ -11,6 +11,9 @@
  *  - Escape / Back / Next behavior
  *  - modal semantics (aria-modal, focus trapping, focus restoration)
  *  - live announcements and reduced-motion behavior
+ *  - opening sequence: intro → overview → detail phase ordering
+ *  - phase-aware progress labels distinguish overview from detail steps
+ *  - every navigation page named in overview live announcements
  *
  * Run: node tests/browser/tour-browser.mjs   (from the artifact directory)
  */
@@ -20,7 +23,7 @@ import { setTimeout as sleep } from 'node:timers/promises';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { chromium } from 'playwright-core';
-import { TOUR_STEPS } from '../../src/lib/tour-data.ts';
+import { TOUR_STEPS, OVERVIEW_NAV_PAGES, TOUR_OVERVIEW_COUNT } from '../../src/lib/tour-data.ts';
 
 const ARTIFACT_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 const EXECUTABLE = process.env.REPLIT_PLAYWRIGHT_CHROMIUM_EXECUTABLE;
@@ -100,6 +103,7 @@ async function overlayState(page) {
     const card = document.querySelector('[data-testid="dialog-firmware-tour"]');
     const highlight = document.querySelector('[data-testid="tour-target-highlight"]');
     const live = document.querySelector('[data-testid="tour-live-announcement"]');
+    const phaseLabel = document.querySelector('[data-testid="tour-phase-label"]');
     const fallback = overlay.querySelector('[role="status"]');
     const toRect = (el) => {
       const r = el.getBoundingClientRect();
@@ -112,6 +116,7 @@ async function overlayState(page) {
       highlight: highlight ? toRect(highlight) : null,
       highlightClass: highlight?.className ?? '',
       live: live?.textContent ?? '',
+      phaseLabel: phaseLabel?.textContent ?? '',
       fallback: fallback?.textContent ?? null,
       focusInCard: !!card && card.contains(document.activeElement),
       route: location.pathname,
@@ -140,7 +145,43 @@ async function assertStepInvariants(state, step, label, reducedMotion) {
   check(state.ariaModal === 'true', `${label} ${step.id}: coachmark has aria-modal="true"`);
   check(state.route === step.route, `${label} ${step.id}: route is ${step.route} (got ${state.route})`);
   check(state.focusInCard, `${label} ${step.id}: focus is inside the coachmark`);
-  check(state.live.includes(step.page) && state.live.includes(step.title), `${label} ${step.id}: live announcement includes page and title`);
+  check(state.live.includes(step.title), `${label} ${step.id}: live announcement includes title`);
+
+  // Phase-specific announcement format checks
+  const phase = step.phase ?? 'detail';
+  if (phase === 'intro') {
+    check(
+      state.live.toLowerCase().includes('introduction') || state.live.toLowerCase().includes('navigation'),
+      `${label} ${step.id}: intro live announcement mentions introduction/navigation`,
+    );
+    check(
+      !state.phaseLabel.includes('PAGE '),
+      `${label} ${step.id}: intro step does not show PAGE X/Y label`,
+    );
+  } else if (phase === 'overview') {
+    check(
+      state.live.toLowerCase().includes('overview'),
+      `${label} ${step.id}: overview live announcement includes "Overview"`,
+    );
+    check(
+      state.phaseLabel.includes('OVERVIEW'),
+      `${label} ${step.id}: overview step shows OVERVIEW label (got: ${state.phaseLabel})`,
+    );
+    check(
+      !state.phaseLabel.includes('PAGE '),
+      `${label} ${step.id}: overview step does not show PAGE X/Y label`,
+    );
+  } else {
+    check(
+      state.live.includes(step.page),
+      `${label} ${step.id}: detail live announcement includes page name "${step.page}"`,
+    );
+    check(
+      state.phaseLabel.includes('PAGE '),
+      `${label} ${step.id}: detail step shows PAGE X/Y label (got: ${state.phaseLabel})`,
+    );
+  }
+
   const { card, viewport } = state;
   check(!!card, `${label} ${step.id}: coachmark rendered`);
   if (card) {
@@ -178,6 +219,31 @@ async function assertStepInvariants(state, step, label, reducedMotion) {
   } else {
     check(!!state.fallback && state.fallback.includes('TARGET UNAVAILABLE'), `${label} ${step.id}: missing target shows conditional fallback notice`);
   }
+}
+
+async function assertOverviewCoverage(page, label) {
+  // Collect all live announcement text from overview steps.
+  const overviewSteps = TOUR_STEPS.filter(s => s.phase === 'overview');
+  const collectedText = [];
+  for (const step of overviewSteps) {
+    const s = await waitForStep(page, step, label);
+    collectedText.push(s.live);
+    // Advance past this step (unless it's the last overview step; caller handles that)
+    const stepIndex = TOUR_STEPS.indexOf(step);
+    if (stepIndex < TOUR_STEPS.length - 1) await page.click('[data-testid="button-tour-next"]');
+  }
+  const combined = collectedText.join(' ');
+  for (const navPage of OVERVIEW_NAV_PAGES) {
+    const pageName = navPage.split(' ')[0]; // unambiguous first word is always enough
+    check(
+      combined.includes(navPage) || combined.includes(pageName),
+      `${label}: navigation page "${navPage}" named in overview announcements`,
+    );
+  }
+  check(
+    collectedText.length === TOUR_OVERVIEW_COUNT,
+    `${label}: saw ${collectedText.length} overview steps, expected ${TOUR_OVERVIEW_COUNT}`,
+  );
 }
 
 async function traverse(page, label, reducedMotion) {
@@ -308,7 +374,43 @@ async function keyboardAndPersistenceChecks(context) {
   await page.goto(BASE + '/settings');
   await page.click('[data-testid="button-settings-replay-tour"]');
   const replayed = await waitForStep(page, first, label);
-  check(replayed.live.includes('section 1 of'), `${label}: replay restarts from the first Dashboard section`);
+  // First step is the intro; check it is announced as intro/navigation
+  check(
+    replayed.live.toLowerCase().includes('introduction') || replayed.live.toLowerCase().includes('navigation'),
+    `${label}: replay restarts from the intro step with navigation announcement`,
+  );
+  await page.keyboard.press('Escape');
+  await page.close();
+}
+
+async function overviewSequenceChecks(context) {
+  const label = 'overview-seq';
+  const page = await context.newPage();
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.goto(BASE + '/');
+  await waitFor(async () => overlayState(page), 'tour auto-start for overview check');
+
+  // Step 0: intro
+  const introStep = TOUR_STEPS[0];
+  const introState = await waitForStep(page, introStep, label);
+  check(introState.phaseLabel.includes('INTRO'), `${label}: step 0 shows INTRO label (got: ${introState.phaseLabel})`);
+  check(!introState.phaseLabel.includes('OVERVIEW'), `${label}: intro step does not show OVERVIEW label`);
+  check(!introState.phaseLabel.includes('PAGE '), `${label}: intro step does not show PAGE label`);
+  await page.click('[data-testid="button-tour-next"]');
+
+  // Steps 1..TOUR_OVERVIEW_COUNT: overview
+  await assertOverviewCoverage(page, label);
+
+  // Next step after overview should be first detail (Dashboard)
+  const firstDetailStep = TOUR_STEPS.find(s => (s.phase ?? 'detail') === 'detail');
+  const detailState = await waitForStep(page, firstDetailStep, label);
+  check(detailState.phaseLabel.includes('PAGE '), `${label}: first detail step shows PAGE label (got: ${detailState.phaseLabel})`);
+  check(!detailState.phaseLabel.includes('OVERVIEW'), `${label}: first detail step does not show OVERVIEW label`);
+  check(
+    detailState.live.includes(firstDetailStep.page),
+    `${label}: first detail live announcement includes page name "${firstDetailStep.page}"`,
+  );
+
   await page.keyboard.press('Escape');
   await page.close();
 }
@@ -321,11 +423,12 @@ async function main() {
     args: ['--no-sandbox', '--disable-dev-shm-usage'],
   });
   try {
-    // The three scenarios use isolated contexts (independent storage) and run
+    // The scenarios use isolated contexts (independent storage) and run
     // concurrently to keep the check within the validation runner's time budget.
     const desktop = await browser.newContext({ viewport: { width: 1280, height: 800 } });
     const narrow = await browser.newContext({ viewport: { width: 390, height: 844 } });
     const kb = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+    const ovCtx = await browser.newContext({ viewport: { width: 1280, height: 800 } });
     await Promise.all([
       // Desktop, normal motion: full traversal.
       freshTourPage(desktop, false).then((page) => traverse(page, 'desktop', false)),
@@ -333,8 +436,10 @@ async function main() {
       freshTourPage(narrow, true).then((page) => traverse(page, 'narrow', true)),
       // Keyboard, focus, and persistence checks.
       keyboardAndPersistenceChecks(kb),
+      // Overview sequence, coverage, and phase-label checks.
+      overviewSequenceChecks(ovCtx),
     ]);
-    await Promise.all([desktop.close(), narrow.close(), kb.close()]);
+    await Promise.all([desktop.close(), narrow.close(), kb.close(), ovCtx.close()]);
   } finally {
     await browser.close();
     try {
