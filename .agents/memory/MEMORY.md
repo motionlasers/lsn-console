@@ -2,3 +2,4 @@
 - [Telemetry and validation integrity](telemetry-validation-integrity.md) — disconnected values are last-reported evidence, and simulation success never advances firmware status.
 - [Deterministic stress timing](deterministic-stress-timing.md) — stress evidence follows actual active-output time, exact phase boundaries, and clean-only PASS semantics.
 - [Phone-safe tour landmarks](phone-safe-tour-landmarks.md) — guided-tour targets must be compact, above-fold landmarks rather than tall content cards.
+- [Browser validation checks](browser-validation-checks.md) — headless-browser checks must own their server, kill its process group, and force-exit, or the validation time budget kills a passing run.

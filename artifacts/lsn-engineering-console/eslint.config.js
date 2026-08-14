@@ -9,6 +9,12 @@ export default tseslint.config(
   eslint.configs.recommended,
   ...tseslint.configs.recommended,
   {
+    files: ['tests/browser/**/*.mjs'],
+    rules: {
+      'no-undef': 'off',
+    },
+  },
+  {
     files: ['src/**/*.{ts,tsx}', 'tests/**/*.ts', 'vite.config.ts'],
     plugins: {
       'react-hooks': reactHooks,
