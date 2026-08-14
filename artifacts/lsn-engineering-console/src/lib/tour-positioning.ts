@@ -69,8 +69,8 @@ function clampAvoiding(
   viewport: TourSize,
 ): { x: number; y: number } {
   // First: standard viewport clamp.
-  let x = clamp(rawX, MARGIN, viewport.width - w - MARGIN);
-  let y = clamp(rawY, MARGIN, viewport.height - h - MARGIN);
+  const x = clamp(rawX, MARGIN, viewport.width - w - MARGIN);
+  const y = clamp(rawY, MARGIN, viewport.height - h - MARGIN);
 
   // If no overlap after standard clamp, we're done.
   if (overlapArea(x, y, w, h, target) === 0) return { x, y };

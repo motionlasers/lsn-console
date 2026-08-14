@@ -14,3 +14,10 @@ uri = "file://lsn-console-final-final-review.zip"
 type = "unspecified"
 title = "LSN Console Final Review Screenshot Set"
 description = "Verified 35-image external-review set at 1440×1000, including capture notes and SHA-256 manifest. The ZIP passed archive integrity validation."
+
+[[outputs]]
+id = "LOCOjug8gzlPC3tlgH0dr"
+uri = "file://LSN-Firmware-Interface-v0.1.zip"
+type = "unspecified"
+title = "LSN Firmware Interface v0.1"
+description = "Browser-generated firmware integration package for WT32-ETH01 / ESP32. Contains six reviewed files; unresolved CIP, identity, enum, layout, byte/bit, and string details remain explicitly TBD."

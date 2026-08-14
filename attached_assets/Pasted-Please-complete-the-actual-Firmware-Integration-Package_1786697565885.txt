@@ -1,0 +1,210 @@
+Please complete the actual **Firmware Integration Package export** and make the generated ZIP available for external review.
+
+The export UI is already implemented. This task is to verify that the actual generated files are correct and usable by the ESP32 firmware engineer.
+
+## Generate the package
+
+Using the current active:
+
+**LSN Device Profile v0.1**
+
+generate:
+
+`LSN-Firmware-Interface-v0.1.zip`
+
+The ZIP should contain at minimum:
+
+```text
+LSN-Firmware-Interface-v0.1/
+├── lsn_protocol.h
+├── lsn_protocol_types.h
+├── lsn_protocol_profile.json
+├── lsn_interface.csv
+├── lsn_interface.md
+└── README.md
+```
+
+## Important verification requirements
+
+Before providing the ZIP, inspect every generated file and verify the following.
+
+### 1. Do not invent CIP mappings
+
+Current real firmware mappings are still unresolved.
+
+Therefore:
+
+* CIP Class values remain TBD
+* Instance values remain TBD
+* Attribute values remain TBD
+* Assembly values remain TBD
+* Vendor ID remains TBD unless genuinely defined elsewhere
+* Product Code remains TBD unless genuinely defined elsewhere
+* undefined protocol enum numeric values remain TBD
+
+Do not generate fake values simply so the files compile.
+
+If a value has not been assigned by the firmware engineer, clearly mark it as TBD.
+
+### 2. Generated C/C++ headers must be safe
+
+`lsn_protocol_types.h` should contain useful ESP-IDF/C/C++ compatible type definitions derived from the Device Profile.
+
+Use appropriate standard types such as:
+
+* `bool`
+* `uint8_t`
+* `uint16_t`
+* `uint32_t`
+* `uint64_t`
+
+Include appropriate headers such as:
+
+```c
+#include <stdint.h>
+#include <stdbool.h>
+```
+
+Use include guards or `#pragma once`.
+
+The generated header should be understandable without requiring the Console source code.
+
+### 3. Unresolved mappings must not accidentally compile as valid mappings
+
+For `lsn_protocol.h`, do not represent TBD mappings using values such as:
+
+```c
+#define LSN_READY_CIP_CLASS 0
+```
+
+if `0` could be mistaken for an intentional mapping.
+
+Prefer clearly non-usable output such as comments:
+
+```c
+/* TBD: CIP Class for Ready has not yet been assigned */
+```
+
+or another approach that makes accidental production use impossible.
+
+The firmware engineer should immediately see what still needs to be assigned.
+
+### 4. Preserve canonical names
+
+The generated package should clearly preserve the Device Profile names, including:
+
+* `EmissionEnableRequest`
+* `EmissionControlOutputActive`
+* `Ready`
+* `Faulted`
+* `FaultCode`
+* `TimerState`
+* `LifetimeEmissionTimeMs`
+* `EnableCount`
+* `ProtocolVersion`
+
+Generated C-style names may use snake_case, but comments/documentation should make the relationship to the canonical symbolic name obvious.
+
+Example:
+
+```c
+/* Canonical LSN field: LifetimeEmissionTimeMs */
+uint64_t lifetime_emission_time_ms;
+```
+
+### 5. Confirm firmware vs simulation status
+
+The generated documentation and CSV must preserve the distinction:
+
+**Firmware Status:** TBD / Awaiting Firmware
+
+**Simulation Status:** VERIFIED or TESTING as appropriate
+
+Do not mark real WT32-ETH01 firmware as implemented or verified based on simulation results.
+
+### 6. Review the interface CSV
+
+`lsn_interface.csv` should contain useful implementation columns including:
+
+* Symbolic Name
+* Direction
+* Data Type
+* Access
+* CIP Service
+* Class
+* Instance
+* Attribute
+* Assembly
+* Byte
+* Bit
+* Units
+* Firmware Status
+* Simulation Status
+* Expected Behavior
+* Description
+* Notes
+
+### 7. Review the Markdown specification
+
+`lsn_interface.md` should be a concise firmware-facing protocol/interface specification.
+
+The firmware programmer should be able to read it and understand:
+
+* what each field means
+* which direction it travels
+* its type
+* whether it is read/write
+* expected firmware behavior
+* expected response
+* current implementation status
+* which CIP mappings still need to be selected
+
+### 8. Review the README
+
+`README.md` should clearly explain the intended workflow:
+
+1. Review the interface specification.
+2. Use/include the generated C/C++ definitions as useful.
+3. Implement the logical interface in ESP32 firmware.
+4. Assign real EtherNet/IP/CIP mappings for TBD entries.
+5. Return those mappings for entry into the LSN Device Profile.
+6. Use LSN Engineering Console Hardware Mode to test the implementation.
+
+Clarify that:
+
+* the Device Profile is the source of truth
+* GPIO mapping remains internal to the firmware
+* the package does not dictate the programmer's internal firmware architecture
+* current daughterboard hardware is established and should not be redesigned as part of this work
+
+## Package metadata
+
+Include where practical:
+
+* Device Profile version
+* LSN Protocol version
+* Console version
+* package format version
+* target platform: WT32-ETH01 / ESP32
+* generation date/time
+
+## Final validation
+
+Before completing this task:
+
+1. Generate the actual ZIP.
+2. Open/read every generated file.
+3. Confirm no fake protocol mappings were generated.
+4. Confirm the C/C++ files are syntactically reasonable.
+5. Confirm the Markdown and README are readable.
+6. Confirm the CSV is properly structured.
+7. Confirm firmware/simulation statuses are correct.
+8. Confirm the ZIP contains all expected files.
+
+Then provide the actual:
+
+`LSN-Firmware-Interface-v0.1.zip`
+
+as a downloadable artifact so it can be independently reviewed.
+
+Do not make unrelated UI or architecture changes during this task.

@@ -118,7 +118,8 @@ describe('LSN v0.1 device profile', () => {
       generatedAt: new Date('2026-08-14T12:00:00.000Z'),
       consoleVersion: '0.1.0-test',
     });
-    expect(result.filename).toBe('LSN-Firmware-Interface-v0.1.0-LSN-v0.1.zip');
+    expect(result.filename).toBe('LSN-Firmware-Interface-v0.1.zip');
+    expect(result.folderName).toBe('LSN-Firmware-Interface-v0.1');
     expect(result.summary.mappedFieldCount).toBe(0);
 
     const zip = await JSZip.loadAsync(await result.blob.arrayBuffer());
@@ -181,6 +182,9 @@ describe('LSN v0.1 device profile', () => {
     expect(readme).toContain('Generated: 2026-08-14T12:00:00.000Z');
     expect(readme).toContain('Target platform: WT32-ETH01');
     expect(readme).toContain('never silently invent');
+    expect(readme).toContain('Device Profile is the source of truth');
+    expect(readme).toContain('Hardware Mode to test the physical implementation');
+    expect(readme).toContain('daughterboard hardware is established');
   });
 
   it('emits constants only after mappings are explicitly resolved in the profile', async () => {

@@ -484,16 +484,17 @@ Recommended workflow
 1. Review lsn_interface.md.
 2. Use the generated C/C++ headers where their profile-defined types are complete.
 3. Implement the logical fields in ESP32 firmware.
-4. Select real CIP mappings and missing enum/string/layout definitions for TBD entries.
-5. Enter those decisions back into the LSN Device Profile.
-6. Regenerate this package.
-7. Use the LSN Engineering Console to validate each function.
+4. Assign real EtherNet/IP/CIP mappings and missing enum/string/layout definitions for TBD entries.
+5. Return those decisions for entry into the LSN Device Profile, then regenerate this package.
+6. Use LSN Engineering Console Hardware Mode to test the physical implementation.
 
 Important boundaries
 --------------------
+- The Device Profile is the source of truth for the external LSN interface.
 - This package defines the external interface; it is not firmware.
 - The ESP32 programmer remains responsible for implementation details.
 - Existing daughterboard GPIO mapping remains firmware-internal.
+- The current daughterboard hardware is established and must not be redesigned as part of this interface work.
 - This package does not dictate the internal state-machine architecture.
 - Unresolved CIP mappings must be assigned by the firmware engineer.
 - Generated headers never silently invent protocol, enum, packing, or identity values.
@@ -509,6 +510,12 @@ function sanitizeFilenamePart(value: string): string {
     .replace(/^-+|-+$/g, '') || 'TBD';
 }
 
+function interfaceVersionToken(document: DeviceProfileDocument): string {
+  const protocolMatch = document.protocolVersion.match(/\bv?(\d+\.\d+)\b/i);
+  if (protocolMatch) return sanitizeFilenamePart(protocolMatch[1]);
+  return sanitizeFilenamePart(document.profileVersion).replace(/\.0$/, '');
+}
+
 export async function createFirmwareIntegrationPackage(
   document: DeviceProfileDocument,
   capabilities: ActiveCapabilities,
@@ -522,9 +529,7 @@ export async function createFirmwareIntegrationPackage(
   };
   const activeFields = getActiveProfileFields(document, capabilities);
   const summary = summarizeFirmwarePackage(document, capabilities);
-  const profileToken = sanitizeFilenamePart(document.profileVersion);
-  const protocolToken = sanitizeFilenamePart(document.protocolVersion);
-  const folderName = `LSN-Firmware-Interface-v${profileToken}-${protocolToken}`;
+  const folderName = `LSN-Firmware-Interface-v${interfaceVersionToken(document)}`;
   const filename = `${folderName}.zip`;
   const files: Record<string, string> = {
     'lsn_protocol.h': generateProtocolHeader(document, capabilities, metadata),
