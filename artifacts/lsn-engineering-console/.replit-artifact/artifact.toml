@@ -1,0 +1,28 @@
+kind = "web"
+previewPath = "/"
+title = "LSN Engineering Console"
+description = "A local-first engineering, firmware-development, validation, diagnostic, and firmware-management console for Laser Safety Network WT32-ETH01 hardware, distributed by Saber Industrial Applications. The Replit preview runs a complete deterministic simulation while the shared React application is prepared for secure Electron hardware mode."
+version = "1.0.0"
+id = "artifacts/lsn-engineering-console"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 23864
+
+[services.development]
+run = "pnpm --filter @workspace/lsn-engineering-console run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/lsn-engineering-console", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/lsn-engineering-console/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "23864"
+BASE_PATH = "/"

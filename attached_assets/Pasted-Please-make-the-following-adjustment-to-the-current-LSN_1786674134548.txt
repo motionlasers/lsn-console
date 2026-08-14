@@ -1,0 +1,112 @@
+Please make the following adjustment to the current LSN Engineering Console build.
+
+## Hide Interlock and Remote Stop from the normal v0.1 interface
+
+The current UI shows items such as:
+
+* Interlock OK
+* Remote Stop OK
+
+These are future LSN capabilities, but they are **not part of the initial firmware implementation or initial public LSN interface**.
+
+I do not want these visible in the normal v0.1 workflow because they may confuse the firmware engineer into thinking they must be implemented now.
+
+### Required change
+
+Update the initial `LSN v0.1` Device Profile so these capabilities are disabled by default:
+
+* `InterlockMonitoring`
+* `RemoteStopMonitoring`
+* future sensor-related monitoring
+* any other capability not included in the actual Phase 1 firmware scope
+
+When a capability is disabled in the active Device Profile, all related items should automatically be hidden from:
+
+* Dashboard
+* Status
+* Control
+* Diagnostics
+* Automated Tests
+* Stress Tests
+* Firmware-facing interface checklist
+* Protocol mappings shown in normal mode
+* Reports
+* other normal engineering screens
+
+Do not merely display these values as `N/A`, `FALSE`, or `NOT IMPLEMENTED` in the normal interface.
+
+If the capability is not part of the active device profile, it should generally not appear at all.
+
+## Capability-driven UI
+
+Visibility should be driven by the active Device Profile and capability model, not by hard-coded UI logic.
+
+For example, the initial profile should conceptually contain something like:
+
+```text
+Capabilities
+
+EmissionControl        ENABLED
+RuntimeCounter         ENABLED
+EnableCount            ENABLED
+FaultReporting         ENABLED
+
+InterlockMonitoring    DISABLED
+RemoteStopMonitoring   DISABLED
+SensorMonitoring       DISABLED
+```
+
+The exact schema can follow the existing Device Profile architecture.
+
+This is important because future LSN hardware may enable these capabilities later without requiring a redesign of the console.
+
+## Future / experimental capability testing
+
+Keep support for these capabilities in the framework.
+
+In Simulation Mode or Firmware Developer Mode, it is acceptable to provide an optional area such as:
+
+**Future / Experimental Capabilities**
+
+where developers can explicitly enable simulated future functionality for framework testing.
+
+Examples:
+
+* Interlock Monitoring
+* Remote Stop Monitoring
+* Sensor Module Example
+
+These must:
+
+* default OFF
+* be clearly labeled as future/experimental
+* not appear in the normal Phase 1 firmware implementation workflow unless explicitly enabled
+
+## Initial Phase 1 normal status
+
+The normal v0.1 interface should focus on the functions the firmware engineer is actually implementing now, such as:
+
+* Ready
+* Emission Enable Request
+* Emission Control Output Active
+* Timer State
+* Lifetime Runtime
+* Enable Count
+* Faulted
+* Fault Code
+* Device Identity
+* Firmware Version
+* Protocol Version
+* Network / EtherNet/IP status
+
+Do not add future safety, sensor, or daughterboard states to the standard v0.1 dashboard unless they are enabled by the active Device Profile.
+
+## General rule for future expansion
+
+Apply this same architecture to all future LSN capabilities:
+
+**Unsupported capability = hidden from the normal UI.**
+
+**Supported capability = automatically exposed through the active Device Profile and module framework.**
+
+This should preserve the future expansion architecture while keeping the current firmware engineer focused only on the Phase 1 implementation.

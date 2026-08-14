@@ -1,10 +1,11 @@
-# [Project name]
+# LSN Engineering Console
 
-_Replace the heading above with the project's name, and this line with one sentence describing what this app does for users._
+A local-first engineering, firmware validation, diagnostic, and firmware-management console for Laser Safety Network hardware, distributed by Saber Industrial Applications.
 
 ## Run & Operate
 
 - `pnpm --filter @workspace/api-server run dev` — run the API server (port 5000)
+- `pnpm --filter @workspace/lsn-engineering-console run dev` — run the simulation UI through its managed workflow
 - `pnpm run typecheck` — full typecheck across all packages
 - `pnpm run build` — typecheck + build all packages
 - `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks and Zod schemas from the OpenAPI spec
@@ -19,26 +20,35 @@ _Replace the heading above with the project's name, and this line with one sente
 - Validation: Zod (`zod/v4`), `drizzle-zod`
 - API codegen: Orval (from OpenAPI spec)
 - Build: esbuild (CJS bundle)
+- UI: React 19, Vite, Tailwind CSS
+- Desktop distribution: Electron with isolated preload boundary and Electron Forge packaging
 
 ## Where things live
 
-_Populate as you build — short repo map plus pointers to the source-of-truth file for DB schema, API contracts, theme files, etc._
+- `artifacts/lsn-engineering-console/` — shared simulation UI and Electron desktop shell
+- `artifacts/lsn-engineering-console/profiles/lsn-v0.1.json` — active logical protocol/profile source of truth
+- `artifacts/lsn-engineering-console/docs/` — firmware and engineering documentation
 
 ## Architecture decisions
 
-_Populate as you build — non-obvious choices a reader couldn't infer from the code (3-5 bullets)._
+- One React application serves Replit Simulation Mode and packaged Electron Hardware Mode.
+- Device Profiles own protocol mappings; unresolved values remain TBD and block Hardware Mode transmission.
+- EtherNet/IP control and firmware-maintenance transports are separate replaceable adapters.
+- Simulation results are engineering evidence, never represented as physical hardware validation.
 
 ## Product
 
-_Describe the high-level user-facing capabilities of this app once they exist._
+Discovery, control-state validation, runtime counters, faults, protocol inspection, automated and stress testing, firmware-update rehearsal, reports, support bundles, and firmware-facing profile specifications.
 
 ## User preferences
 
-_Populate as you build — explicit user instructions worth remembering across sessions._
+- Use LSN branding for the connected hardware platform and Saber Industrial Applications branding for the application distributor.
+- Preserve precise safety terminology and never imply optical emission or safety certification.
 
 ## Gotchas
 
-_Populate as you build — sharp edges, "always run X before Y" rules._
+- Do not invent CIP mappings. Hardware Mode must remain non-transmitting until mappings and transports are physically validated.
+- The bright LSN line-art logo requires a dark surface for legibility.
 
 ## Pointers
 

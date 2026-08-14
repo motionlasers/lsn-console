@@ -1,0 +1,71 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lsn.local/schemas/device-profile.schema.json",
+  "title": "LSN Device Profile",
+  "type": "object",
+  "required": ["profileVersion", "protocolVersion", "hardwareFamily", "capabilities", "fields"],
+  "properties": {
+    "profileVersion": { "type": "string" },
+    "protocolVersion": { "type": "string" },
+    "hardwareFamily": { "type": "string" },
+    "capabilities": {
+      "type": "object",
+      "required": ["interlock", "remoteStop", "sensors"],
+      "properties": {
+        "interlock": { "$ref": "#/$defs/capability" },
+        "remoteStop": { "$ref": "#/$defs/capability" },
+        "sensors": { "$ref": "#/$defs/capability" }
+      },
+      "additionalProperties": {
+        "$ref": "#/$defs/capability"
+      }
+    },
+    "fields": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "symbolicName",
+          "direction",
+          "dataType",
+          "access",
+          "implementationStatus",
+          "expectedFirmwareBehavior",
+          "expectedReportedResponse"
+        ],
+        "properties": {
+          "symbolicName": { "type": "string", "minLength": 1 },
+          "direction": { "enum": ["PC_TO_LSN", "LSN_TO_PC"] },
+          "dataType": { "type": "string" },
+          "access": { "enum": ["READ", "WRITE", "READ_WRITE"] },
+          "cipService": { "type": ["string", "null"] },
+          "class": { "type": ["integer", "null"] },
+          "instance": { "type": ["integer", "null"] },
+          "attribute": { "type": ["integer", "null"] },
+          "assembly": { "type": ["object", "null"] },
+          "capability": { "enum": ["interlock", "remoteStop", "sensors"] },
+          "implementationStatus": {
+            "enum": ["TBD", "IMPLEMENTING", "TESTING", "IMPLEMENTED", "VERIFIED"]
+          },
+          "expectedFirmwareBehavior": { "type": "string" },
+          "expectedReportedResponse": { "type": "string" },
+          "notes": { "type": "string" }
+        },
+        "additionalProperties": true
+      }
+    }
+  },
+  "additionalProperties": true,
+  "$defs": {
+    "capability": {
+      "type": "object",
+      "required": ["enabled", "phase", "description"],
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "phase": { "type": "string" },
+        "description": { "type": "string" }
+      },
+      "additionalProperties": false
+    }
+  }
+}

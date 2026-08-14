@@ -1,0 +1,1 @@
+- [Capability-driven Phase 1](capability-driven-phase1.md) — future hardware capabilities stay disabled and absent from normal workflows unless explicitly enabled for simulation.

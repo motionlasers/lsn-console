@@ -1,0 +1,33 @@
+name: LSN Console Windows
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'lsn-console-v*'
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @workspace/lsn-engineering-console run lint
+      - run: pnpm --filter @workspace/lsn-engineering-console run typecheck
+      - run: pnpm --filter @workspace/lsn-engineering-console run test
+      - run: pnpm --filter @workspace/lsn-engineering-console run build
+        env:
+          PORT: 4173
+          BASE_PATH: ./
+      - run: pnpm --filter @workspace/lsn-engineering-console run make
+      - uses: actions/upload-artifact@v4
+        with:
+          name: LSN-Engineering-Console-Windows
+          path: artifacts/lsn-engineering-console/out/make/**
