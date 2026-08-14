@@ -226,7 +226,7 @@ export function LoginScreen() {
           {/* Footer */}
           <div className="border-t border-zinc-700/40 bg-black/20 px-6 py-3">
             <div className="text-[9px] font-mono text-zinc-600 uppercase tracking-widest text-center">
-              Unauthorised access is prohibited · Saber Industrial Applications
+              Unauthorised access is prohibited · Saber Industrial Applications · Beyond Laser Systems
             </div>
           </div>
         </div>
