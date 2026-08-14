@@ -13,6 +13,15 @@ export interface TourStep {
 
 export const TOUR_STEPS: TourStep[] = [
   {
+    id: "sidebar-nav",
+    route: "/",
+    page: "Dashboard",
+    target: "sidebar-nav",
+    title: "Understand the console layout",
+    description: "The navigation panel organises the console into sections covering session setup, active control and status, runtime diagnostics and protocol inspection, firmware management, and configuration. The tour visits each section in sequence.",
+    preferredPlacement: "right",
+  },
+  {
     id: "dashboard-identity",
     route: "/",
     page: "Dashboard",

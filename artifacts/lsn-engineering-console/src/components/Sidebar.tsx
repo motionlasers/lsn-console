@@ -110,7 +110,7 @@ export function Sidebar() {
       </div>
 
       <div className="flex-1 overflow-y-auto py-2 custom-scrollbar">
-        <nav className={cn("flex flex-col gap-1 px-2", isCollapsed && "items-center")}>
+        <nav data-tour="sidebar-nav" className={cn("flex flex-col gap-1 px-2", isCollapsed && "items-center")}>
           {NAV_ITEMS.map((item) => {
             const isActive = location === item.path || (item.path !== "/" && location.startsWith(item.path));
             const isTourTarget = isTourActive && item.path === tourRoute;
