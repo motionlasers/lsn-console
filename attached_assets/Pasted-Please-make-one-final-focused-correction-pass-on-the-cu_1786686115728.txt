@@ -1,0 +1,321 @@
+Please make one final focused correction pass on the current LSN Engineering Console.
+
+Do not redesign the application or change the overall visual style. The goal is to correct the remaining Phase 1 implementation issues identified during review.
+
+## 1. Correct Firmware Status vs Simulation Status
+
+The Device Profile currently shows the status relationship backwards.
+
+At this stage, the simulator has been implemented and validated, but the real WT32-ETH01 firmware has NOT yet been implemented or verified.
+
+Therefore, for Phase 1 fields such as:
+
+* `EmissionEnableRequest`
+* `EmissionControlOutputActive`
+* `Ready`
+* `Faulted`
+* `FaultCode`
+* `TimerState`
+* `LifetimeEmissionTimeMs`
+* `EnableCount`
+* `ProtocolVersion`
+* other real-device protocol fields
+
+the status should generally be:
+
+**Firmware Status:**
+`TBD`
+or
+`AWAITING FIRMWARE`
+
+**Simulation Status:**
+`VERIFIED`
+
+where the simulator behavior has actually been tested successfully.
+
+Do not use simulator success to mark the real ESP32 firmware as IMPLEMENTED or VERIFIED.
+
+Keep the two status concepts separate everywhere they appear:
+
+* Device Profile
+* Firmware Developer Mode
+* firmware-facing interface specification
+* reports
+* implementation checklists
+
+Later, as the firmware engineer implements the real interface, Firmware Status can progress through:
+
+* TBD
+* IMPLEMENTING
+* TESTING
+* IMPLEMENTED
+* VERIFIED
+
+## 2. Complete the Runtime Counter Engineering Workflow
+
+The Runtime Counter page is still too limited.
+
+Please add the complete intended workflow.
+
+Display:
+
+* Timer State
+* Lifetime Runtime formatted for humans
+* raw `LifetimeEmissionTimeMs`
+* first runtime reading in the current session
+* current runtime reading
+* current-session delta
+* observation elapsed time where applicable
+* Enable Count
+* persistence/storage status
+* timestamps
+
+Provide controls:
+
+**READ RUNTIME**
+
+**START RUNTIME OBSERVATION**
+
+**STOP RUNTIME OBSERVATION**
+
+**RUN TIMER TEST**
+
+**RUN PERSISTENCE TEST**
+
+### Runtime Observation
+
+When active, show:
+
+* observation elapsed time
+* starting LSN runtime
+* current LSN runtime
+* LSN-reported increase
+* PC-measured elapsed time
+* difference if useful
+
+Log the readings into the engineering session.
+
+## 3. Implement the Actual Timer Test Workflow
+
+The current runtime-filtered validation test is not a substitute for the guided Timer Test.
+
+Create a dedicated Timer Test workflow.
+
+It should:
+
+1. Read the starting lifetime runtime.
+2. Confirm the simulated device is connected.
+3. Enable the emission-control output.
+4. Start PC-side elapsed timing.
+5. Maintain enable for a defined test duration.
+6. Disable the output.
+7. Read the ending runtime.
+8. Calculate expected elapsed time.
+9. Calculate LSN-reported runtime increase.
+10. Calculate the difference.
+11. Compare using a configurable tolerance.
+12. Display PASS or FAIL.
+13. Preserve all evidence in logs/reports.
+
+Result view should show clearly:
+
+* Starting Runtime
+* Ending Runtime
+* PC Measured Duration
+* LSN Reported Increase
+* Difference
+* Allowed Tolerance
+* PASS / FAIL
+
+Simulation Mode must support this deterministically.
+
+## 4. Implement the Actual Persistence Test Workflow
+
+The current Persistence Recovery item is useful, but we also need the guided lifetime-counter persistence test.
+
+Create:
+
+**RUN PERSISTENCE TEST**
+
+Workflow:
+
+1. Read current lifetime runtime.
+2. Record the before value.
+3. In Hardware Mode, instruct the engineer to power-cycle the LSN and click Continue.
+4. In Simulation Mode, simulate the equivalent device restart/power-cycle.
+5. Rediscover/reconnect.
+6. Read lifetime runtime again.
+7. Compare before and after.
+8. Verify the counter did not reset or decrease unexpectedly.
+9. Display PASS / FAIL.
+10. Allow engineering notes.
+11. Preserve all evidence in session logs and reports.
+
+Display:
+
+* Before Power Cycle
+* After Power Cycle
+* Difference
+* Firmware Version before/after if relevant
+* Result
+
+## 5. Complete Stress Testing Controls
+
+The Stress Testing screen still needs the full intended configuration and result set.
+
+Add controls for:
+
+* Enable duration
+* Disable duration
+* Cycle count
+* Maximum test duration
+* Stop on first mismatch
+* Stop on fault
+* Runtime read every N cycles
+* Enable Count read every N cycles
+* optional delay between operations
+
+Keep existing useful controls such as simulated fault probability where appropriate.
+
+During and after the test display:
+
+* requested cycles
+* completed cycles
+* communication error count
+* state mismatch count
+* fault count
+* average response latency
+* minimum response latency
+* maximum response latency
+* runtime delta
+* Enable Count delta
+* total test duration
+* final result
+
+Provide:
+
+**START TEST**
+
+and while running:
+
+**STOP TEST**
+
+Simulation Mode should support all of this.
+
+Hardware Mode must continue requiring the existing Hardware Output Test unlock before controlling physical outputs.
+
+## 6. Remove Remaining Prominent Safety Framing from Phase 1
+
+The Automated Tests page still has a category/filter labeled:
+
+`SAFETY`
+
+This should not be a primary Phase 1 feature category.
+
+Rename it to:
+
+`STARTUP`
+
+or:
+
+`CONTROL`
+
+Use whichever fits the current taxonomy best.
+
+For example, `Default Disabled` belongs under Startup or Control, not Safety.
+
+Also update the Help page heading:
+
+`SAFETY & VALIDATION SCOPE`
+
+to:
+
+`SIMULATION & VALIDATION SCOPE`
+
+Keep a concise disclaimer explaining that the console does not:
+
+* certify safety
+* prove compliance
+* verify optical emission
+
+But do not present Safety as an implemented Phase 1 subsystem.
+
+## 7. Remove Remaining Interlock Terminology from Phase 1 Output Description
+
+The Device Profile still describes:
+
+`EmissionControlOutputActive`
+
+using wording such as:
+
+`emission-control/interlock output`
+
+For Phase 1, change this to something like:
+
+`Reports the current state of the LSN emission-control hardware output.`
+
+Do not mention Interlock unless a future Device Profile explicitly enables an Interlock capability.
+
+Future Interlock support should remain in the underlying capability framework.
+
+## 8. Improve Control Screen Disconnected Message
+
+When the device is disconnected, the Control screen currently displays wording similar to:
+
+`CONTROLS DISABLED IN CURRENT MODE`
+
+This is too generic.
+
+When the actual reason is disconnection, show:
+
+**CONNECT TO DEVICE TO SEND CONTROL REQUESTS**
+
+Use reason-specific disabled messages elsewhere as appropriate, such as:
+
+* DEVICE DISCONNECTED
+* HARDWARE OUTPUT TESTS LOCKED
+* PROTOCOL MAPPING TBD
+* AWAITING FIRMWARE IMPLEMENTATION
+
+Do not use a generic disabled-state explanation when the actual reason is known.
+
+## 9. Preserve the Fixes Already Completed
+
+Do not regress the corrected behavior already present.
+
+In particular preserve:
+
+* disconnected states becoming UNKNOWN/STALE
+* Last Reported values kept separate from live values
+* timestamps/age for stale values where implemented
+* future Interlock/Remote Stop/Sensor capabilities hidden from normal Phase 1 UI
+* future capabilities available only through Developer/experimental capability architecture
+* Protocol Inspector detailed transaction view
+* firmware update simulation
+* successful update/reboot/rediscovery flow
+* failed update/rollback simulation
+* Device Profile architecture
+* local logging
+* validation reports
+* Support Bundle
+* Firmware Developer Mode
+* professional current visual design
+
+## 10. Validation Before Completion
+
+Before marking this correction pass complete, verify in Simulation Mode that:
+
+1. Firmware Status is not falsely marked VERIFIED.
+2. Simulation Status correctly reflects simulator validation.
+3. Runtime page contains the full runtime engineering workflow.
+4. Timer Test produces expected vs actual timing evidence.
+5. Persistence Test performs before/restart/after comparison.
+6. Stress Test exposes the full requested configuration.
+7. Stress Test reports latency/errors/mismatches/counter deltas.
+8. SAFETY is no longer a Phase 1 test category.
+9. Help no longer uses SAFETY & VALIDATION SCOPE.
+10. `EmissionControlOutputActive` no longer refers to an Interlock output.
+11. Disconnected Control messaging explains that the user must connect.
+12. Existing stale-state and firmware-update behavior still works.
+
+Please make only these focused corrections and preserve the approved architecture.

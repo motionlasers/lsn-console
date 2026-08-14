@@ -315,7 +315,7 @@ const INITIAL_PROFILE: ProfileItem[] = profileJson.fields.map((item, index) => (
   capability: 'capability' in item ? item.capability as CapabilityKey : undefined,
 }));
 
-const INITIAL_TESTS: TestResult[] = [
+export const INITIAL_TESTS: TestResult[] = [
   { id: 't_disc', name: 'Discovery', category: 'Session', status: 'pending', expected: 'Controller responds to discovery beacon', actual: '', duration: 0, evidence: '', manualObservation: false },
   { id: 't_id', name: 'Identity Verification', category: 'Session', status: 'pending', expected: 'Identity matches profile expectations', actual: '', duration: 0, evidence: '', manualObservation: false },
   { id: 't_conn', name: 'Connect & Session', category: 'Session', status: 'pending', expected: 'Simulated session opens while service mapping remains TBD', actual: '', duration: 0, evidence: '', manualObservation: false },
@@ -1090,11 +1090,15 @@ export const useStore = create<LSNStore>()(
     }),
     {
       name: 'lsn-console-storage',
-      version: 2,
+      version: 3,
       migrate: (persistedState) => {
         const state = persistedState as Partial<LSNStore>;
         return {
           ...state,
+          // Reset tests to the canonical current set so stale records from older
+          // app versions (different IDs, names, or missing capability fields) do
+          // not survive a version bump and cause every test to fail immediately.
+          tests: INITIAL_TESTS,
           profile: Array.isArray(state.profile)
             ? state.profile.map(item => {
                 const canonical = INITIAL_PROFILE.find(candidate => candidate.symbolicName === item.symbolicName);

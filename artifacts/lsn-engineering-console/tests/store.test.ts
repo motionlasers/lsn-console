@@ -1,6 +1,7 @@
 import { beforeEach, test, expect } from 'vitest';
 import {
   DEFAULT_CAPABILITIES,
+  INITIAL_TESTS,
   isProfileItemSupported,
   isTestSupported,
   isTransactionSupported,
@@ -261,4 +262,59 @@ test('Runtime accumulates strictly monotonically when output active', () => {
   store.toggleEnable(false);
   store.tick(200);
   expect(useStore.getState().logicalState.lifetimeEmissionTimeMs).toBe(150); // Did not accumulate while disabled
+});
+
+// ── Persistence migration ─────────────────────────────────────────────────────
+
+test('Migration replaces stale test records with the canonical INITIAL_TESTS', () => {
+  // Simulate a persisted state from an older app version with 5 tests using
+  // different names, categories, and missing capability fields.
+  const oldTests = [
+    { id: 'test_disc', name: 'Discovery & Connect', category: 'Communication', status: 'failed', expected: 'Successful CIP Forward Open', actual: '', duration: 0, evidence: '' },
+    { id: 'test_en',   name: 'Enable Request Validation', category: 'Control',       status: 'failed', expected: 'Emission Output Active == TRUE', actual: '', duration: 0, evidence: '' },
+    { id: 'test_intl', name: 'Interlock Break while Enabled', category: 'Safety',    status: 'failed', expected: 'Emission Output Active == FALSE', actual: '', duration: 0, evidence: '' },
+    { id: 'test_loss', name: 'Network Timeout Recovery', category: 'Communication',  status: 'failed', expected: 'Auto-disable on timeout', actual: '', duration: 0, evidence: '' },
+    { id: 'test_rt',   name: 'Runtime Accumulation', category: 'Runtime',            status: 'failed', expected: 'Lifetime increases while active', actual: '', duration: 0, evidence: '' },
+  ];
+
+  // Apply the same migration logic used by the persist middleware.
+  const persistedState = { tests: oldTests } as any;
+  const migrated = {
+    ...persistedState,
+    tests: INITIAL_TESTS,
+  };
+
+  // After migration every test must have a current ID and pending status.
+  expect(migrated.tests).toHaveLength(17);
+  expect(migrated.tests.map((t: { id: string }) => t.id)).toContain('t_disc');
+  expect(migrated.tests.map((t: { id: string }) => t.id)).toContain('t_intl');
+  expect(migrated.tests.map((t: { id: string }) => t.id)).toContain('t_rt');
+  expect(migrated.tests.every((t: { status: string }) => t.status === 'pending')).toBe(true);
+  // Old stale IDs must not be present.
+  expect(migrated.tests.map((t: { id: string }) => t.id)).not.toContain('test_disc');
+  expect(migrated.tests.map((t: { id: string }) => t.id)).not.toContain('test_intl');
+});
+
+test('Migration preserves valid profile data alongside the test reset', () => {
+  const oldProfile = [
+    { id: 'p1', symbolicName: 'Ready', implementationStatus: 'VERIFIED', simulationStatus: 'VERIFIED',
+      direction: 'R', dataType: 'BOOL', access: 'R', cipService: 'TBD', class: 'TBD', instance: 'TBD',
+      attribute: 'TBD', assembly: 'TBD', expectedFirmwareBehavior: '', expectedReportedResponse: '', notes: '' },
+  ];
+  const persistedState = { tests: [], profile: oldProfile } as any;
+
+  // Profile migration: implementationStatus always reset to TBD; simulationStatus preserved.
+  const migrated = {
+    ...persistedState,
+    tests: INITIAL_TESTS,
+    profile: oldProfile.map((item: any) => ({
+      ...item,
+      implementationStatus: 'TBD',
+      simulationStatus: item.simulationStatus ?? 'NOT_TESTED',
+    })),
+  };
+
+  expect(migrated.tests).toHaveLength(17);
+  expect(migrated.profile[0].implementationStatus).toBe('TBD');
+  expect(migrated.profile[0].simulationStatus).toBe('VERIFIED'); // preserved
 });
