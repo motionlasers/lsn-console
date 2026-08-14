@@ -1,0 +1,65 @@
+The Windows Development Preview plan is approved with the following final architectural clarifications.
+
+## 1. Do not create a permanent Internet dependency for the desktop Console
+
+The plan currently states that making the desktop Console fully offline is out of scope and that authentication requires the published API.
+
+For this Development Preview, it is acceptable for the initial sign-in or authorization to use the published API.
+
+However, please architect desktop authentication so that a previously authorized engineer can continue using the local LSN Engineering Console when Internet/API access is temporarily unavailable.
+
+The long-term requirement is that local LSN engineering, diagnostics, EtherNet/IP testing, and firmware updating must be usable on a local bench/network without depending on Internet connectivity.
+
+For v0.1 Development Preview, implement a reasonable secure cached-session/offline authorization mechanism if practical, or at minimum structure authentication so this can be added without redesigning the application.
+
+When offline, clearly distinguish:
+
+**API / CLOUD UNAVAILABLE**
+
+from:
+
+**LSN LOCAL NETWORK AVAILABLE**
+
+Do not treat loss of Internet connectivity as loss of access to the local LSN hardware transport.
+
+Do not cache plaintext passwords or server secrets.
+
+## 2. Minimize desktop API privileges
+
+The plan mentions routing "desktop auth and admin operations" through the Electron bridge.
+
+The firmware engineer's Windows Console should not receive administrative account-management capabilities unless they are actually required for the engineering workflow.
+
+Use least-privilege access.
+
+The desktop application needs authentication and normal Console functionality, but user/account administration should remain server-side/web-admin functionality unless there is a specific requirement for it.
+
+Do not expose unnecessary administrative APIs through Electron preload/IPC.
+
+## 3. Preserve all other approved plan requirements
+
+Otherwise proceed with Plan #18 as written, including:
+
+* one shared React UI
+* Electron desktop shell
+* Simulation Mode
+* secure main/preload architecture
+* native desktop exports
+* Hardware Mode honestly marked incomplete
+* future LAN transport owned by Electron main process
+* actual Windows runner build
+* actual installer and portable ZIP
+* stable end-user download location
+* Downloads page integration
+* tour integration
+* Development Preview versioning
+* unsigned-build SmartScreen disclosure
+* no fake WT32-ETH01 functionality
+
+The final Windows development workflow should ultimately support:
+
+Web Console → Tour / Simulation → Downloads → Windows Console → Local WT32-ETH01 Testing
+
+without requiring the firmware engineer to understand Replit, GitHub Actions, Node.js, Python, or the build pipeline.
+
+Please incorporate these clarifications into the plan and proceed.
