@@ -6,4 +6,6 @@ contextBridge.exposeInMainWorld('lsnDesktop', Object.freeze({
     ipcRenderer.invoke('desktop:hardware-capabilities'),
   selectFirmwarePackage: () =>
     ipcRenderer.invoke('desktop:select-firmware'),
+  saveFile: (filename, data) =>
+    ipcRenderer.invoke('desktop:save-file', { filename, data }),
 }));

@@ -1,3 +1,5 @@
+const { version } = require('./package.json');
+
 module.exports = {
   packagerConfig: {
     name: 'LSN Engineering Console',
@@ -13,7 +15,9 @@ module.exports = {
       name: '@electron-forge/maker-squirrel',
       config: {
         name: 'LSN_Engineering_Console',
-        setupExe: 'LSN-Engineering-Console-Setup-${version}.exe',
+        // Unsigned Development Preview installer; the -dev suffix marks the
+        // internal-development release channel.
+        setupExe: `LSN-Engineering-Console-Setup-${version}-dev.exe`,
         authors: 'Saber Industrial Applications',
         description: 'Engineering and firmware validation console for Laser Safety Network hardware',
       },

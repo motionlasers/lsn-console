@@ -9,7 +9,8 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Terminal, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { generateCSV, generateHTMLReport, downloadFile } from "@/lib/exports";
+import { generateCSV, generateHTMLReport, downloadBlob, downloadFile } from "@/lib/exports";
+import { getReleaseExportMetadata } from "@/lib/release";
 import JSZip from "jszip";
 
 export default function Logs() {
@@ -22,10 +23,16 @@ export default function Logs() {
   );
 
   const exportJSON = () => {
-    downloadFile(JSON.stringify(supportedTransactions, null, 2), `lsn-tx-log-${Date.now()}.json`, 'application/json');
+    const log = {
+      release: getReleaseExportMetadata(device.firmware),
+      transactions: supportedTransactions,
+    };
+    downloadFile(JSON.stringify(log, null, 2), `lsn-tx-log-${Date.now()}.json`, 'application/json');
   };
 
   const exportCSV = () => {
+    const release = getReleaseExportMetadata(device.firmware);
+    const header = `# LSN Engineering Console ${release.consoleRelease} · Protocol ${release.protocolVersion} · Device Profile ${release.deviceProfileVersion} · Connected firmware ${release.connectedFirmwareVersion}`;
     const csv = generateCSV(supportedTransactions.map(t => ({
       sequence: t.sequence,
       timestamp: new Date(t.timestamp).toISOString(),
@@ -36,13 +43,15 @@ export default function Logs() {
       status: t.status,
       latency: t.latency
     })));
-    downloadFile(csv, `lsn-tx-log-${Date.now()}.csv`, 'text/csv');
+    downloadFile(`${header}\n${csv}`, `lsn-tx-log-${Date.now()}.csv`, 'text/csv');
   };
 
   const exportTXT = () => {
-    const text = supportedTransactions.map(t =>
+    const release = getReleaseExportMetadata(device.firmware);
+    const header = `# LSN Engineering Console ${release.consoleRelease} · Protocol ${release.protocolVersion} · Device Profile ${release.deviceProfileVersion} · Connected firmware ${release.connectedFirmwareVersion}`;
+    const text = [header, ...supportedTransactions.map(t =>
       `${new Date(t.timestamp).toISOString()} #${t.sequence} ${t.direction.toUpperCase()} ${t.command} ${t.status.toUpperCase()} ${t.requestDecoded}`
-    ).join('\n');
+    )].join('\n');
     downloadFile(text, `lsn-session-log-${Date.now()}.txt`, 'text/plain');
   };
 
@@ -55,6 +64,7 @@ export default function Logs() {
     const timestamp = Date.now();
     const report = {
       metadata: {
+        release: getReleaseExportMetadata(device.firmware),
         device,
         enabledCapabilities,
         timestamp,
@@ -76,7 +86,8 @@ export default function Logs() {
     );
     const bundle = {
       timestamp: Date.now(),
-      version: '0.1',
+      bundleFormatVersion: '0.1',
+      release: getReleaseExportMetadata(state.device.firmware),
       device: state.device,
       mode: state.mode,
       telemetry: getTelemetryFreshness(state.connectionState, state.lastValidTelemetryAt),
@@ -95,12 +106,9 @@ export default function Logs() {
     zip.file('transactions.csv', generateCSV(stateSupportedTransactions));
     zip.file('README.txt', 'LSN Engineering Console simulation support bundle. Simulation evidence is not firmware implementation, physical validation, or safety certification. Logical-state values are last reported whenever telemetry is not LIVE.');
     const blob = await zip.generateAsync({ type: 'blob' });
-    const url = URL.createObjectURL(blob);
-    const anchor = document.createElement('a');
-    anchor.href = url;
-    anchor.download = `lsn-support-bundle-${Date.now()}.zip`;
-    anchor.click();
-    URL.revokeObjectURL(url);
+    // Route through the shared download helper so the packaged desktop
+    // Console uses the native save dialog for support bundles too.
+    downloadBlob(blob, `lsn-support-bundle-${Date.now()}.zip`);
   };
 
   return (

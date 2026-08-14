@@ -9,6 +9,8 @@ on:
 jobs:
   build-windows:
     runs-on: windows-latest
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -22,12 +24,59 @@ jobs:
       - run: pnpm --filter @workspace/lsn-engineering-console run lint
       - run: pnpm --filter @workspace/lsn-engineering-console run typecheck
       - run: pnpm --filter @workspace/lsn-engineering-console run test
+      - name: Verify tag matches package version
+        if: startsWith(github.ref, 'refs/tags/lsn-console-v')
+        shell: bash
+        run: |
+          PKG_VERSION=$(node -p "require('./artifacts/lsn-engineering-console/package.json').version")
+          TAG_VERSION="${GITHUB_REF_NAME#lsn-console-v}"
+          if [ "$PKG_VERSION" != "$TAG_VERSION" ]; then
+            echo "Tag version ($TAG_VERSION) does not match package version ($PKG_VERSION)" >&2
+            exit 1
+          fi
       - run: pnpm --filter @workspace/lsn-engineering-console run build
         env:
           PORT: 4173
           BASE_PATH: ./
       - run: pnpm --filter @workspace/lsn-engineering-console run make
+      - name: Collect and validate release artifacts
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION=$(node -p "require('./artifacts/lsn-engineering-console/package.json').version")
+          OUT=artifacts/lsn-engineering-console/out/make
+          DIST=release-assets
+          mkdir -p "$DIST"
+          INSTALLER=$(find "$OUT" -name "LSN-Engineering-Console-Setup-${VERSION}-dev.exe" | head -n 1)
+          if [ -z "$INSTALLER" ]; then
+            echo "Expected installer LSN-Engineering-Console-Setup-${VERSION}-dev.exe not found" >&2
+            find "$OUT" -type f >&2
+            exit 1
+          fi
+          cp "$INSTALLER" "$DIST/"
+          PORTABLE=$(find "$OUT" -name "*.zip" | head -n 1)
+          if [ -n "$PORTABLE" ]; then
+            cp "$PORTABLE" "$DIST/LSN-Engineering-Console-Portable-${VERSION}.zip"
+          else
+            echo "No portable ZIP produced; continuing with installer only."
+          fi
+          (cd "$DIST" && sha256sum * > SHA256SUMS.txt && cat SHA256SUMS.txt)
       - uses: actions/upload-artifact@v4
         with:
           name: LSN-Engineering-Console-Windows
-          path: artifacts/lsn-engineering-console/out/make/**
+          path: release-assets/**
+      - name: Publish GitHub release
+        if: startsWith(github.ref, 'refs/tags/lsn-console-v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: release-assets/*
+          name: LSN Engineering Console ${{ github.ref_name }} (Development Preview)
+          body: |
+            Unsigned internal Development Preview build of the LSN Engineering Console.
+
+            - Microsoft Defender SmartScreen will warn on first run ("More info" → "Run anyway").
+            - Hardware Mode truthfully reports that real WT32-ETH01 discovery, EtherNet/IP (CIP)
+              communication, physical validation, and firmware upload are not yet implemented.
+            - LSN Protocol, Device Profile, and the LSN-Firmware-Interface-v0.1 package are unchanged (v0.1).
+
+            See `artifacts/lsn-engineering-console/CHANGELOG.md` for the full release entry.

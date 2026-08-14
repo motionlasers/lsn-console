@@ -2,6 +2,7 @@ import { useState, type FormEvent } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { authApi } from "@/lib/auth-api";
 import saberLogo from "@assets/Saber-Industrial-Applications-Logo_1786661980178.png";
+import { CONSOLE_RELEASE_LABEL } from "@/lib/release";
 import lsnLogo from "@assets/LSN-Industrial-transparent_1786661922957.png";
 
 // ─── Forced-password-change dialog (exported for use by AuthShell) ───────────
@@ -215,7 +216,7 @@ export function LoginScreen() {
                 LSN Engineering Console
               </div>
               <div className="text-[10px] font-mono tracking-widest text-zinc-500 uppercase mt-0.5">
-                v0.1 · Authorised Access Only
+                {CONSOLE_RELEASE_LABEL} · Authorised Access Only
               </div>
             </div>
           </div>

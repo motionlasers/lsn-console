@@ -8,6 +8,8 @@ import lsnLogo from "@assets/LSN-Industrial-transparent_1786661922957.png";
 import { LiveTelemetryBadge, useTelemetryState } from "@/components/TelemetryState";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
+import { CONSOLE_RELEASE_LABEL } from "@/lib/release";
+import { WhatsNewDialog } from "@/components/WhatsNewDialog";
 
 export function AppLayout({ children }: { children: ReactNode }) {
   const { logicalState, hardwareUnlocked, mode, tick, settings } = useStore();
@@ -59,7 +61,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
         <div className="h-12 border-b border-border bg-card flex items-center justify-between px-6 shrink-0 z-10">
           <div className="flex items-center gap-4">
             <h1 className="text-sm font-bold tracking-wider uppercase text-foreground/80 font-mono">
-              LSN Engineering Console v0.1
+              LSN Engineering Console {CONSOLE_RELEASE_LABEL}
             </h1>
             {mode === 'hardware' && hardwareUnlocked && (
                <span className="bg-destructive/20 text-destructive border border-destructive/30 px-2 py-0.5 rounded-sm text-[10px] font-mono tracking-widest animate-pulse">
@@ -128,6 +130,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
         </div>
       </div>
       <TourOverlay />
+      <WhatsNewDialog />
     </div>
   );
 }

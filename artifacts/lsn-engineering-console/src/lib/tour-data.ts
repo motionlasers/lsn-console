@@ -484,7 +484,7 @@ export const TOUR_STEPS: TourStep[] = [
     page: "Downloads",
     target: "downloads-release",
     title: "Move from the web simulator to local tools",
-    description: "The Windows engineering console will be offered here once an approved desktop build exists. Until then, the build remains clearly unavailable without a dead download link.",
+    description: "Downloads presents the current v0.2.0 Windows Development Preview release — the unsigned installer and optional portable ZIP — alongside release notes and the four separate version tracks.",
     preferredPlacement: "right",
   },
   {
@@ -502,7 +502,7 @@ export const TOUR_STEPS: TourStep[] = [
     page: "Downloads",
     target: "downloads-workflow",
     title: "Begin firmware development",
-    description: "You're ready to begin firmware development. Open Downloads to install the local LSN Engineering Console when available and get the current Firmware Integration Package.",
+    description: "You're ready to begin firmware development. Use both v0.2.0 handoff resources here: the Windows Development Preview Console and the unchanged LSN-Firmware-Interface-v0.1 package.",
     preferredPlacement: "left",
   },
 ];

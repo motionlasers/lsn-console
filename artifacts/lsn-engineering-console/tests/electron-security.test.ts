@@ -16,4 +16,12 @@ describe('Electron security boundary', () => {
     expect(preload).toContain('contextBridge.exposeInMainWorld');
     expect(preload).not.toContain("exposeInMainWorld('ipcRenderer'");
   });
+
+  it('allowlists the native save channel and keeps writes in main', () => {
+    expect(main).toContain("'desktop:save-file'");
+    expect(main).toContain('showSaveDialog');
+    // The renderer only supplies a suggested filename + bytes; main owns fs.
+    expect(preload).not.toContain('require(\'node:fs');
+    expect(preload).not.toContain('require("node:fs');
+  });
 });

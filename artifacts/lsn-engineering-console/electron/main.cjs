@@ -1,11 +1,13 @@
 const { app, BrowserWindow, ipcMain, dialog } = require('electron');
 const path = require('node:path');
+const fs = require('node:fs/promises');
 
 const isDev = !app.isPackaged;
 const allowedChannels = new Set([
   'desktop:get-platform',
   'desktop:select-firmware',
   'desktop:hardware-capabilities',
+  'desktop:save-file',
 ]);
 
 function createWindow() {
@@ -34,7 +36,29 @@ function createWindow() {
 ipcMain.handle('desktop:get-platform', () => ({
   platform: process.platform,
   packaged: app.isPackaged,
+  appVersion: app.getVersion(),
 }));
+
+// Native save dialog for engineering exports (reports, logs, support bundles,
+// firmware packages). The renderer supplies only a suggested filename and the
+// file bytes; the main process owns the filesystem write.
+ipcMain.handle('desktop:save-file', async (_event, request) => {
+  if (!request || typeof request.filename !== 'string') {
+    return { saved: false, error: 'Invalid save request' };
+  }
+  const suggested = path.basename(request.filename);
+  const result = await dialog.showSaveDialog({
+    title: 'Save export',
+    defaultPath: suggested,
+  });
+  if (result.canceled || !result.filePath) return { saved: false };
+  const data = request.data;
+  if (!(data instanceof Uint8Array) && typeof data !== 'string') {
+    return { saved: false, error: 'Unsupported export payload' };
+  }
+  await fs.writeFile(result.filePath, data);
+  return { saved: true, path: result.filePath };
+});
 
 ipcMain.handle('desktop:hardware-capabilities', () => ({
   controlTransport: 'AWAITING FIRMWARE IMPLEMENTATION',

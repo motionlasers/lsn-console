@@ -9,7 +9,15 @@ import {
 } from 'lucide-react';
 import { createFirmwareIntegrationPackage, summarizeFirmwarePackage } from '@/lib/firmware-package';
 import { downloadBlob, downloadFile } from '@/lib/exports';
-import consolePackage from '../../package.json';
+import { ChangelogDialog, ReleaseEntry } from '@/components/ReleaseInfo';
+import {
+  CONSOLE_VERSION,
+  CURRENT_RELEASE,
+  VERSION_TRACKS,
+  WINDOWS_ARTIFACTS,
+  releaseAssetUrl,
+} from '@/lib/release';
+import { History } from 'lucide-react';
 
 export default function Downloads() {
   const { activeProfileDocument, capabilities } = useStore();
@@ -81,7 +89,7 @@ export default function Downloads() {
     },
     {
       title: "Windows Installation",
-      desc: "Await Windows Console availability to bypass browser network limits for hardware discovery."
+      desc: "Install the Windows Development Preview (unsigned; SmartScreen warns) to prepare the desktop environment used for future hardware validation."
     },
     {
       title: "Package Review",
@@ -123,11 +131,12 @@ export default function Downloads() {
         </p>
       </div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 font-mono text-xs">
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 font-mono text-xs">
         {[
-          ["Console", `v${consolePackage.version}`],
+          ["Console", CURRENT_RELEASE.label],
           ["Protocol", activeProfileDocument.protocolVersion],
           ["Device Profile", `lsn-v${activeProfileDocument.profileVersion}`],
+          ["Firmware Interface", VERSION_TRACKS.firmwareInterface.label],
           ["Target Platform", `${activeProfileDocument.hardwareFamily} / ESP32`],
         ].map(([label, value]) => (
           <div key={label} className="border border-border bg-card/50 p-3 rounded-sm">
@@ -155,8 +164,8 @@ export default function Downloads() {
                 Hosted via development server. Constrained by the browser sandbox, strictly preventing direct UDP/TCP socket bindings. Suitable for logical simulation, profile authoring, and generating definitions.
               </div>
               <div className="border-l-2 border-warning/50 pl-3">
-                <strong className="text-foreground block mb-1">Windows Desktop Application</strong>
-                Packaged Electron binary with full network stack capabilities. Required to broadcast on private networks, execute physical device discovery, and maintain stable EtherNet/IP hardware communication.
+                <strong className="text-foreground block mb-1">Windows Desktop Application (Development Preview)</strong>
+                Packaged Electron binary running the same React Console with native save/export dialogs and desktop authorization. Structured so future direct EtherNet/IP and maintenance networking live in the isolated main process; in v{CONSOLE_VERSION}, real device discovery, CIP communication, and firmware upload remain unimplemented and Hardware Mode reports this truthfully.
               </div>
             </CardContent>
           </Card>
@@ -174,27 +183,52 @@ export default function Downloads() {
                 <div className="flex flex-col gap-2 mb-4 border-b border-border/50 pb-4">
                   <div className="flex justify-between items-start">
                     <div className="font-mono text-sm font-bold text-foreground">Windows Console</div>
-                    <div className="text-[10px] font-mono text-warning border border-warning/30 bg-warning/10 px-2 py-1 whitespace-nowrap">
-                      WINDOWS BUILD PENDING
+                    <div className="text-[10px] font-mono text-primary border border-primary/30 bg-primary/10 px-2 py-1 whitespace-nowrap">
+                      DEVELOPMENT PREVIEW
                     </div>
                   </div>
                   <div className="text-[10px] text-muted-foreground font-mono">
-                    Expected: LSN-Engineering-Console-Setup-{consolePackage.version}.exe
+                    {WINDOWS_ARTIFACTS.installer}
                   </div>
                 </div>
-                
+
                 <div className="grid grid-cols-2 gap-y-4 gap-x-4 text-[10px] font-mono mb-6">
-                  <div><span className="text-muted-foreground block mb-0.5 uppercase tracking-wider text-[9px]">Platform</span> <span className="text-foreground">Windows 10/11</span></div>
-                  <div><span className="text-muted-foreground block mb-0.5 uppercase tracking-wider text-[9px]">Architecture</span> <span className="text-foreground">TBD</span></div>
+                  <div><span className="text-muted-foreground block mb-0.5 uppercase tracking-wider text-[9px]">Platform</span> <span className="text-foreground">Windows 10/11 (x64)</span></div>
+                  <div><span className="text-muted-foreground block mb-0.5 uppercase tracking-wider text-[9px]">Version</span> <span className="text-foreground">{CONSOLE_VERSION} Development Preview</span></div>
                   <div><span className="text-muted-foreground block mb-0.5 uppercase tracking-wider text-[9px]">Release</span> <span className="text-foreground">Internal Engineering / Dev</span></div>
-                  <div><span className="text-muted-foreground block mb-0.5 uppercase tracking-wider text-[9px]">Date</span> <span className="text-foreground">2026-08-14</span></div>
-                  <div><span className="text-muted-foreground block mb-0.5 uppercase tracking-wider text-[9px]">Size</span> <span className="text-foreground">Pending</span></div>
-                  <div><span className="text-muted-foreground block mb-0.5 uppercase tracking-wider text-[9px]">Version</span> <span className="text-foreground">{consolePackage.version}</span></div>
+                  <div><span className="text-muted-foreground block mb-0.5 uppercase tracking-wider text-[9px]">Date</span> <span className="text-foreground">{CURRENT_RELEASE.date}</span></div>
+                  <div><span className="text-muted-foreground block mb-0.5 uppercase tracking-wider text-[9px]">Signing</span> <span className="text-warning">Unsigned (SmartScreen warns)</span></div>
+                  <div><span className="text-muted-foreground block mb-0.5 uppercase tracking-wider text-[9px]">Release Tag</span> <span className="text-foreground">{WINDOWS_ARTIFACTS.releaseTag}</span></div>
                 </div>
 
-                <Button disabled variant="outline" className="w-full font-mono text-xs border-border/50 bg-black/50 text-muted-foreground h-10 tracking-wider">
-                  WINDOWS BUILD PENDING
-                </Button>
+                {releaseAssetUrl(WINDOWS_ARTIFACTS.installer) ? (
+                  <div className="flex flex-col gap-2">
+                    <Button asChild className="w-full font-mono text-xs h-10 tracking-wider" data-testid="button-download-installer">
+                      <a href={releaseAssetUrl(WINDOWS_ARTIFACTS.installer)!} download>
+                        <Download className="w-4 h-4 mr-2" /> DOWNLOAD INSTALLER
+                      </a>
+                    </Button>
+                    <Button asChild variant="outline" className="w-full font-mono text-xs h-9 tracking-wider" data-testid="button-download-portable">
+                      <a href={releaseAssetUrl(WINDOWS_ARTIFACTS.portable)!} download>
+                        <Download className="w-3 h-3 mr-2" /> PORTABLE ZIP (OPTIONAL)
+                      </a>
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="border border-border/50 bg-black/40 p-3 text-[10px] font-mono text-muted-foreground leading-relaxed rounded-sm" data-testid="text-release-assets-location">
+                    Installer <span className="text-foreground">{WINDOWS_ARTIFACTS.installer}</span> and optional{' '}
+                    <span className="text-foreground">{WINDOWS_ARTIFACTS.portable}</span> are published as release
+                    assets of the <span className="text-foreground">{WINDOWS_ARTIFACTS.releaseTag}</span> tag by the
+                    Windows build pipeline, with SHA-256 checksums and release notes.
+                  </div>
+                )}
+
+                <div className="mt-4 border border-warning/30 bg-warning/10 p-3 text-[10px] font-mono text-warning leading-relaxed rounded-sm">
+                  <strong className="tracking-wide">UNSIGNED DEVELOPMENT PREVIEW.</strong> SmartScreen will warn on
+                  first run (&ldquo;More info&rdquo; → &ldquo;Run anyway&rdquo;). Hardware Mode truthfully reports that real device
+                  discovery, CIP communication, physical validation, and firmware upload are not yet implemented;
+                  Simulation Mode is fully supported.
+                </div>
               </div>
 
               <div className="border border-border/50 rounded-sm overflow-hidden bg-black/20">
@@ -210,25 +244,15 @@ export default function Downloads() {
                   {notesExpanded ? <ChevronDown className="w-3 h-3 text-muted-foreground" /> : <ChevronRight className="w-3 h-3 text-muted-foreground" />}
                 </button>
                 {notesExpanded && (
-                  <div className="p-4 text-[11px] font-mono text-muted-foreground space-y-4">
-                    <div>
-                      <p className="text-foreground border-b border-border/30 pb-1 mb-2 font-bold tracking-wide">Phase 1: Simulation Harness</p>
-                      <ul className="list-disc pl-4 space-y-1.5 marker:text-primary/50">
-                        <li>Simulation Mode and guided engineering workflow.</li>
-                        <li>WT32-ETH01 target architecture and EtherNet/IP interface framework.</li>
-                        <li>Versioned Device Profiles and generated firmware integration packages.</li>
-                        <li>Timer/runtime testing, automated validation, and stress testing.</li>
-                        <li>Protocol Inspector, firmware update simulation, logs, reports, and support bundles.</li>
-                        <li>Real Hardware Mode remains awaiting firmware implementation and final CIP mappings.</li>
-                      </ul>
-                    </div>
-                    <div>
-                      <p className="text-foreground border-b border-border/30 pb-1 mb-2 font-bold tracking-wide">Capabilities & Limitations</p>
-                      <ul className="list-disc pl-4 space-y-1.5 marker:text-primary/50">
-                        <li>The web application cannot directly discover arbitrary devices on a private local network.</li>
-                        <li>Disabled future capabilities remain outside the active Phase 1 implementation checklist.</li>
-                      </ul>
-                    </div>
+                  <div className="p-4 space-y-4">
+                    <ReleaseEntry release={CURRENT_RELEASE} />
+                    <ChangelogDialog
+                      trigger={
+                        <Button variant="outline" size="sm" className="w-full font-mono text-[10px] h-8" data-testid="button-downloads-changelog">
+                          <History className="w-3 h-3 mr-2" /> FULL CHANGELOG
+                        </Button>
+                      }
+                    />
                   </div>
                 )}
               </div>
@@ -248,8 +272,10 @@ export default function Downloads() {
             </button>
             {previousExpanded && (
               <CardContent className="pt-0 pb-4">
-                <div className="border border-dashed border-border/50 p-6 text-center text-[10px] font-mono text-muted-foreground bg-black/20 tracking-widest leading-relaxed">
-                  NO PREVIOUS RELEASES AVAILABLE.<br/>THIS IS THE INITIAL VERSION.
+                <div className="border border-border/50 p-4 bg-black/20 rounded-sm text-[10px] font-mono text-muted-foreground leading-relaxed">
+                  <div className="text-foreground font-bold mb-1">v0.1.0 (2026-08-07)</div>
+                  Initial simulation-first platform release. Web-only distribution — no packaged
+                  Windows build was published. See the full changelog for details.
                 </div>
               </CardContent>
             )}

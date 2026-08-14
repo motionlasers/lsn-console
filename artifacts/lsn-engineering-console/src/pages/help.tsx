@@ -1,7 +1,9 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { BookOpen, AlertTriangle, Workflow, ShieldCheck, FileJson, Server, Database, Lock, Play, Download, Activity, Cpu, Power, Terminal, Settings } from "lucide-react";
+import { BookOpen, AlertTriangle, Workflow, ShieldCheck, FileJson, Server, Database, Lock, Play, Download, Activity, Cpu, Power, Terminal, Settings, History, Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useTourStore } from "@/hooks/use-tour";
+import { ChangelogDialog, VersionTracks } from "@/components/ReleaseInfo";
+import { CONSOLE_RELEASE_LABEL, CURRENT_RELEASE } from "@/lib/release";
 
 export default function Help() {
   const { startTour } = useTourStore();
@@ -30,14 +32,43 @@ export default function Help() {
             Firmware Programmer Guide
           </h1>
           <p className="text-muted-foreground font-mono text-sm mt-1">
-            v0.1 Logical Validation & Simulation Workflows
+            Console {CONSOLE_RELEASE_LABEL} · LSN v0.1 Logical Validation & Simulation Workflows
           </p>
         </div>
-        <Button data-testid="button-help-replay-tour" onClick={startTour} variant="outline" className="font-mono text-xs border-primary/30 text-primary hover:bg-primary/10 hover:text-primary">
-          <Play className="w-4 h-4 mr-2" />
-          REPLAY TOUR
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <ChangelogDialog
+            trigger={
+              <Button data-testid="button-help-changelog" variant="outline" className="font-mono text-xs border-border text-muted-foreground hover:text-foreground">
+                <History className="w-4 h-4 mr-2" />
+                CHANGELOG
+              </Button>
+            }
+          />
+          <Button data-testid="button-help-replay-tour" onClick={startTour} variant="outline" className="font-mono text-xs border-primary/30 text-primary hover:bg-primary/10 hover:text-primary">
+            <Play className="w-4 h-4 mr-2" />
+            REPLAY TOUR
+          </Button>
+        </div>
       </div>
+
+      {/* About / version information */}
+      <Card className="border-border bg-card/50">
+        <CardHeader className="border-b border-border/50 bg-black/20 pb-4">
+          <CardTitle className="text-sm font-mono tracking-widest text-primary flex items-center gap-2">
+            <Info className="w-4 h-4" />
+            About This Console
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="pt-6 space-y-4">
+          <VersionTracks />
+          <p className="text-[11px] font-mono text-muted-foreground leading-relaxed">
+            The Console ({CURRENT_RELEASE.label}, released {CURRENT_RELEASE.date}) is versioned
+            independently of the LSN Protocol, Device Profile, and Firmware Interface package —
+            all unchanged at v0.1. A Console update requires firmware work only when its release
+            entry declares a protocol change. {CURRENT_RELEASE.protocolImpactStatement}
+          </p>
+        </CardContent>
+      </Card>
 
       <div data-tour="help-safety" className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <Card className="border-warning/50 bg-warning/5 overflow-hidden">
