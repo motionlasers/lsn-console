@@ -2,9 +2,11 @@ import { useStore } from "@/lib/store";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PlaySquare, AlertCircle, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { TelemetryNotice, TelemetryValue, useTelemetryState } from "@/components/TelemetryState";
 
 export default function Control() {
   const { logicalState, toggleEnable, mode, connectionState, transactions, capabilities } = useStore();
+  const telemetry = useTelemetryState();
 
   const disabled = mode === 'hardware' || connectionState !== 'connected';
 
@@ -22,24 +24,31 @@ export default function Control() {
             </CardTitle>
           </CardHeader>
           <CardContent className="pt-8 flex flex-col items-center">
+            <div className="w-full mb-6"><TelemetryNotice compact /></div>
             <div className="w-full max-w-xs space-y-8">
               <div className="flex justify-between items-center border-b border-border/50 pb-2">
                 <span className="font-mono text-xs text-muted-foreground">Emission Enable Request</span>
-                <span className={`font-mono text-xs font-bold ${logicalState.requestedEnable ? 'text-primary' : 'text-muted-foreground'}`}>
-                  {logicalState.requestedEnable ? 'ENABLE' : 'DISABLE'}
-                </span>
+                <TelemetryValue lastReported={logicalState.requestedEnable ? 'ENABLE' : 'DISABLE'}>
+                  <span className={`font-mono text-xs font-bold ${logicalState.requestedEnable ? 'text-primary' : 'text-muted-foreground'}`}>
+                    {logicalState.requestedEnable ? 'ENABLE' : 'DISABLE'}
+                  </span>
+                </TelemetryValue>
               </div>
               <div className="flex justify-between items-center border-b border-border/50 pb-2">
                 <span className="font-mono text-xs text-muted-foreground">Reported Permitted</span>
-                <span className={`font-mono text-xs font-bold ${logicalState.reportedEnablePermitted ? 'text-success' : 'text-destructive'}`}>
-                  {logicalState.reportedEnablePermitted ? 'YES' : 'NO'}
-                </span>
+                <TelemetryValue lastReported={logicalState.reportedEnablePermitted ? 'YES' : 'NO'}>
+                  <span className={`font-mono text-xs font-bold ${logicalState.reportedEnablePermitted ? 'text-success' : 'text-destructive'}`}>
+                    {logicalState.reportedEnablePermitted ? 'YES' : 'NO'}
+                  </span>
+                </TelemetryValue>
               </div>
               <div className="flex justify-between items-center border-b border-border/50 pb-2">
                 <span className="font-mono text-xs text-muted-foreground">Emission Control Output Active</span>
-                <span className={`font-mono text-xs font-bold ${logicalState.emissionControlOutputActive ? 'text-primary animate-pulse' : 'text-muted-foreground'}`}>
-                  {logicalState.emissionControlOutputActive ? 'ACTIVE' : 'INACTIVE'}
-                </span>
+                <TelemetryValue lastReported={logicalState.emissionControlOutputActive ? 'ACTIVE' : 'INACTIVE'}>
+                  <span className={`font-mono text-xs font-bold ${logicalState.emissionControlOutputActive ? 'text-primary animate-pulse' : 'text-muted-foreground'}`}>
+                    {logicalState.emissionControlOutputActive ? 'ACTIVE' : 'INACTIVE'}
+                  </span>
+                </TelemetryValue>
               </div>
 
               <Button 
@@ -80,9 +89,9 @@ export default function Control() {
                   <span className="font-bold">{logicalState.remoteStopOK ? 'CLEAR (OK)' : 'STOP ASSERTED'}</span>
                 </div>
               )}
-              <div className={`p-4 border rounded-sm font-mono text-xs flex justify-between items-center ${!logicalState.faulted ? 'border-success/30 bg-success/10 text-success' : 'border-destructive/30 bg-destructive/10 text-destructive'}`}>
+                <div className={`p-4 border rounded-sm font-mono text-xs flex justify-between items-center ${!telemetry.isLive ? 'border-warning/30 bg-warning/10 text-warning' : !logicalState.faulted ? 'border-success/30 bg-success/10 text-success' : 'border-destructive/30 bg-destructive/10 text-destructive'}`}>
                 <span>Internal State Machine</span>
-                <span className="font-bold">{!logicalState.faulted ? 'READY' : `FAULT: ${logicalState.faultCode}`}</span>
+                  <span className="font-bold">{telemetry.isLive ? (!logicalState.faulted ? 'READY' : `FAULT: ${logicalState.faultCode}`) : `UNKNOWN · LAST: ${!logicalState.faulted ? 'READY' : `FAULT ${logicalState.faultCode}`}`}</span>
               </div>
             </div>
           </CardContent>

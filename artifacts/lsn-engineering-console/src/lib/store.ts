@@ -7,8 +7,31 @@ import { validateDeviceProfile } from './profile-validation';
 export type ConnectionState = 'disconnected' | 'connecting' | 'connected' | 'faulted';
 export type HardwareMode = 'simulation' | 'hardware';
 export type ImplementationStatus = 'TBD' | 'IMPLEMENTING' | 'TESTING' | 'IMPLEMENTED' | 'VERIFIED';
+export type SimulationStatus = 'NOT_TESTED' | 'TESTING' | 'VERIFIED';
 export type CapabilityKey = 'interlock' | 'remoteStop' | 'sensors';
 export type CapabilityModel = Record<CapabilityKey, boolean>;
+export const TELEMETRY_STALE_AFTER_MS = 5_000;
+
+export interface TelemetryFreshness {
+  state: 'LIVE' | 'STALE' | 'UNKNOWN';
+  isLive: boolean;
+  ageMs: number | null;
+  lastValidUpdateAt: number | null;
+}
+
+export function getTelemetryFreshness(
+  connectionState: ConnectionState,
+  lastValidUpdateAt: number | null,
+  now = Date.now(),
+  staleAfterMs = TELEMETRY_STALE_AFTER_MS,
+): TelemetryFreshness {
+  if (lastValidUpdateAt == null) {
+    return { state: 'UNKNOWN', isLive: false, ageMs: null, lastValidUpdateAt: null };
+  }
+  const ageMs = Math.max(0, now - lastValidUpdateAt);
+  const isLive = connectionState === 'connected' && ageMs <= staleAfterMs;
+  return { state: isLive ? 'LIVE' : 'STALE', isLive, ageMs, lastValidUpdateAt };
+}
 
 export const DEFAULT_CAPABILITIES: CapabilityModel = {
   interlock: profileJson.capabilities.interlock.enabled,
@@ -65,10 +88,20 @@ export interface ProfileItem {
   attribute: string | 'TBD';
   assembly: string | 'TBD';
   implementationStatus: ImplementationStatus;
+  simulationStatus: SimulationStatus;
   expectedFirmwareBehavior: string;
   expectedReportedResponse: string;
   notes: string;
   capability?: CapabilityKey;
+}
+
+export function effectiveFirmwareStatus(item: ProfileItem): ImplementationStatus {
+  const mappingUnresolved =
+    item.cipService === 'TBD' ||
+    item.class === 'TBD' ||
+    item.instance === 'TBD' ||
+    item.attribute === 'TBD';
+  return mappingUnresolved ? 'TBD' : item.implementationStatus;
 }
 
 export interface Transaction {
@@ -172,6 +205,7 @@ interface LSNStore {
   mode: HardwareMode;
   hardwareUnlocked: boolean;
   connectionState: ConnectionState;
+  lastValidTelemetryAt: number | null;
   device: DeviceIdentity;
   discovered: boolean;
   logicalState: LogicalState;
@@ -274,6 +308,7 @@ const INITIAL_PROFILE: ProfileItem[] = profileJson.fields.map((item, index) => (
   attribute: item.attribute == null ? 'TBD' : String(item.attribute),
   assembly: item.assembly == null ? 'TBD' : JSON.stringify(item.assembly),
   implementationStatus: item.implementationStatus as ImplementationStatus,
+  simulationStatus: item.simulationStatus as SimulationStatus,
   expectedFirmwareBehavior: item.expectedFirmwareBehavior,
   expectedReportedResponse: item.expectedReportedResponse,
   notes: item.notes,
@@ -308,6 +343,7 @@ export const useStore = create<LSNStore>()(
       mode: 'simulation',
       hardwareUnlocked: false,
       connectionState: 'disconnected',
+      lastValidTelemetryAt: null,
       discovered: false,
       device: DEFAULT_DEVICE,
       logicalState: DEFAULT_STATE,
@@ -383,6 +419,7 @@ export const useStore = create<LSNStore>()(
         }
 
         if (get().logicalState.commsLoss) {
+          set({ connectionState: 'faulted' });
           get().addTransaction({
             direction: 'tx', operation: 'CONNECT', command: 'INIT', service: 'TBD', mapping: null,
             requestPayload: '', responsePayload: '', requestHex: '', responseHex: '', requestDecoded: 'Connection Failed (Comms Loss)', responseDecoded: '',
@@ -393,7 +430,7 @@ export const useStore = create<LSNStore>()(
 
         set({ connectionState: 'connecting' });
         await new Promise(r => setTimeout(r, settings.simulatorTiming * 2));
-        set({ connectionState: 'connected' });
+        set({ connectionState: 'connected', lastValidTelemetryAt: Date.now() });
         
         get().addTransaction({
           direction: 'tx', operation: 'CONNECT', command: 'INIT', service: 'TBD', mapping: null,
@@ -460,6 +497,7 @@ export const useStore = create<LSNStore>()(
           });
 
           return {
+            lastValidTelemetryAt: Date.now(),
             logicalState: {
               ...state.logicalState,
               requestedEnable: reqEnable,
@@ -489,7 +527,10 @@ export const useStore = create<LSNStore>()(
             newState.reportedEnablePermitted = false;
             newState.lastDisableReason = 'Interlock Broken';
           }
-          return { logicalState: newState };
+          return {
+            logicalState: newState,
+            lastValidTelemetryAt: state.connectionState === 'connected' ? Date.now() : state.lastValidTelemetryAt,
+          };
         });
       },
 
@@ -502,7 +543,10 @@ export const useStore = create<LSNStore>()(
             newState.reportedEnablePermitted = false;
             newState.lastDisableReason = 'Remote Stop Asserted';
           }
-          return { logicalState: newState };
+          return {
+            logicalState: newState,
+            lastValidTelemetryAt: state.connectionState === 'connected' ? Date.now() : state.lastValidTelemetryAt,
+          };
         });
       },
 
@@ -514,6 +558,7 @@ export const useStore = create<LSNStore>()(
         });
 
         set(state => ({
+          lastValidTelemetryAt: state.connectionState === 'connected' ? Date.now() : state.lastValidTelemetryAt,
           logicalState: {
             ...state.logicalState,
             faulted: true,
@@ -532,10 +577,21 @@ export const useStore = create<LSNStore>()(
           status: 'ok', latency: 8, relatedAction: 'clearFault', expectedResult: 'Success', actualResult: 'Success', pass: true
         });
 
-        set(state => ({ logicalState: { ...state.logicalState, faulted: false, faultCode: null } }));
+        set(state => ({
+          logicalState: { ...state.logicalState, faulted: false, faultCode: null },
+          lastValidTelemetryAt: state.connectionState === 'connected' ? Date.now() : state.lastValidTelemetryAt,
+        }));
       },
 
-      updateLogicalState: (updates) => set(state => ({ logicalState: { ...state.logicalState, ...updates } })),
+      updateLogicalState: (updates) => set(state => ({
+        logicalState: { ...state.logicalState, ...updates },
+        connectionState: updates.commsLoss === true ? 'faulted' : state.connectionState,
+        discovered: updates.commsLoss === true ? false : state.discovered,
+        lastValidTelemetryAt:
+          updates.commsLoss === true || state.connectionState !== 'connected'
+            ? state.lastValidTelemetryAt
+            : Date.now(),
+      })),
       
       updateProfileItem: (id, updates) => set(state => ({
         profile: state.profile.map(p => p.id === id ? { ...p, ...updates } : p)
@@ -564,6 +620,7 @@ export const useStore = create<LSNStore>()(
             attribute: item.attribute == null ? 'TBD' : String(item.attribute),
             assembly: item.assembly == null ? 'TBD' : JSON.stringify(item.assembly),
             implementationStatus: item.implementationStatus as ImplementationStatus,
+            simulationStatus: item.simulationStatus as SimulationStatus,
             expectedFirmwareBehavior: item.expectedFirmwareBehavior,
             expectedReportedResponse: item.expectedReportedResponse,
             notes: item.notes,
@@ -649,7 +706,7 @@ export const useStore = create<LSNStore>()(
               manualNote: imported.manualNote ? String(imported.manualNote) : undefined,
             };
           });
-          set({ logicalState, transactions, tests });
+          set({ logicalState, transactions, tests, lastValidTelemetryAt: null, connectionState: 'disconnected' });
         } catch (error) {
           console.error('Failed to import state', error);
         }
@@ -841,7 +898,8 @@ export const useStore = create<LSNStore>()(
       tick: (deltaMs) => {
         set(state => {
           const ls = state.logicalState;
-          const wasActive = ls.emissionControlOutputActive;
+          const telemetryLive = state.connectionState === 'connected' && !ls.commsLoss;
+          const wasActive = telemetryLive && ls.emissionControlOutputActive;
           const newLS = {
             ...ls,
             lifetimeEmissionTimeMs: ls.lifetimeEmissionTimeMs + (wasActive ? deltaMs : 0),
@@ -885,7 +943,13 @@ export const useStore = create<LSNStore>()(
             }
           }
 
-          return { logicalState: newLS, stressTestState: newStress };
+          return {
+            logicalState: newLS,
+            stressTestState: newStress,
+            connectionState: ls.commsLoss ? 'faulted' : state.connectionState,
+            discovered: ls.commsLoss ? false : state.discovered,
+            lastValidTelemetryAt: telemetryLive ? Date.now() : state.lastValidTelemetryAt,
+          };
         });
       },
 
@@ -1026,6 +1090,23 @@ export const useStore = create<LSNStore>()(
     }),
     {
       name: 'lsn-console-storage',
+      version: 2,
+      migrate: (persistedState) => {
+        const state = persistedState as Partial<LSNStore>;
+        return {
+          ...state,
+          profile: Array.isArray(state.profile)
+            ? state.profile.map(item => {
+                const canonical = INITIAL_PROFILE.find(candidate => candidate.symbolicName === item.symbolicName);
+                return {
+                  ...item,
+                  implementationStatus: 'TBD' as ImplementationStatus,
+                  simulationStatus: canonical?.simulationStatus ?? 'NOT_TESTED',
+                };
+              })
+            : INITIAL_PROFILE,
+        };
+      },
       partialize: (state) => state.settings.localPersistence ? {
         device: state.device,
         logicalState: sanitizeLogicalStateForCapabilities(state.logicalState, state.capabilities),

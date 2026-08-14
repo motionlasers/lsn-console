@@ -1,1 +1,2 @@
 - [Capability-driven Phase 1](capability-driven-phase1.md) — future hardware capabilities stay disabled and absent from normal workflows unless explicitly enabled for simulation.
+- [Telemetry and validation integrity](telemetry-validation-integrity.md) — disconnected values are last-reported evidence, and simulation success never advances firmware status.

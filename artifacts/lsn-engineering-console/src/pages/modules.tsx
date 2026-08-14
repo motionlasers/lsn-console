@@ -2,9 +2,10 @@ import { useStore } from "@/lib/store";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Settings, Lock, Unlock } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { TelemetryNotice, TelemetryValue } from "@/components/TelemetryState";
 
 export default function Modules() {
-  const { logicalState, updateLogicalState, mode, capabilities, setCapability, settings } = useStore();
+  const { logicalState, updateLogicalState, mode, capabilities, setCapability, settings, connectionState } = useStore();
 
   const isEnabled = !!capabilities?.sensors;
   const showDevToggle = settings?.devMode && mode === 'simulation';
@@ -18,6 +19,7 @@ export default function Modules() {
         </CardTitle>
       </CardHeader>
       <CardContent className="pt-6">
+        <div className="mb-4"><TelemetryNotice /></div>
         {!isEnabled ? (
           <div className="flex flex-col items-center justify-center p-8 border border-dashed border-border/50 rounded-sm">
             <div className="text-muted-foreground font-mono text-xs text-center mb-4">
@@ -45,10 +47,12 @@ export default function Modules() {
                 variant="outline" 
                 size="sm" 
                 onClick={() => updateLogicalState({ modulesEnabled: !logicalState.modulesEnabled })}
-                disabled={mode === 'hardware'}
+                disabled={mode === 'hardware' || connectionState !== 'connected'}
                 className={`font-mono text-[10px] h-7 ${logicalState.modulesEnabled ? 'border-primary text-primary' : 'border-border text-muted-foreground'}`} 
               >
-                {logicalState.modulesEnabled ? <><Unlock className="w-3 h-3 mr-2" /> ACTIVE</> : <><Lock className="w-3 h-3 mr-2" /> LOCKED</>}
+                <TelemetryValue lastReported={logicalState.modulesEnabled ? 'ACTIVE' : 'LOCKED'}>
+                  {logicalState.modulesEnabled ? <><Unlock className="w-3 h-3 mr-2" /> ACTIVE</> : <><Lock className="w-3 h-3 mr-2" /> LOCKED</>}
+                </TelemetryValue>
               </Button>
             </div>
             <div className="p-4 font-mono text-xs text-muted-foreground leading-relaxed">

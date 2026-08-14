@@ -5,9 +5,11 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useState } from "react";
+import { TelemetryNotice, useTelemetryState } from "@/components/TelemetryState";
 
 export default function HardwareDevice() {
   const { mode, setMode, device, hardwareUnlocked, setHardwareUnlocked } = useStore();
+  const telemetry = useTelemetryState();
   const [ack, setAck] = useState(false);
 
   return (
@@ -75,6 +77,10 @@ export default function HardwareDevice() {
             </CardTitle>
           </CardHeader>
           <CardContent className="pt-6">
+            <div className="mb-4"><TelemetryNotice compact /></div>
+            <div className={`mb-4 border p-3 rounded-sm font-mono text-[10px] ${telemetry.isLive ? 'border-success/30 bg-success/10 text-success' : 'border-warning/30 bg-warning/10 text-warning'}`}>
+              IDENTITY VERIFICATION: {telemetry.isLive ? 'CURRENT SIMULATION RESPONSE' : 'UNKNOWN · NO CURRENT DEVICE RESPONSE'}
+            </div>
             <div className="space-y-4">
               <div className="flex justify-between border-b border-border/50 pb-2">
                 <span className="text-xs font-mono text-muted-foreground">Expected Profile</span>

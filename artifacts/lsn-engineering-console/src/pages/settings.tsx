@@ -2,6 +2,7 @@ import {
   isProfileItemSupported,
   isTestSupported,
   isTransactionSupported,
+  getTelemetryFreshness,
   useStore,
   visibleLogicalState,
 } from "@/lib/store";
@@ -23,6 +24,10 @@ export default function SettingsPage() {
       version: '0.1',
       timestamp: Date.now(),
       device: state.device,
+      telemetry: getTelemetryFreshness(state.connectionState, state.lastValidTelemetryAt),
+      logicalStateSemantics: 'LAST_REPORTED_WHEN_TELEMETRY_IS_NOT_LIVE',
+      validationScope: 'SIMULATION_TEST_HARNESS',
+      firmwareImplementationInferred: false,
       logicalState: visibleLogicalState(state.logicalState, state.capabilities),
       profile: state.profile.filter(item => isProfileItemSupported(item, state.capabilities)),
       transactions: state.transactions.filter(transaction => isTransactionSupported(transaction, state.capabilities)),

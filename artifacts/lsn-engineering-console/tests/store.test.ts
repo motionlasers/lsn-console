@@ -4,6 +4,7 @@ import {
   isProfileItemSupported,
   isTestSupported,
   isTransactionSupported,
+  getTelemetryFreshness,
   useStore,
   visibleLogicalState,
 } from '../src/lib/store';
@@ -13,6 +14,7 @@ beforeEach(() => {
     mode: 'simulation',
     hardwareUnlocked: false,
     connectionState: 'disconnected',
+    lastValidTelemetryAt: null,
     discovered: false,
     responseAttempt: 0,
     capabilities: DEFAULT_CAPABILITIES,
@@ -149,6 +151,38 @@ test('Initial state is correct and deterministic', () => {
   expect(state.connectionState).toBe('disconnected');
   expect(state.logicalState.ready).toBe(true);
   expect(state.logicalState.emissionControlOutputActive).toBe(false);
+  expect(getTelemetryFreshness(state.connectionState, state.lastValidTelemetryAt, 1000).state).toBe('UNKNOWN');
+});
+
+test('Disconnected telemetry is stale and never current', () => {
+  const freshness = getTelemetryFreshness('disconnected', 1_000, 15_200);
+  expect(freshness).toMatchObject({ state: 'STALE', isLive: false, ageMs: 14_200 });
+});
+
+test('Connected recent telemetry is live but expires after the stale threshold', () => {
+  expect(getTelemetryFreshness('connected', 1_000, 2_000).isLive).toBe(true);
+  expect(getTelemetryFreshness('connected', 1_000, 7_000).state).toBe('STALE');
+});
+
+test('Disconnect preserves last reported values but invalidates live telemetry', () => {
+  useStore.setState(state => ({
+    connectionState: 'connected',
+    lastValidTelemetryAt: 1_000,
+    logicalState: { ...state.logicalState, emissionControlOutputActive: true },
+  }));
+  useStore.getState().disconnect();
+  const state = useStore.getState();
+  expect(state.connectionState).toBe('disconnected');
+  expect(state.logicalState.emissionControlOutputActive).toBe(true);
+  expect(getTelemetryFreshness(state.connectionState, state.lastValidTelemetryAt, 2_000).isLive).toBe(false);
+});
+
+test('Communication loss faults the session and invalidates telemetry', () => {
+  useStore.setState({ connectionState: 'connected', lastValidTelemetryAt: 1_000 });
+  useStore.getState().updateLogicalState({ commsLoss: true });
+  const state = useStore.getState();
+  expect(state.connectionState).toBe('faulted');
+  expect(getTelemetryFreshness(state.connectionState, state.lastValidTelemetryAt, 2_000).state).toBe('STALE');
 });
 
 test('Toggle enable fails when disconnected', () => {

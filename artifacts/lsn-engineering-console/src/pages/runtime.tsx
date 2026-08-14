@@ -1,6 +1,7 @@
 import { useStore } from "@/lib/store";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ActivityIcon, Timer, Database } from "lucide-react";
+import { TelemetryNotice, TelemetryValue } from "@/components/TelemetryState";
 
 export default function Runtime() {
   const { logicalState } = useStore();
@@ -14,27 +15,32 @@ export default function Runtime() {
         </CardTitle>
       </CardHeader>
       <CardContent className="pt-6">
+        <div className="mb-4"><TelemetryNotice /></div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="border border-border p-6 bg-black/20 flex flex-col items-center justify-center gap-3 text-center rounded-sm">
             <Timer className="w-8 h-8 text-primary mb-2" />
             <span className="text-xs font-mono text-muted-foreground uppercase tracking-widest">Lifetime Emission Time</span>
-            <span className="font-mono text-2xl text-foreground font-bold">
-              {logicalState.lifetimeEmissionTimeMs}<span className="text-sm text-muted-foreground font-normal ml-1">ms</span>
-            </span>
+            <TelemetryValue lastReported={`${logicalState.lifetimeEmissionTimeMs} ms`} className="items-center">
+              <span className="font-mono text-2xl text-foreground font-bold">
+                {logicalState.lifetimeEmissionTimeMs}<span className="text-sm text-muted-foreground font-normal ml-1">ms</span>
+              </span>
+            </TelemetryValue>
           </div>
           <div className="border border-border p-6 bg-black/20 flex flex-col items-center justify-center gap-3 text-center rounded-sm">
             <ActivityIcon className="w-8 h-8 text-primary mb-2" />
             <span className="text-xs font-mono text-muted-foreground uppercase tracking-widest">Enable Cycles</span>
-            <span className="font-mono text-2xl text-foreground font-bold">
-              {logicalState.enableCount}
-            </span>
+            <TelemetryValue lastReported={logicalState.enableCount} className="items-center">
+              <span className="font-mono text-2xl text-foreground font-bold">{logicalState.enableCount}</span>
+            </TelemetryValue>
           </div>
           <div className={`border p-6 bg-black/20 flex flex-col items-center justify-center gap-3 text-center rounded-sm ${logicalState.storageFailure ? 'border-destructive/50' : 'border-border'}`}>
             <Database className={`w-8 h-8 mb-2 ${logicalState.storageFailure ? 'text-destructive' : 'text-primary'}`} />
             <span className="text-xs font-mono text-muted-foreground uppercase tracking-widest">Persistence Status</span>
-            <span className={`font-mono text-sm font-bold ${logicalState.storageFailure ? 'text-destructive animate-pulse' : 'text-success'}`}>
-              {logicalState.storageFailure ? 'SIMULATED FAILURE' : 'OK'}
-            </span>
+            <TelemetryValue lastReported={logicalState.storageFailure ? 'SIMULATED FAILURE' : 'OK'} className="items-center">
+              <span className={`font-mono text-sm font-bold ${logicalState.storageFailure ? 'text-destructive animate-pulse' : 'text-success'}`}>
+                {logicalState.storageFailure ? 'SIMULATED FAILURE' : 'OK'}
+              </span>
+            </TelemetryValue>
           </div>
         </div>
       </CardContent>

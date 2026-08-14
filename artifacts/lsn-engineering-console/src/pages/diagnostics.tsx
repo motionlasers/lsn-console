@@ -2,9 +2,12 @@ import { useStore } from "@/lib/store";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ShieldAlert, TerminalSquare, AlertTriangle, CloudOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { TelemetryNotice, useTelemetryState } from "@/components/TelemetryState";
 
 export default function Diagnostics() {
-  const { logicalState, clearFault, mode, triggerFault, updateLogicalState, settings, updateSettings } = useStore();
+  const { logicalState, clearFault, mode, triggerFault, updateLogicalState, settings, updateSettings, connectionState } = useStore();
+  const telemetry = useTelemetryState();
+  const liveControlsDisabled = mode === 'hardware' || connectionState !== 'connected';
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-6 h-full">
@@ -16,7 +19,15 @@ export default function Diagnostics() {
           </CardTitle>
         </CardHeader>
         <CardContent className="pt-6 flex-1 flex flex-col gap-6">
-          {logicalState.faulted ? (
+          <TelemetryNotice />
+          {!telemetry.isLive ? (
+            <div className="border border-warning/40 bg-warning/10 p-4 rounded-sm font-mono">
+              <div className="text-warning font-bold">CURRENT FAULT STATE UNKNOWN</div>
+              <div className="text-[10px] text-muted-foreground mt-2">
+                Last reported: {logicalState.faulted ? `FAULT ${logicalState.faultCode}` : 'NO ACTIVE LOGICAL FAULTS'}
+              </div>
+            </div>
+          ) : logicalState.faulted ? (
             <div className="border border-destructive/50 bg-destructive/10 p-4 rounded-sm flex flex-col gap-4">
               <div className="text-destructive font-mono text-lg font-bold">
                 {logicalState.faultCode}
@@ -28,7 +39,7 @@ export default function Diagnostics() {
                 variant="outline" 
                 className="font-mono text-xs border-destructive text-destructive hover:bg-destructive hover:text-white self-start"
                 onClick={clearFault}
-                disabled={mode === 'hardware'}
+                disabled={liveControlsDisabled}
               >
                 REQUEST FAULT CLEAR
               </Button>
@@ -41,7 +52,7 @@ export default function Diagnostics() {
                 size="sm"
                 className="font-mono text-[10px] border-destructive/50 text-destructive hover:bg-destructive hover:text-white"
                 onClick={() => triggerFault('MANUAL_TEST_FAULT')}
-                disabled={mode === 'hardware'}
+                disabled={liveControlsDisabled}
               >
                 TRIGGER MANUAL FAULT
               </Button>
@@ -61,7 +72,7 @@ export default function Diagnostics() {
                    size="sm" 
                    className={`w-full font-mono text-[10px] ${logicalState.storageFailure ? 'bg-destructive/20 text-destructive border-destructive' : 'text-foreground border-border hover:bg-white/10'}`}
                    onClick={() => updateLogicalState({ storageFailure: !logicalState.storageFailure })}
-                   disabled={mode === 'hardware'}
+                   disabled={mode === 'hardware' || (connectionState !== 'connected' && !logicalState.commsLoss)}
                  >
                    {logicalState.storageFailure ? 'FIX STORAGE' : 'CORRUPT STORAGE'}
                  </Button>
@@ -76,7 +87,7 @@ export default function Diagnostics() {
                    size="sm" 
                    className={`w-full font-mono text-[10px] ${logicalState.commsLoss ? 'bg-destructive/20 text-destructive border-destructive' : 'text-foreground border-border hover:bg-white/10'}`}
                    onClick={() => updateLogicalState({ commsLoss: !logicalState.commsLoss })}
-                   disabled={mode === 'hardware'}
+                    disabled={mode === 'hardware'}
                  >
                    {logicalState.commsLoss ? 'RESTORE COMMS' : 'DROP COMMS'}
                  </Button>
@@ -110,7 +121,11 @@ export default function Diagnostics() {
           </CardTitle>
         </CardHeader>
         <CardContent className="pt-6">
-           {(!logicalState.faulted && !logicalState.storageFailure && !logicalState.commsLoss && settings.droppedResponseRate === 0) ? (
+           {!telemetry.isLive ? (
+             <div className="text-warning font-mono text-xs text-center p-8 border border-warning/30 border-dashed">
+               LIVE HEALTH UNKNOWN. RECONNECT BEFORE USING CURRENT-STATE REMEDIATION.
+             </div>
+           ) : (!logicalState.faulted && !logicalState.storageFailure && !logicalState.commsLoss && settings.droppedResponseRate === 0) ? (
              <div className="text-muted-foreground font-mono text-xs text-center p-8 border border-border/20 border-dashed">
                SYSTEM HEALTHY. NO REMEDIATION REQUIRED.
              </div>

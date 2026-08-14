@@ -3,6 +3,7 @@ import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { generateMarkdownProfile } from '../src/lib/exports';
 import { validateDeviceProfile } from '../src/lib/profile-validation';
+import { effectiveFirmwareStatus } from '../src/lib/store';
 
 const profile = JSON.parse(
   readFileSync(resolve(import.meta.dirname, '../profiles/lsn-v0.1.json'), 'utf8'),
@@ -27,6 +28,27 @@ describe('LSN v0.1 device profile', () => {
     expect(names).toContain('EnableCount');
   });
 
+  it('separates firmware implementation from simulation validation', () => {
+    for (const field of profile.fields) {
+      expect(field.implementationStatus).toBe('TBD');
+      expect(['NOT_TESTED', 'TESTING', 'VERIFIED']).toContain(field.simulationStatus);
+    }
+  });
+
+  it('never presents cached implementation success while protocol mapping is unresolved', () => {
+    const staleCachedField = {
+      ...profile.fields[0],
+      id: 'cached',
+      class: 'TBD',
+      instance: 'TBD',
+      attribute: 'TBD',
+      assembly: 'TBD',
+      implementationStatus: 'VERIFIED',
+    };
+    expect(effectiveFirmwareStatus(staleCachedField)).toBe('TBD');
+    expect(generateMarkdownProfile([staleCachedField])).toContain('| TBD |');
+  });
+
   it('generates a firmware-facing specification with behavior and response columns', () => {
     const activeFields = profile.fields.filter((field: { capability?: string }) =>
       !field.capability || profile.capabilities[field.capability].enabled,
@@ -34,6 +56,9 @@ describe('LSN v0.1 device profile', () => {
     const markdown = generateMarkdownProfile(activeFields);
     expect(markdown).toContain('Expected Firmware Behavior');
     expect(markdown).toContain('Expected Reported Response');
+    expect(markdown).toContain('Firmware Status');
+    expect(markdown).toContain('Simulation Status');
+    expect(markdown).toContain('does not imply firmware implementation');
     expect(markdown).toContain('EmissionEnableRequest');
     expect(markdown).toContain('TBD');
     expect(markdown).not.toContain('InterlockOK');

@@ -3,8 +3,9 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Power, PowerOff, Cpu, Network, Clock, Zap, Radar } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { TelemetryNotice, TelemetryValue, useTelemetryState } from "@/components/TelemetryState";
 
-function StatusIndicator({ label, active, color = "success" }: { label: string, active: boolean, color?: "success" | "primary" | "destructive" }) {
+function StatusIndicator({ label, active, color = "success", live }: { label: string, active: boolean, color?: "success" | "primary" | "destructive", live: boolean }) {
   const colorMap = {
     success: "bg-success text-success-foreground border-success",
     primary: "bg-primary text-primary-foreground border-primary",
@@ -16,10 +17,11 @@ function StatusIndicator({ label, active, color = "success" }: { label: string, 
     <div className="flex justify-between items-center py-2 border-b border-border/50 last:border-0">
       <span className="text-sm text-foreground/80 font-mono">{label}</span>
       <div className={cn(
-        "px-2 py-0.5 text-[10px] font-bold tracking-wider font-mono rounded-sm border",
-        active ? colorMap[color] : inactiveClass
+        "px-2 py-0.5 text-[10px] font-bold tracking-wider font-mono rounded-sm border text-right",
+        live ? (active ? colorMap[color] : inactiveClass) : "bg-warning/10 text-warning border-warning/30"
       )}>
-        {active ? "TRUE" : "FALSE"}
+        <div>{live ? (active ? "TRUE" : "FALSE") : "UNKNOWN"}</div>
+        {!live && <div className="text-[8px] text-muted-foreground font-normal tracking-normal">LAST REPORTED: {active ? "TRUE" : "FALSE"}</div>}
       </div>
     </div>
   );
@@ -27,6 +29,7 @@ function StatusIndicator({ label, active, color = "success" }: { label: string, 
 
 export default function Dashboard() {
   const { device, connectionState, logicalState, mode, connect, disconnect, discover, discovered, toggleEnable, setInterlock, setRemoteStop, settings, capabilities, setCapability } = useStore();
+  const telemetry = useTelemetryState();
 
   const handleDiscovery = () => discover();
 
@@ -138,12 +141,13 @@ export default function Dashboard() {
         </CardHeader>
         <CardContent className="pt-4 flex flex-col h-full">
           <div className="flex-1 flex flex-col">
-            <StatusIndicator label="Ready To Enable" active={isReady} />
-            <StatusIndicator label="Requested Enable" active={logicalState.requestedEnable} color="primary" />
-            <StatusIndicator label="Emission Output Active" active={logicalState.emissionControlOutputActive} color="primary" />
-            {capabilities?.interlock && <StatusIndicator label="Interlock OK" active={logicalState.interlockOK} />}
-            {capabilities?.remoteStop && <StatusIndicator label="Remote Stop OK" active={logicalState.remoteStopOK} />}
-            <StatusIndicator label="Fault State" active={logicalState.faulted} color="destructive" />
+             <TelemetryNotice compact />
+             <StatusIndicator label="Ready To Enable" active={isReady} live={telemetry.isLive} />
+             <StatusIndicator label="Requested Enable" active={logicalState.requestedEnable} color="primary" live={telemetry.isLive} />
+             <StatusIndicator label="Emission Output Active" active={logicalState.emissionControlOutputActive} color="primary" live={telemetry.isLive} />
+             {capabilities?.interlock && <StatusIndicator label="Interlock OK" active={logicalState.interlockOK} live={telemetry.isLive} />}
+             {capabilities?.remoteStop && <StatusIndicator label="Remote Stop OK" active={logicalState.remoteStopOK} live={telemetry.isLive} />}
+             <StatusIndicator label="Fault State" active={logicalState.faulted} color="destructive" live={telemetry.isLive} />
           </div>
         </CardContent>
       </Card>
@@ -175,7 +179,7 @@ export default function Dashboard() {
                 {logicalState.requestedEnable ? "CANCEL ENABLE REQ" : "EMISSION ENABLE REQ"}
               </Button>
               <div className="text-[10px] text-muted-foreground font-mono text-center">
-                Last Stop: {logicalState.lastDisableReason || 'N/A'}
+                 Last Reported Stop: {logicalState.lastDisableReason || 'N/A'}
               </div>
             </div>
 
@@ -204,11 +208,15 @@ export default function Dashboard() {
                 <div className="flex flex-col gap-1">
                   <div className="flex justify-between items-center text-xs font-mono">
                     <span className="text-muted-foreground">Enabled:</span>
-                    <span className="text-foreground">{logicalState.enableCount}x</span>
+                     <TelemetryValue lastReported={`${logicalState.enableCount}x`}>
+                       <span className="text-foreground">{logicalState.enableCount}x</span>
+                     </TelemetryValue>
                   </div>
                   <div className="flex justify-between items-center text-xs font-mono">
                     <span className="text-muted-foreground">Runtime:</span>
-                    <span className="text-foreground">{(logicalState.lifetimeEmissionTimeMs / 1000 / 60).toFixed(2)}m</span>
+                     <TelemetryValue lastReported={`${(logicalState.lifetimeEmissionTimeMs / 1000 / 60).toFixed(2)}m`}>
+                       <span className="text-foreground">{(logicalState.lifetimeEmissionTimeMs / 1000 / 60).toFixed(2)}m</span>
+                     </TelemetryValue>
                   </div>
                 </div>
               </div>

@@ -2,6 +2,7 @@ import {
   isProfileItemSupported,
   isTestSupported,
   isTransactionSupported,
+  getTelemetryFreshness,
   useStore,
   visibleLogicalState,
 } from "@/lib/store";
@@ -12,7 +13,7 @@ import { generateCSV, generateHTMLReport, downloadFile } from "@/lib/exports";
 import JSZip from "jszip";
 
 export default function Logs() {
-  const { transactions, tests, device, capabilities } = useStore();
+  const { transactions, tests, device, capabilities, connectionState, lastValidTelemetryAt } = useStore();
 
   const supportedTests = tests.filter(t => isTestSupported(t, capabilities));
   const supportedTransactions = transactions.filter(transaction => isTransactionSupported(transaction, capabilities));
@@ -51,7 +52,18 @@ export default function Logs() {
   };
   
   const exportValidationJSON = () => {
-    const report = { metadata: { device, enabledCapabilities, timestamp: Date.now() }, tests: supportedTests };
+    const timestamp = Date.now();
+    const report = {
+      metadata: {
+        device,
+        enabledCapabilities,
+        timestamp,
+        validationScope: 'SIMULATION_TEST_HARNESS',
+        firmwareImplementationInferred: false,
+        telemetry: getTelemetryFreshness(connectionState, lastValidTelemetryAt, timestamp),
+      },
+      tests: supportedTests,
+    };
     downloadFile(JSON.stringify(report, null, 2), `lsn-validation-report-${Date.now()}.json`, 'application/json');
   };
 
@@ -67,6 +79,10 @@ export default function Logs() {
       version: '0.1',
       device: state.device,
       mode: state.mode,
+      telemetry: getTelemetryFreshness(state.connectionState, state.lastValidTelemetryAt),
+      logicalStateSemantics: 'LAST_REPORTED_WHEN_TELEMETRY_IS_NOT_LIVE',
+      validationScope: 'SIMULATION_TEST_HARNESS',
+      firmwareImplementationInferred: false,
       enabledCapabilities: stateEnabledCapabilities,
       logicalState: visibleLogicalState(state.logicalState, state.capabilities),
       profile: state.profile.filter(item => isProfileItemSupported(item, state.capabilities)),
@@ -77,7 +93,7 @@ export default function Logs() {
     const zip = new JSZip();
     zip.file('support-bundle.json', JSON.stringify(bundle, null, 2));
     zip.file('transactions.csv', generateCSV(stateSupportedTransactions));
-    zip.file('README.txt', 'LSN Engineering Console simulation support bundle. Simulation evidence is not physical validation or safety certification.');
+    zip.file('README.txt', 'LSN Engineering Console simulation support bundle. Simulation evidence is not firmware implementation, physical validation, or safety certification. Logical-state values are last reported whenever telemetry is not LIVE.');
     const blob = await zip.generateAsync({ type: 'blob' });
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement('a');

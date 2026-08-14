@@ -45,7 +45,8 @@
       "instance": null,
       "attribute": null,
       "assembly": null,
-      "implementationStatus": "TESTING",
+      "implementationStatus": "TBD",
+      "simulationStatus": "VERIFIED",
       "expectedFirmwareBehavior": "Validate the request, evaluate all blocking conditions, and activate the control output only when permitted.",
       "expectedReportedResponse": "Requested state is acknowledged; reported and hardware-control states remain independently readable.",
       "notes": "This is an emission-control request, not proof of optical emission."
@@ -61,6 +62,7 @@
       "attribute": null,
       "assembly": null,
       "implementationStatus": "TBD",
+      "simulationStatus": "TESTING",
       "expectedFirmwareBehavior": "Attempt to clear resettable faults without bypassing active blocking conditions.",
       "expectedReportedResponse": "Faulted and FaultCode update to the resulting state.",
       "notes": "No behavior is assigned for non-resettable faults."
@@ -75,7 +77,8 @@
       "instance": null,
       "attribute": null,
       "assembly": null,
-      "implementationStatus": "VERIFIED",
+      "implementationStatus": "TBD",
+      "simulationStatus": "VERIFIED",
       "expectedFirmwareBehavior": "Report whether the LSN state machine is initialized and able to evaluate control requests.",
       "expectedReportedResponse": "Boolean Ready state.",
       "notes": "Ready does not mean emission control is active."
@@ -90,7 +93,8 @@
       "instance": null,
       "attribute": null,
       "assembly": null,
-      "implementationStatus": "TESTING",
+      "implementationStatus": "TBD",
+      "simulationStatus": "VERIFIED",
       "expectedFirmwareBehavior": "Report the state of the physical emission-control/interlock output.",
       "expectedReportedResponse": "Boolean hardware-control state.",
       "notes": "Never infer optical emission from this value."
@@ -106,7 +110,8 @@
       "instance": null,
       "attribute": null,
       "assembly": null,
-      "implementationStatus": "IMPLEMENTED",
+      "implementationStatus": "TBD",
+      "simulationStatus": "VERIFIED",
       "expectedFirmwareBehavior": "Report the logical monitored-interlock condition.",
       "expectedReportedResponse": "Boolean interlock state; an open condition blocks control.",
       "notes": "Logical state remains independent of GPIO assignment."
@@ -122,7 +127,8 @@
       "instance": null,
       "attribute": null,
       "assembly": null,
-      "implementationStatus": "IMPLEMENTING",
+      "implementationStatus": "TBD",
+      "simulationStatus": "TESTING",
       "expectedFirmwareBehavior": "Report the logical remote-stop condition.",
       "expectedReportedResponse": "Boolean remote-stop state; an open condition blocks control.",
       "notes": "Applicable when remote-stop hardware is present."
@@ -137,7 +143,8 @@
       "instance": null,
       "attribute": null,
       "assembly": null,
-      "implementationStatus": "IMPLEMENTED",
+      "implementationStatus": "TBD",
+      "simulationStatus": "VERIFIED",
       "expectedFirmwareBehavior": "Report whether an active fault is present.",
       "expectedReportedResponse": "Boolean fault state accompanied by FaultCode.",
       "notes": ""
@@ -152,7 +159,8 @@
       "instance": null,
       "attribute": null,
       "assembly": null,
-      "implementationStatus": "IMPLEMENTING",
+      "implementationStatus": "TBD",
+      "simulationStatus": "TESTING",
       "expectedFirmwareBehavior": "Report the profile-defined active fault code.",
       "expectedReportedResponse": "Unsigned fault value.",
       "notes": "Final numerical definitions remain TBD."
@@ -167,7 +175,8 @@
       "instance": null,
       "attribute": null,
       "assembly": null,
-      "implementationStatus": "IMPLEMENTED",
+      "implementationStatus": "TBD",
+      "simulationStatus": "VERIFIED",
       "expectedFirmwareBehavior": "Report NotCounting, Counting, Fault, or Unknown according to runtime accumulation.",
       "expectedReportedResponse": "Profile-defined timer-state enum.",
       "notes": "Final numeric enum values remain TBD."
@@ -182,7 +191,8 @@
       "instance": null,
       "attribute": null,
       "assembly": null,
-      "implementationStatus": "IMPLEMENTING",
+      "implementationStatus": "TBD",
+      "simulationStatus": "VERIFIED",
       "expectedFirmwareBehavior": "Persistently accumulate time only while the emission-control output is active.",
       "expectedReportedResponse": "Monotonic unsigned 64-bit milliseconds.",
       "notes": "No normal remote reset command is permitted."
@@ -198,6 +208,7 @@
       "attribute": null,
       "assembly": null,
       "implementationStatus": "TBD",
+      "simulationStatus": "VERIFIED",
       "expectedFirmwareBehavior": "Persistently increment once per successful inactive-to-active control transition.",
       "expectedReportedResponse": "Monotonic lifetime enable count.",
       "notes": "Read-only in normal operation."
@@ -213,6 +224,7 @@
       "attribute": null,
       "assembly": null,
       "implementationStatus": "TBD",
+      "simulationStatus": "TESTING",
       "expectedFirmwareBehavior": "Report whether a network client currently owns control.",
       "expectedReportedResponse": "Boolean ownership state.",
       "notes": "Ownership policy remains to be finalized."
@@ -227,7 +239,8 @@
       "instance": null,
       "attribute": null,
       "assembly": null,
-      "implementationStatus": "IMPLEMENTING",
+      "implementationStatus": "TBD",
+      "simulationStatus": "TESTING",
       "expectedFirmwareBehavior": "Expose the implemented logical protocol version.",
       "expectedReportedResponse": "Version string comparable with the active Device Profile.",
       "notes": ""
@@ -242,7 +255,8 @@
       "instance": null,
       "attribute": null,
       "assembly": null,
-      "implementationStatus": "IMPLEMENTED",
+      "implementationStatus": "TBD",
+      "simulationStatus": "TESTING",
       "expectedFirmwareBehavior": "Expose the running application firmware version.",
       "expectedReportedResponse": "Semantic version/build identifier.",
       "notes": ""
@@ -258,6 +272,7 @@
       "attribute": null,
       "assembly": null,
       "implementationStatus": "TBD",
+      "simulationStatus": "NOT_TESTED",
       "expectedFirmwareBehavior": "Expose a stable unique device identity.",
       "expectedReportedResponse": "Device serial string.",
       "notes": ""
@@ -273,6 +288,7 @@
       "attribute": null,
       "assembly": null,
       "implementationStatus": "TBD",
+      "simulationStatus": "NOT_TESTED",
       "expectedFirmwareBehavior": "Expose the hardware revision when available.",
       "expectedReportedResponse": "Hardware revision string.",
       "notes": ""
@@ -288,6 +304,7 @@
       "attribute": null,
       "assembly": null,
       "implementationStatus": "TBD",
+      "simulationStatus": "TESTING",
       "expectedFirmwareBehavior": "Record the reason for the latest active-to-inactive transition.",
       "expectedReportedResponse": "Profile-defined disable-reason enum.",
       "notes": "Final numeric enum values remain TBD."

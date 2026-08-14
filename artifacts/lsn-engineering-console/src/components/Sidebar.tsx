@@ -8,6 +8,7 @@ import saberLogo from "@assets/Saber-Industrial-Applications-Logo_1786661980178.
 import { cn } from "@/lib/utils";
 import { useTourStore } from "@/hooks/use-tour";
 import { TOUR_STEPS } from "@/lib/tour-data";
+import { LiveTelemetryBadge } from "@/components/TelemetryState";
 
 const NAV_ITEMS = [
   { path: "/", label: "Dashboard", icon: LayoutDashboard },
@@ -64,6 +65,10 @@ export function Sidebar() {
             )}>
               {connectionState.toUpperCase()}
             </span>
+          </div>
+          <div className="flex justify-between items-center mt-2 pt-2 border-t border-border/50">
+            <span>DATA:</span>
+            <LiveTelemetryBadge />
           </div>
         </div>
       </div>

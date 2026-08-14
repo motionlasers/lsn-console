@@ -1,4 +1,4 @@
-import { useStore, ImplementationStatus, isProfileItemSupported } from "@/lib/store";
+import { useStore, ImplementationStatus, SimulationStatus, effectiveFirmwareStatus, isProfileItemSupported } from "@/lib/store";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { FileJson, CheckCircle2, Clock, AlertTriangle, FileCode2, Download, Upload } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -60,6 +60,7 @@ export default function Profile() {
   };
 
   const statusOptions: ImplementationStatus[] = ['TBD', 'IMPLEMENTING', 'TESTING', 'IMPLEMENTED', 'VERIFIED'];
+  const simulationStatusOptions: SimulationStatus[] = ['NOT_TESTED', 'TESTING', 'VERIFIED'];
 
   return (
     <div className="flex flex-col h-full gap-6 animate-in fade-in duration-300">
@@ -106,8 +107,9 @@ export default function Profile() {
             Active Profile Specification
           </CardTitle>
           <div className="flex items-center gap-4">
-            <div className="text-[10px] font-mono text-muted-foreground">
-              CIP Mappings: <span className="text-warning">TBD</span>
+            <div className="text-[10px] font-mono text-muted-foreground text-right">
+              <div>PROTOCOL MAPPING: <span className="text-warning">TBD</span></div>
+              <div>HARDWARE VALIDATION: <span className="text-warning">REQUIRED</span></div>
             </div>
             
             <input type="file" ref={fileInputRef} className="hidden" accept=".json" onChange={handleFileChange} />
@@ -135,7 +137,8 @@ export default function Profile() {
                 <TableHead className="font-mono text-[10px] text-muted-foreground">SYMBOLIC NAME</TableHead>
                 <TableHead className="font-mono text-[10px] text-muted-foreground">DIR / TYPE</TableHead>
                 <TableHead className="font-mono text-[10px] text-muted-foreground">CIP REF</TableHead>
-                <TableHead className="font-mono text-[10px] text-muted-foreground">IMPLEMENTATION STATUS</TableHead>
+                <TableHead className="font-mono text-[10px] text-muted-foreground">FIRMWARE STATUS</TableHead>
+                <TableHead className="font-mono text-[10px] text-muted-foreground">SIMULATION STATUS</TableHead>
                 <TableHead className="font-mono text-[10px] text-muted-foreground">EXPECTED FW BEHAVIOR</TableHead>
               </TableRow>
             </TableHeader>
@@ -150,6 +153,22 @@ export default function Profile() {
                     <div className="text-foreground/80">{item.direction.toUpperCase()}</div>
                     <div className="text-[10px] text-primary">{item.dataType} ({item.access.toUpperCase()})</div>
                   </TableCell>
+                  <TableCell>
+                    {settings.devMode ? (
+                      <select
+                        value={item.simulationStatus}
+                        onChange={(e) => updateProfileItem(item.id, { simulationStatus: e.target.value as SimulationStatus })}
+                        className={`bg-black border rounded-sm text-[10px] font-mono p-1 focus:outline-none ${statusColor(item.simulationStatus)}`}
+                      >
+                        {simulationStatusOptions.map(opt => <option key={opt} value={opt} className="bg-background text-foreground">{opt}</option>)}
+                      </select>
+                    ) : (
+                      <span className={`inline-flex items-center gap-1.5 px-2 py-1 border rounded-sm text-[10px] tracking-wider ${statusColor(item.simulationStatus)}`}>
+                        {statusIcon(item.simulationStatus)}
+                        {item.simulationStatus}
+                      </span>
+                    )}
+                  </TableCell>
                   <TableCell className="text-muted-foreground">
                     Class: {item.class} <br/>
                     Inst: {item.instance} <br/>
@@ -158,16 +177,18 @@ export default function Profile() {
                   <TableCell>
                     {settings.devMode ? (
                       <select 
-                        value={item.implementationStatus}
+                        value={effectiveFirmwareStatus(item)}
                         onChange={(e) => updateProfileItem(item.id, { implementationStatus: e.target.value as ImplementationStatus })}
-                        className={`bg-black border rounded-sm text-[10px] font-mono p-1 focus:outline-none ${statusColor(item.implementationStatus)}`}
+                        disabled={effectiveFirmwareStatus(item) === 'TBD'}
+                        title={effectiveFirmwareStatus(item) === 'TBD' ? 'Firmware status remains TBD until protocol mappings are resolved.' : undefined}
+                        className={`bg-black border rounded-sm text-[10px] font-mono p-1 focus:outline-none disabled:opacity-70 ${statusColor(effectiveFirmwareStatus(item))}`}
                       >
                         {statusOptions.map(opt => <option key={opt} value={opt} className="bg-background text-foreground">{opt}</option>)}
                       </select>
                     ) : (
-                      <span className={`inline-flex items-center gap-1.5 px-2 py-1 border rounded-sm text-[10px] tracking-wider ${statusColor(item.implementationStatus)}`}>
-                        {statusIcon(item.implementationStatus)}
-                        {item.implementationStatus}
+                      <span className={`inline-flex items-center gap-1.5 px-2 py-1 border rounded-sm text-[10px] tracking-wider ${statusColor(effectiveFirmwareStatus(item))}`}>
+                        {statusIcon(effectiveFirmwareStatus(item))}
+                        {effectiveFirmwareStatus(item)}
                       </span>
                     )}
                   </TableCell>

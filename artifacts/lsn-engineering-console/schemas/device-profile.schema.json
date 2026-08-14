@@ -30,6 +30,7 @@
           "dataType",
           "access",
           "implementationStatus",
+           "simulationStatus",
           "expectedFirmwareBehavior",
           "expectedReportedResponse"
         ],
@@ -46,6 +47,9 @@
           "capability": { "enum": ["interlock", "remoteStop", "sensors"] },
           "implementationStatus": {
             "enum": ["TBD", "IMPLEMENTING", "TESTING", "IMPLEMENTED", "VERIFIED"]
+          },
+          "simulationStatus": {
+            "enum": ["NOT_TESTED", "TESTING", "VERIFIED"]
           },
           "expectedFirmwareBehavior": { "type": "string" },
           "expectedReportedResponse": { "type": "string" },

@@ -5,9 +5,11 @@ import { ShieldAlert } from "lucide-react";
 import { useTourStore } from "@/hooks/use-tour";
 import { TourOverlay } from "@/components/TourOverlay";
 import lsnLogo from "@assets/LSN-Industrial-transparent_1786661922957.png";
+import { LiveTelemetryBadge, useTelemetryState } from "@/components/TelemetryState";
 
 export function AppLayout({ children }: { children: ReactNode }) {
   const { logicalState, hardwareUnlocked, mode, tick, settings } = useStore();
+  const telemetry = useTelemetryState();
   const { hasSeenTour, isTourActive, startTour } = useTourStore();
   const tourMounted = useRef(false);
 
@@ -49,13 +51,14 @@ export function AppLayout({ children }: { children: ReactNode }) {
             )}
           </div>
           <div className="flex items-center gap-4 text-xs font-mono">
-            {logicalState.faulted && (
+            <LiveTelemetryBadge />
+            {telemetry.isLive && logicalState.faulted && (
               <div className="flex items-center gap-2 text-destructive bg-destructive/10 px-3 py-1 rounded-sm border border-destructive/20 animate-pulse">
                 <ShieldAlert className="w-4 h-4" />
                 <span>FAULT: {logicalState.faultCode}</span>
               </div>
             )}
-            {!logicalState.faulted && logicalState.emissionControlOutputActive && (
+            {telemetry.isLive && !logicalState.faulted && logicalState.emissionControlOutputActive && (
               <div className="flex items-center gap-2 text-primary bg-primary/10 px-3 py-1 rounded-sm border border-primary/20">
                 <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
                 <span>EMISSION CONTROL OUTPUT ACTIVE</span>

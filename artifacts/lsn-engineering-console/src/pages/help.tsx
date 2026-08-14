@@ -156,6 +156,16 @@ export default function Help() {
               The <span className="text-primary font-bold">Device Profile</span> dictates expected logical behaviors.
               Exact CIP Assembly mapping, Classes, Instances, and Attributes remain <span className="bg-primary/20 text-primary px-1 rounded-sm">TBD</span> for unreleased services.
             </p>
+            <div className="grid grid-cols-2 gap-3 text-xs">
+              <div className="border border-warning/30 bg-warning/10 p-3">
+                <strong className="text-warning block mb-1">Firmware Status</strong>
+                Real WT32-ETH01 implementation and hardware validation only.
+              </div>
+              <div className="border border-primary/30 bg-primary/10 p-3">
+                <strong className="text-primary block mb-1">Simulation Status</strong>
+                Deterministic test-harness coverage only; never proof of firmware implementation.
+              </div>
+            </div>
             <div className="border-l-2 border-primary/50 pl-4 py-2 bg-primary/5 pr-4 rounded-r-sm">
               <strong className="text-primary block mb-1">Do not invent CIP mappings.</strong> 
               If a value is TBD, leave it as TBD. Future console updates will dynamically map these fields once firmware endpoint contracts are finalized.

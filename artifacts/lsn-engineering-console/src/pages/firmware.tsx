@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ListTree, DownloadCloud, AlertTriangle, RefreshCw, FileJson } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useRef, useState } from "react";
+import { TelemetryNotice, TelemetryValue } from "@/components/TelemetryState";
 
 const BUILT_IN_PACKAGES: FirmwarePackageMetadata[] = [
   { id: 'happy_path', version: '0.2.0-sim', target: 'WT32-ETH01', protocol: 'LSN v0.1', size: 1245000, checksum: 'sha256:32b9d5e7...sim', signature: 'VALID', scenario: 'happy_path' },
@@ -20,7 +21,7 @@ const BUILT_IN_PACKAGES: FirmwarePackageMetadata[] = [
 ];
 
 export default function Firmware() {
-  const { device, mode, firmwareState, startFirmwareUpdate, resetFirmwareState } = useStore();
+  const { device, mode, firmwareState, startFirmwareUpdate, resetFirmwareState, connectionState } = useStore();
   const [packages, setPackages] = useState(BUILT_IN_PACKAGES);
   const [selectedPkg, setSelectedPkg] = useState<string | null>(null);
   const [manifestError, setManifestError] = useState('');
@@ -68,15 +69,25 @@ export default function Firmware() {
         </CardTitle>
       </CardHeader>
       <CardContent className="pt-6 space-y-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-[10px] font-mono">
+          <div className="border border-warning/30 bg-warning/10 text-warning p-3">FIRMWARE IMPLEMENTATION: TBD</div>
+          <div className="border border-primary/30 bg-primary/10 text-primary p-3">SIMULATION HARNESS: VERIFIED</div>
+          <div className="border border-warning/30 bg-warning/10 text-warning p-3">HARDWARE VALIDATION: REQUIRED</div>
+        </div>
+        <TelemetryNotice />
         
         <div className="grid grid-cols-2 gap-4 bg-black/20 p-4 border border-border/50 rounded-sm">
           <div>
             <div className="text-[10px] text-muted-foreground font-mono uppercase tracking-widest mb-1">Current Version</div>
-            <div className="text-lg font-mono text-primary">{device.firmware}</div>
+            <TelemetryValue lastReported={device.firmware}>
+              <div className="text-lg font-mono text-primary">{device.firmware}</div>
+            </TelemetryValue>
           </div>
           <div>
             <div className="text-[10px] text-muted-foreground font-mono uppercase tracking-widest mb-1">Status</div>
-            <div className="text-sm font-mono text-success">{firmwareState.deviceState.toUpperCase()}</div>
+            <TelemetryValue lastReported={firmwareState.deviceState.toUpperCase()}>
+              <div className="text-sm font-mono text-success">{firmwareState.deviceState.toUpperCase()}</div>
+            </TelemetryValue>
           </div>
         </div>
 
@@ -189,7 +200,7 @@ export default function Firmware() {
                   <Button 
                     className="w-full mt-4 font-mono text-xs border-primary text-primary hover:bg-primary/20" 
                     variant="outline"
-                    disabled={mode === 'hardware'}
+                    disabled={mode === 'hardware' || connectionState !== 'connected'}
                     onClick={() => startFirmwareUpdate(activePkg.scenario, activePkg)}
                   >
                     <DownloadCloud className="w-4 h-4 mr-2" /> EXECUTE UPDATE
@@ -208,7 +219,7 @@ export default function Firmware() {
           <div className="mt-8 p-4 border border-warning/30 bg-warning/10 text-warning text-sm font-mono flex items-start gap-3 rounded-sm">
             <AlertTriangle className="w-5 h-5 shrink-0" />
             <div>
-              <strong>OTA UPDATES DISABLED IN HARDWARE MODE</strong>
+              <strong>PROTOCOL MAPPING TBD · AWAITING FIRMWARE IMPLEMENTATION · HARDWARE VALIDATION REQUIRED</strong>
               <p className="text-xs opacity-80 mt-1">
                 Firmware flashing is physically disabled in Hardware Mode until the validation suite passes Phase 2.
               </p>

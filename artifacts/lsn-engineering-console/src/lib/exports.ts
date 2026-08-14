@@ -1,3 +1,5 @@
+import { effectiveFirmwareStatus } from './store';
+
 export function downloadFile(content: string, filename: string, mimeType = 'text/plain') {
   const blob = new Blob([content], { type: mimeType });
   const url = URL.createObjectURL(blob);
@@ -26,12 +28,13 @@ export function generateMarkdownProfile(profile: any[]): string {
   let md = `# LSN Interface Specification (v0.1)\n\n`;
   md += `## Abstract\nFirmware-facing specification for logical LSN v0.1 parameters.\nAll hardware and CIP mappings are currently TBD and await physical validation.\n\n`;
   
-  md += `| Symbolic Name | Direction | Type | Access | CIP Service | Class | Instance | Attribute | Assembly | Implementation | Expected Firmware Behavior | Expected Reported Response | Notes |\n`;
-  md += `|---|---|---|---|---|---|---|---|---|---|---|---|---|\n`;
+  md += `> Simulation validation status is test-harness evidence only and does not imply firmware implementation or hardware validation.\n\n`;
+  md += `| Symbolic Name | Direction | Type | Access | CIP Service | Class | Instance | Attribute | Assembly | Firmware Status | Simulation Status | Expected Firmware Behavior | Expected Reported Response | Notes |\n`;
+  md += `|---|---|---|---|---|---|---|---|---|---|---|---|---|---|\n`;
   
   profile.forEach(item => {
     const cell = (value: unknown) => String(value ?? '').replace(/\|/g, '\\|').replace(/\r?\n/g, ' ');
-    md += `| **${cell(item.symbolicName)}** | ${cell(item.direction)} | ${cell(item.dataType)} | ${cell(item.access)} | ${cell(item.cipService)} | ${cell(item.class)} | ${cell(item.instance)} | ${cell(item.attribute)} | ${cell(item.assembly)} | ${cell(item.implementationStatus)} | ${cell(item.expectedFirmwareBehavior)} | ${cell(item.expectedReportedResponse)} | ${cell(item.notes)} |\n`;
+    md += `| **${cell(item.symbolicName)}** | ${cell(item.direction)} | ${cell(item.dataType)} | ${cell(item.access)} | ${cell(item.cipService)} | ${cell(item.class)} | ${cell(item.instance)} | ${cell(item.attribute)} | ${cell(item.assembly)} | ${cell(effectiveFirmwareStatus(item))} | ${cell(item.simulationStatus)} | ${cell(item.expectedFirmwareBehavior)} | ${cell(item.expectedReportedResponse)} | ${cell(item.notes)} |\n`;
   });
   
   return md;
@@ -60,6 +63,7 @@ export function generateHTMLReport(tests: any[], device: any, timestamp: number)
       <div class="disclaimer">
         DISCLAIMER: SIMULATION EVIDENCE IS NOT PHYSICAL VALIDATION. ALL HARDWARE MODES AWAITING FIRMWARE IMPLEMENTATION.
       </div>
+      <p><strong>Validation scope:</strong> SIMULATION TEST HARNESS. Test success does not change firmware implementation status.</p>
       <h1>LSN Validation Report</h1>
       <div class="metadata">
         <p><strong>Device:</strong> ${device.name} (${device.product})</p>

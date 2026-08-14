@@ -12,4 +12,4 @@ The Console defines and tests a logical LSN interface. Firmware owns the state m
 6. Add the separate local firmware-maintenance endpoint.
 7. Add OTA validation, acceptance, and rollback.
 
-Use the in-app **Firmware Interface** generated from the active Device Profile as the implementation checklist. Do not copy mappings into firmware until the corresponding profile values are finalized.
+Use the in-app **Firmware Interface** generated from the active Device Profile as the implementation checklist. The **Firmware Status** column tracks real WT32-ETH01 implementation only; the separate **Simulation Status** column records simulator/test-harness coverage and must not be treated as firmware or hardware validation. Do not copy mappings into firmware until the corresponding profile values are finalized.

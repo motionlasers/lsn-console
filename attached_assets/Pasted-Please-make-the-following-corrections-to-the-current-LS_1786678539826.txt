@@ -1,0 +1,150 @@
+Please make the following corrections to the current LSN Engineering Console.
+
+These are important engineering-data integrity changes. Do not redesign the overall visual style.
+
+# 1. Correct disconnected and stale device-state behavior
+
+The current interface can show:
+
+`LINK: DISCONNECTED`
+
+while still displaying device values such as:
+
+`EMISSION CONTROL OUTPUT ACTIVE`
+
+or Boolean/status values such as `TRUE` as though they are current live values.
+
+This must be corrected.
+
+When the device connection is lost, disconnected, times out, or is otherwise no longer providing current telemetry:
+
+* do not continue displaying the last device value as a current live value
+* live device states should transition to `UNKNOWN`, `STALE`, or an equivalent clearly non-live state
+* if useful, preserve the previous value separately as `Last Reported`
+* include the timestamp or age of the last valid update where practical
+
+For example:
+
+```text
+Connection
+DISCONNECTED
+
+Emission Control Output
+UNKNOWN
+
+Last Reported
+ACTIVE
+
+Last Update
+14.2 seconds ago
+```
+
+Do not display a green `ACTIVE`, `TRUE`, `READY`, or similar live-state indicator after the underlying connection is no longer valid.
+
+This principle applies across:
+
+* Dashboard
+* Device
+* Control
+* Status
+* Runtime Counter
+* Diagnostics
+* Firmware
+* Modules
+* any other live device telemetry
+
+The application must visually distinguish:
+
+1. Current live state
+2. Last known/reported state
+3. Unknown/stale state
+
+A disconnected engineering console must never imply that it currently knows the physical state of the device.
+
+Simulation Mode must follow the same rule.
+
+# 2. Separate simulation validation from real firmware implementation status
+
+The Device Profile currently displays implementation states such as:
+
+* VERIFIED
+* IMPLEMENTED
+
+for fields whose real EtherNet/IP/CIP mappings are still TBD and which have not been implemented or validated on actual WT32-ETH01 firmware.
+
+This is misleading.
+
+Please separate these concepts.
+
+## Firmware implementation status
+
+Support:
+
+* TBD
+* IMPLEMENTING
+* TESTING
+* IMPLEMENTED
+* VERIFIED
+
+These refer specifically to the real LSN firmware and hardware implementation.
+
+Until actual firmware implementation occurs, Phase 1 fields should generally begin as:
+
+`TBD`
+
+or:
+
+`AWAITING FIRMWARE`
+
+as appropriate.
+
+## Simulation validation status
+
+Track simulator/test-harness coverage separately.
+
+For example:
+
+```text
+EmissionEnableRequest
+
+Firmware Status:
+TBD
+
+Simulation Status:
+VERIFIED
+```
+
+or:
+
+```text
+LifetimeEmissionTimeMs
+
+Firmware Status:
+IMPLEMENTING
+
+Simulation Status:
+VERIFIED
+```
+
+Do not use simulator success to imply that the ESP32 firmware has been implemented or verified.
+
+Display the distinction clearly in:
+
+* Device Profile
+* Firmware Developer Mode
+* firmware-facing interface checklist
+* relevant test/report screens
+
+# 3. Hardware Mode remains explicit about incomplete implementation
+
+Until real mappings exist, continue showing clear states such as:
+
+`PROTOCOL MAPPING TBD`
+
+`AWAITING FIRMWARE IMPLEMENTATION`
+
+`HARDWARE VALIDATION REQUIRED`
+
+Do not allow unresolved Hardware Mode commands to transmit.
+
+Please implement these corrections without changing the approved Device Profile architecture or Simulation Mode behavior model.
