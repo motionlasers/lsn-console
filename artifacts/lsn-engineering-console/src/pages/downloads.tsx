@@ -171,7 +171,7 @@ export default function Downloads() {
           </Card>
 
           <Card className="border-border bg-card/50 backdrop-blur">
-            <CardHeader className="border-b border-border/50 bg-black/20 pb-4">
+            <CardHeader data-tour="downloads-windows" className="border-b border-border/50 bg-black/20 pb-4">
               <CardTitle className="text-sm font-mono tracking-widest text-primary flex items-center gap-2">
                 <Monitor className="w-4 h-4" />
                 Console Release
@@ -231,7 +231,7 @@ export default function Downloads() {
                 </div>
               </div>
 
-              <div className="border border-border/50 rounded-sm overflow-hidden bg-black/20">
+              <div data-tour="downloads-changelog" className="border border-border/50 rounded-sm overflow-hidden bg-black/20">
                 <button 
                   onClick={() => setNotesExpanded(!notesExpanded)}
                   aria-expanded={notesExpanded}
