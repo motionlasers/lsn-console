@@ -1,0 +1,259 @@
+Please capture a fresh complete screenshot set of the current LSN Engineering Console after the latest correction work so I can perform a final UI/workflow review.
+
+Do not redesign or modify the application as part of this task. I only want screenshots of the current implementation.
+
+## Test setup
+
+Use:
+
+* **Simulation Mode**
+* simulated device `LSN-SIM-001`
+* normal desktop layout
+* consistent browser/window dimensions
+* realistic simulated values
+
+For most screenshots, connect to `LSN-SIM-001` first so the screens contain useful live data.
+
+Where specifically requested below, also capture a disconnected state.
+
+## Capture these main sections
+
+Please capture one clear screenshot of each:
+
+1. Dashboard, connected
+2. Device, connected
+3. Control, connected
+4. Status, connected
+5. Runtime Counter
+6. Faults & Diagnostics
+7. Protocol Inspector
+8. Automated Tests
+9. Stress Testing
+10. Firmware
+11. Device Profile, normal mode
+12. Device Profile, Firmware Developer Mode
+13. Modules
+14. Logs & Reports
+15. Help / Firmware Guide
+16. Settings
+
+## Additional state screenshots
+
+Please also capture the following specific states because they were part of the recent correction work.
+
+### 17. Dashboard while disconnected
+
+Disconnect from `LSN-SIM-001`.
+
+Capture the Dashboard showing how live device states are handled after disconnection.
+
+I specifically want to verify that current device values become clearly:
+
+* UNKNOWN
+* STALE
+* DISCONNECTED
+
+or equivalent rather than displaying old values as though they are still live.
+
+If Last Reported values or timestamps are shown, include them.
+
+### 18. Status while disconnected
+
+Capture the Status screen while disconnected so the stale/unknown-state behavior can be reviewed.
+
+### 19. Control screen while disconnected
+
+Capture the Control screen while disconnected.
+
+Make sure the screenshot includes the reason control actions are unavailable, such as:
+
+`CONNECT TO DEVICE TO SEND CONTROL REQUESTS`
+
+or equivalent.
+
+### 20. Runtime Counter during observation
+
+Reconnect to `LSN-SIM-001`.
+
+Start Runtime Observation and capture the Runtime Counter page while observation is active.
+
+Show where possible:
+
+* Timer State
+* lifetime runtime
+* raw runtime value
+* current-session delta
+* observation elapsed time
+* LSN-reported increase
+* Enable Count
+
+### 21. Timer Test result
+
+Run a simulated Timer Test and capture the completed result showing:
+
+* starting runtime
+* ending runtime
+* expected delta
+* reported delta
+* tolerance
+* PASS/FAIL
+
+### 22. Persistence Test workflow/result
+
+Capture either the guided persistence-test workflow or completed simulated result showing the before/after lifetime values and validation result.
+
+### 23. Expanded Protocol Inspector transaction
+
+In Protocol Inspector, open one transaction using the detailed/expanded view.
+
+Capture a transaction showing as much of the following as is implemented:
+
+* logical operation
+* EtherNet/IP command
+* CIP service
+* Class
+* Instance
+* Attribute
+* raw TX
+* raw RX
+* decoded request
+* decoded response
+* status
+* latency
+* timestamp
+
+### 24. Automated Validation Suite result
+
+Run the appropriate simulated Basic/Validation Suite and capture the completed results summary.
+
+### 25. Stress Test configured
+
+Capture the Stress Testing screen showing the available configuration controls, including where implemented:
+
+* enable duration
+* disable duration
+* cycle count
+* maximum duration
+* stop on mismatch
+* stop on fault
+* runtime read interval
+* Enable Count read interval
+
+### 26. Stress Test running or completed
+
+Run a short safe simulated stress test and capture the live or completed results showing:
+
+* completed cycles
+* errors
+* mismatches
+* fault count
+* average latency
+* min/max latency
+* runtime delta
+* Enable Count delta
+
+### 27. Firmware package selected
+
+In Simulation Mode, select a valid simulated firmware package and capture the Firmware page before installation showing:
+
+* current firmware
+* selected firmware
+* version
+* hardware target
+* protocol compatibility
+* checksum/hash status
+* release type if present
+
+### 28. Successful simulated firmware update
+
+Run a simulated successful firmware installation and capture the final state after:
+
+* transfer
+* reboot
+* rediscovery
+* version verification
+* post-update validation
+
+### 29. Simulated firmware failure/rollback
+
+Run one simulated failed firmware-update scenario and capture the resulting failure/rollback information.
+
+For example:
+
+* validation failure
+* interrupted transfer
+* corrupted image
+* network interruption
+
+Show the resulting firmware version and rollback/recovery state.
+
+### 30. Device Profile implementation-status distinction
+
+Capture Firmware Developer Mode or the Device Profile screen where the distinction between these two concepts is clearly visible:
+
+* real Firmware Implementation Status
+* Simulation Validation Status
+
+For example:
+
+`Firmware Status: TBD`
+
+`Simulation Status: VERIFIED`
+
+I want to confirm simulator success is no longer presented as real ESP32 firmware implementation.
+
+### 31. Future/experimental capabilities
+
+If there is a Developer Mode area for future/experimental capabilities, capture it showing that functions such as:
+
+* Interlock Monitoring
+* Remote Stop Monitoring
+* Sensor Module Example
+
+remain available to the architecture but are disabled by default and do not appear in the normal Phase 1 UI.
+
+## Screenshot requirements
+
+For all screenshots:
+
+* keep the primary application navigation visible where practical
+* do not crop important controls or status information
+* do not excessively shrink the page just to fit everything into one image
+* if a page requires scrolling, capture a second image instead
+* use readable text size
+* avoid unnecessary browser chrome
+* keep dimensions consistent
+* use realistic simulation data
+* do not expose credentials, tokens, secrets, or signing keys
+
+## File naming
+
+Please use sequential clear filenames such as:
+
+`01-dashboard-connected.png`
+`02-device-connected.png`
+`03-control-connected.png`
+...
+`17-dashboard-disconnected.png`
+`18-status-disconnected.png`
+...
+`31-future-capabilities.png`
+
+If a screen needs multiple images, use:
+
+`05-runtime-top.png`
+`05-runtime-bottom.png`
+
+## Delivery
+
+Place all screenshots into a single folder named:
+
+`lsn-console-final-review`
+
+Then create a ZIP archive:
+
+`lsn-console-final-review.zip`
+
+Provide the ZIP so it can be shared for final external review.
+
+Do not make additional interface changes as part of this screenshot task.

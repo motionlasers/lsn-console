@@ -1,0 +1,9 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "QUilzBM0yaPnXJtd6fQ8L"
+uri = "file://lsn-console-final-review.zip"
+type = "unspecified"
+title = "LSN Console Final Review — Screenshot Set"
+description = "34 screenshots across all 31 requested scenarios at 1440×900. Includes connected/disconnected states, telemetry integrity states, firmware update flows, developer mode views, and future-capabilities panel."
