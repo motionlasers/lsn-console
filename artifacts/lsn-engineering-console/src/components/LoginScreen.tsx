@@ -216,7 +216,7 @@ export function LoginScreen() {
                 LSN Engineering Console
               </div>
               <div className="text-[10px] font-mono tracking-widest text-zinc-500 uppercase mt-0.5">
-                {CONSOLE_RELEASE_LABEL} · Authorised Access Only
+                {CONSOLE_RELEASE_LABEL}
               </div>
             </div>
           </div>
