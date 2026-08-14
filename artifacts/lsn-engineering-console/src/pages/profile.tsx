@@ -1,17 +1,45 @@
 import { useStore, ImplementationStatus, SimulationStatus, effectiveFirmwareStatus, isProfileItemSupported } from "@/lib/store";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { FileJson, CheckCircle2, Clock, AlertTriangle, FileCode2, Download, Upload } from "lucide-react";
+import { FileJson, CheckCircle2, Clock, AlertTriangle, FileCode2, Download, Upload, PackageOpen, Loader2 } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { generateMarkdownProfile, downloadFile } from "@/lib/exports";
-import { useRef, useState } from "react";
+import { generateMarkdownProfile, downloadBlob, downloadFile } from "@/lib/exports";
+import { useMemo, useRef, useState } from "react";
+import {
+  createFirmwareIntegrationPackage,
+  summarizeFirmwarePackage,
+} from "@/lib/firmware-package";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 export default function Profile() {
-  const { profile, settings, updateProfileItem, importProfile, capabilities, setCapability, mode } = useStore();
+  const {
+    profile,
+    activeProfileDocument,
+    settings,
+    updateProfileItem,
+    importProfile,
+    capabilities,
+    setCapability,
+    mode,
+  } = useStore();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [importStatus, setImportStatus] = useState<{success?: boolean, msg?: string}>({});
+  const [handoffOpen, setHandoffOpen] = useState(false);
+  const [isExportingPackage, setIsExportingPackage] = useState(false);
+  const [packageError, setPackageError] = useState<string | null>(null);
 
   const supportedProfile = profile.filter(item => isProfileItemSupported(item, capabilities));
+  const packageSummary = useMemo(
+    () => summarizeFirmwarePackage(activeProfileDocument, capabilities),
+    [activeProfileDocument, capabilities],
+  );
 
   const handleExport = () => {
     const md = generateMarkdownProfile(supportedProfile);
@@ -19,6 +47,20 @@ export default function Profile() {
   };
 
   const handleImportClick = () => fileInputRef.current?.click();
+
+  const handleFirmwarePackageExport = async () => {
+    setIsExportingPackage(true);
+    setPackageError(null);
+    try {
+      const result = await createFirmwareIntegrationPackage(activeProfileDocument, capabilities);
+      downloadBlob(result.blob, result.filename);
+      setHandoffOpen(false);
+    } catch (error) {
+      setPackageError(error instanceof Error ? error.message : 'Package generation failed.');
+    } finally {
+      setIsExportingPackage(false);
+    }
+  };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -106,9 +148,14 @@ export default function Profile() {
             <FileJson className="w-4 h-4" />
             Active Profile Specification
           </CardTitle>
-          <div className="flex items-center gap-4">
+          <div className="flex flex-wrap items-center justify-end gap-3">
             <div className="text-[10px] font-mono text-muted-foreground text-right">
-              <div>PROTOCOL MAPPING: <span className="text-warning">TBD</span></div>
+              <div>
+                PROTOCOL MAPPING:{' '}
+                <span className={packageSummary.tbdFieldCount > 0 ? "text-warning" : "text-success"}>
+                  {packageSummary.mappedFieldCount}/{packageSummary.activeFieldCount} RESOLVED
+                </span>
+              </div>
               <div>HARDWARE VALIDATION: <span className="text-warning">REQUIRED</span></div>
             </div>
             
@@ -119,6 +166,19 @@ export default function Profile() {
             
             <Button variant="outline" size="sm" onClick={handleExport} className="h-7 text-[10px] font-mono border-primary text-primary hover:bg-primary/20">
               <Download className="w-3 h-3 mr-2" /> EXPORT SPEC (MD)
+            </Button>
+
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setPackageError(null);
+                setHandoffOpen(true);
+              }}
+              className="h-7 text-[10px] font-mono border-success/60 text-success hover:bg-success/10"
+              data-testid="button-export-firmware-package"
+            >
+              <PackageOpen className="w-3 h-3 mr-2" /> EXPORT FIRMWARE INTEGRATION PACKAGE
             </Button>
           </div>
         </CardHeader>
@@ -201,6 +261,112 @@ export default function Profile() {
           </Table>
         </CardContent>
       </Card>
+
+      <Dialog open={handoffOpen} onOpenChange={setHandoffOpen}>
+        <DialogContent className="max-w-2xl border-border bg-background">
+          <DialogHeader>
+            <DialogTitle className="font-mono text-base tracking-wider text-primary flex items-center gap-2">
+              <PackageOpen className="h-5 w-5" />
+              Firmware Integration Package
+            </DialogTitle>
+            <DialogDescription className="font-mono text-xs">
+              Review the active Device Profile summary before generating the ESP-IDF / C/C++ handoff ZIP.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="grid grid-cols-2 gap-3 font-mono text-xs" data-testid="firmware-package-summary">
+            <div className="border border-border bg-card/50 p-3">
+              <div className="text-[10px] uppercase tracking-widest text-muted-foreground">Active Profile</div>
+              <div className="mt-1 text-foreground">{packageSummary.profileVersion}</div>
+            </div>
+            <div className="border border-border bg-card/50 p-3">
+              <div className="text-[10px] uppercase tracking-widest text-muted-foreground">Protocol Version</div>
+              <div className="mt-1 text-foreground">{packageSummary.protocolVersion}</div>
+            </div>
+            <div className="border border-border bg-card/50 p-3">
+              <div className="text-[10px] uppercase tracking-widest text-muted-foreground">Protocol Mapping</div>
+              <div className="mt-1 flex gap-4">
+                <span className="text-success">{packageSummary.mappedFieldCount} MAPPED</span>
+                <span className={packageSummary.tbdFieldCount > 0 ? "text-warning" : "text-muted-foreground"}>
+                  {packageSummary.tbdFieldCount} TBD
+                </span>
+              </div>
+            </div>
+            <div className="border border-border bg-card/50 p-3">
+              <div className="text-[10px] uppercase tracking-widest text-muted-foreground">Active Interface</div>
+              <div className="mt-1 text-foreground">{packageSummary.activeFieldCount} FIELDS</div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3 font-mono text-[10px]">
+            <div className="border border-border/70 p-3">
+              <div className="mb-2 uppercase tracking-widest text-muted-foreground">Firmware Status</div>
+              <div className="flex flex-wrap gap-2">
+                {Object.entries(packageSummary.firmwareStatuses).map(([status, count]) => (
+                  <span key={status} className="border border-border bg-muted/30 px-2 py-1">
+                    {status}: {count}
+                  </span>
+                ))}
+              </div>
+            </div>
+            <div className="border border-border/70 p-3">
+              <div className="mb-2 uppercase tracking-widest text-muted-foreground">Simulation Status</div>
+              <div className="flex flex-wrap gap-2">
+                {Object.entries(packageSummary.simulationStatuses).map(([status, count]) => (
+                  <span key={status} className="border border-border bg-muted/30 px-2 py-1">
+                    {status}: {count}
+                  </span>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {packageSummary.tbdFieldCount > 0 && (
+            <div
+              className="border border-warning/40 bg-warning/10 p-3 text-xs font-mono text-warning"
+              data-testid="firmware-package-tbd-warning"
+            >
+              <AlertTriangle className="mr-2 inline h-4 w-4" />
+              This package contains unresolved protocol mappings. These entries are intentionally marked TBD for firmware implementation.
+            </div>
+          )}
+
+          <div className="text-[11px] font-mono leading-relaxed text-muted-foreground">
+            The ZIP includes portable headers, the complete active profile JSON, CSV and Markdown checklists,
+            and a practical README. Missing enum values, string layouts, byte/bit packing, GPIO assignments,
+            and CIP values are never inferred.
+          </div>
+
+          {packageError && (
+            <div className="border border-destructive/40 bg-destructive/10 p-3 text-xs font-mono text-destructive">
+              {packageError}
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setHandoffOpen(false)}
+              disabled={isExportingPackage}
+              className="font-mono text-xs"
+            >
+              CANCEL
+            </Button>
+            <Button
+              onClick={handleFirmwarePackageExport}
+              disabled={isExportingPackage}
+              className="font-mono text-xs"
+              data-testid="button-confirm-firmware-package"
+            >
+              {isExportingPackage ? (
+                <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> GENERATING ZIP</>
+              ) : (
+                <><Download className="mr-2 h-4 w-4" /> GENERATE & DOWNLOAD ZIP</>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

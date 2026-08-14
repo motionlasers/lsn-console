@@ -1,12 +1,25 @@
-import { readFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { resolve } from 'node:path';
+import { spawnSync } from 'node:child_process';
 import { describe, expect, it } from 'vitest';
+import JSZip from 'jszip';
 import { generateMarkdownProfile } from '../src/lib/exports';
 import { validateDeviceProfile } from '../src/lib/profile-validation';
 import { effectiveFirmwareStatus } from '../src/lib/store';
+import {
+  createFirmwareIntegrationPackage,
+  effectiveDocumentFirmwareStatus,
+  summarizeFirmwarePackage,
+} from '../src/lib/firmware-package';
+import type { DeviceProfileDocument } from '../src/lib/profile-validation';
 
 const profile = JSON.parse(
   readFileSync(resolve(import.meta.dirname, '../profiles/lsn-v0.1.json'), 'utf8'),
+) as DeviceProfileDocument;
+
+const capabilities = Object.fromEntries(
+  Object.entries(profile.capabilities).map(([key, capability]) => [key, capability.enabled]),
 );
 
 describe('LSN v0.1 device profile', () => {
@@ -82,5 +95,205 @@ describe('LSN v0.1 device profile', () => {
     const result = validateDeviceProfile(invalid);
     expect(result.valid).toBe(false);
     expect(result.errors.join(' ')).toContain('protocolVersion');
+  });
+
+  it('summarizes only the active interface without upgrading firmware status', () => {
+    const summary = summarizeFirmwarePackage(profile, capabilities);
+    expect(summary.profileVersion).toBe('0.1.0');
+    expect(summary.protocolVersion).toBe('LSN v0.1');
+    expect(summary.activeFieldCount).toBe(
+      profile.fields.filter(field => !field.capability || capabilities[field.capability]).length,
+    );
+    expect(summary.mappedFieldCount).toBe(0);
+    expect(summary.tbdFieldCount).toBe(summary.activeFieldCount);
+    expect(summary.firmwareStatuses).toEqual({ TBD: summary.activeFieldCount });
+    expect(summary.simulationStatuses.VERIFIED).toBeGreaterThan(0);
+
+    const stale = { ...profile.fields[0], implementationStatus: 'VERIFIED' as const };
+    expect(effectiveDocumentFirmwareStatus(stale)).toBe('TBD');
+  });
+
+  it('builds the complete six-file firmware integration ZIP without invented values', async () => {
+    const result = await createFirmwareIntegrationPackage(profile, capabilities, {
+      generatedAt: new Date('2026-08-14T12:00:00.000Z'),
+      consoleVersion: '0.1.0-test',
+    });
+    expect(result.filename).toBe('LSN-Firmware-Interface-v0.1.0-LSN-v0.1.zip');
+    expect(result.summary.mappedFieldCount).toBe(0);
+
+    const zip = await JSZip.loadAsync(await result.blob.arrayBuffer());
+    const expectedFiles = [
+      'README.md',
+      'lsn_interface.csv',
+      'lsn_interface.md',
+      'lsn_protocol.h',
+      'lsn_protocol_profile.json',
+      'lsn_protocol_types.h',
+    ];
+    const actualFiles = Object.keys(zip.files)
+      .filter(path => !zip.files[path].dir)
+      .map(path => path.slice(`${result.folderName}/`.length))
+      .sort();
+    expect(actualFiles).toEqual(expectedFiles);
+
+    const readEntry = async (name: string) => {
+      const entry = zip.file(`${result.folderName}/${name}`);
+      expect(entry, `${name} should exist`).not.toBeNull();
+      return entry!.async('string');
+    };
+    const exportedProfile = JSON.parse(await readEntry('lsn_protocol_profile.json'));
+    expect(exportedProfile).toEqual(profile);
+    expect(exportedProfile.faults).toEqual(profile.faults);
+    expect(exportedProfile.tests).toEqual(profile.tests);
+    expect(exportedProfile.modules).toEqual(profile.modules);
+
+    const protocolHeader = await readEntry('lsn_protocol.h');
+    expect(protocolHeader).toContain('LSN_DEVICE_PROFILE_VERSION "0.1.0"');
+    expect(protocolHeader).toContain('TBD: LSN_READY_CIP_CLASS not defined');
+    expect(protocolHeader).not.toMatch(/^#define LSN_READY_CIP_CLASS /m);
+    expect(protocolHeader).not.toMatch(/^#define LSN_CIP_VENDOR_ID /m);
+    expect(protocolHeader).not.toMatch(/^#define LSN_CIP_PRODUCT_CODE /m);
+
+    const typesHeader = await readEntry('lsn_protocol_types.h');
+    expect(typesHeader).toContain('bool emission_enable_request; /* Canonical: EmissionEnableRequest */');
+    expect(typesHeader).toContain('uint16_t fault_code; /* Canonical: FaultCode */');
+    expect(typesHeader).toContain('uint64_t lifetime_emission_time_ms; /* Canonical: LifetimeEmissionTimeMs */');
+    expect(typesHeader).toContain('TBD: TimerState omitted; enum values and storage width');
+    expect(typesHeader).not.toContain('LSN_TIMER_COUNTING =');
+
+    const csv = await readEntry('lsn_interface.csv');
+    expect(csv).toContain('"Byte","Bit","Units"');
+    expect(csv).toContain('"Firmware Status","Simulation Status"');
+    expect(csv).toContain('"EmissionEnableRequest"');
+    expect(csv).not.toContain('"InterlockOK"');
+    expect(csv).not.toContain('"RemoteStopOK"');
+
+    const markdown = await readEntry('lsn_interface.md');
+    expect(markdown).toContain('## LifetimeEmissionTimeMs');
+    expect(markdown).toContain('**Firmware Status:** TBD');
+    expect(markdown).toContain('Simulation validation is test-harness evidence only');
+    expect(markdown).not.toContain('## InterlockOK');
+
+    const readme = await readEntry('README.md');
+    expect(readme).toContain('Device Profile: 0.1.0');
+    expect(readme).toContain('Protocol: LSN v0.1');
+    expect(readme).toContain('Console: 0.1.0-test');
+    expect(readme).toContain('Generated: 2026-08-14T12:00:00.000Z');
+    expect(readme).toContain('Target platform: WT32-ETH01');
+    expect(readme).toContain('never silently invent');
+  });
+
+  it('emits constants only after mappings are explicitly resolved in the profile', async () => {
+    const resolvedProfile = structuredClone(profile);
+    const ready = resolvedProfile.fields.find(field => field.symbolicName === 'Ready')!;
+    ready.cipService = 'Get_Attribute_Single';
+    ready.class = 4;
+    ready.instance = 100;
+    ready.attribute = 3;
+    ready.implementationStatus = 'IMPLEMENTED';
+
+    const result = await createFirmwareIntegrationPackage(resolvedProfile, capabilities, {
+      generatedAt: new Date('2026-08-14T12:00:00.000Z'),
+    });
+    expect(result.files['lsn_protocol.h']).toContain('#define LSN_READY_CIP_SERVICE "Get_Attribute_Single"');
+    expect(result.files['lsn_protocol.h']).toContain('#define LSN_READY_CIP_CLASS UINT32_C(4)');
+    expect(result.files['lsn_protocol.h']).toContain('#define LSN_READY_CIP_INSTANCE UINT32_C(100)');
+    expect(result.files['lsn_protocol.h']).toContain('#define LSN_READY_CIP_ATTRIBUTE UINT32_C(3)');
+    expect(result.files['lsn_interface.csv']).toContain('"IMPLEMENTED"');
+  });
+
+  it('generates headers that compile as portable C11 and C++17', async () => {
+    const result = await createFirmwareIntegrationPackage(profile, capabilities, {
+      generatedAt: new Date('2026-08-14T12:00:00.000Z'),
+    });
+    const directory = mkdtempSync(resolve(tmpdir(), 'lsn-firmware-package-'));
+    try {
+      writeFileSync(resolve(directory, 'lsn_protocol.h'), result.files['lsn_protocol.h']);
+      writeFileSync(resolve(directory, 'lsn_protocol_types.h'), result.files['lsn_protocol_types.h']);
+      writeFileSync(resolve(directory, 'compile.c'), [
+        '#include "lsn_protocol.h"',
+        'int main(void) {',
+        '  lsn_control_t control = {0};',
+        '  lsn_status_t status = {0};',
+        '  return (control.emission_enable_request || status.ready) ? 0 : 0;',
+        '}',
+      ].join('\n'));
+      writeFileSync(resolve(directory, 'compile.cpp'), [
+        '#include "lsn_protocol.h"',
+        'int main() {',
+        '  lsn_control_t control{};',
+        '  lsn_status_t status{};',
+        '  return (control.emission_enable_request || status.ready) ? 0 : 0;',
+        '}',
+      ].join('\n'));
+
+      const cResult = spawnSync('cc', ['-std=c11', '-Wall', '-Wextra', '-Werror', '-pedantic', '-c', 'compile.c'], {
+        cwd: directory,
+        encoding: 'utf8',
+      });
+      expect(cResult.status, cResult.stderr).toBe(0);
+      const cppResult = spawnSync('c++', ['-std=c++17', '-Wall', '-Wextra', '-Werror', '-pedantic', '-c', 'compile.cpp'], {
+        cwd: directory,
+        encoding: 'utf8',
+      });
+      expect(cppResult.status, cppResult.stderr).toBe(0);
+
+      const hostileProfile = structuredClone(profile);
+      hostileProfile.profileVersion = '0.1\r\u0000hostile';
+      hostileProfile.protocolVersion = 'LSN\tv0.1';
+      hostileProfile.hardwareFamily = 'WT32\u0001ETH01';
+      const ready = hostileProfile.fields.find(field => field.symbolicName === 'Ready')!;
+      ready.symbolicName = 'Class';
+      ready.cipService = 'Get\r\u0000Attribute';
+      const hostile = await createFirmwareIntegrationPackage(hostileProfile, capabilities, {
+        generatedAt: new Date('2026-08-14T12:00:00.000Z'),
+      });
+      expect(hostile.files['lsn_protocol_types.h']).toContain('bool field_class; /* Canonical: Class */');
+      expect(hostile.files['lsn_protocol.h']).toContain('"0.1\\r\\000hostile"');
+      expect(hostile.files['lsn_protocol.h']).toContain('"Get\\r\\000Attribute"');
+      writeFileSync(resolve(directory, 'lsn_protocol.h'), hostile.files['lsn_protocol.h']);
+      writeFileSync(resolve(directory, 'lsn_protocol_types.h'), hostile.files['lsn_protocol_types.h']);
+      writeFileSync(resolve(directory, 'hostile.c'), [
+        '#include "lsn_protocol.h"',
+        'int main(void) { lsn_status_t status = {0}; return status.field_class ? 0 : 0; }',
+      ].join('\n'));
+      writeFileSync(resolve(directory, 'hostile.cpp'), [
+        '#include "lsn_protocol.h"',
+        'int main() { lsn_status_t status{}; return status.field_class ? 0 : 0; }',
+      ].join('\n'));
+      const hostileC = spawnSync('cc', ['-std=c11', '-Wall', '-Wextra', '-Werror', '-pedantic', '-c', 'hostile.c'], {
+        cwd: directory,
+        encoding: 'utf8',
+      });
+      expect(hostileC.status, hostileC.stderr).toBe(0);
+      const hostileCpp = spawnSync('c++', ['-std=c++17', '-Wall', '-Wextra', '-Werror', '-pedantic', '-c', 'hostile.cpp'], {
+        cwd: directory,
+        encoding: 'utf8',
+      });
+      expect(hostileCpp.status, hostileCpp.stderr).toBe(0);
+    } finally {
+      rmSync(directory, { recursive: true, force: true });
+    }
+  });
+
+  it('escapes profile-controlled comments and rejects generated identifier collisions', async () => {
+    const adversarial = structuredClone(profile);
+    adversarial.fields[0].symbolicName = '123Request*/\n#define LSN_INJECTED 1\n/*';
+    adversarial.fields[0].dataType = 'boolean*/\n#error injected\n/*';
+    const safe = await createFirmwareIntegrationPackage(adversarial, capabilities, {
+      generatedAt: new Date('2026-08-14T12:00:00.000Z'),
+    });
+    expect(safe.files['lsn_protocol.h']).not.toMatch(/^#define LSN_INJECTED 1$/m);
+    expect(safe.files['lsn_protocol_types.h']).not.toMatch(/^#error injected$/m);
+    expect(safe.files['lsn_protocol.h']).toContain('Canonical field: 123Request* /');
+
+    const colliding = structuredClone(profile);
+    colliding.fields[0].symbolicName = 'Duplicate-Name';
+    colliding.fields[1].symbolicName = 'Duplicate_Name';
+    await expect(
+      createFirmwareIntegrationPackage(colliding, capabilities, {
+        generatedAt: new Date('2026-08-14T12:00:00.000Z'),
+      }),
+    ).rejects.toThrow(/collide as generated C/);
   });
 });

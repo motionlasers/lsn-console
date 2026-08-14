@@ -8,6 +8,51 @@ const ajv = new Ajv2020({
 
 const validate = ajv.compile(profileSchema);
 
+export interface DeviceProfileCapability {
+  enabled: boolean;
+  phase: string;
+  description: string;
+}
+
+export interface DeviceProfileField {
+  symbolicName: string;
+  direction: 'PC_TO_LSN' | 'LSN_TO_PC';
+  dataType: string;
+  access: 'READ' | 'WRITE' | 'READ_WRITE';
+  cipService?: string | null;
+  class?: number | null;
+  instance?: number | null;
+  attribute?: number | null;
+  assembly?: Record<string, unknown> | null;
+  capability?: 'interlock' | 'remoteStop' | 'sensors';
+  implementationStatus: 'TBD' | 'IMPLEMENTING' | 'TESTING' | 'IMPLEMENTED' | 'VERIFIED';
+  simulationStatus: 'NOT_TESTED' | 'TESTING' | 'VERIFIED';
+  expectedFirmwareBehavior: string;
+  expectedReportedResponse: string;
+  notes?: string;
+  units?: string;
+  byte?: number;
+  bit?: number;
+  [key: string]: unknown;
+}
+
+export interface DeviceProfileDocument {
+  $schema?: string;
+  profileVersion: string;
+  protocolVersion: string;
+  displayName?: string;
+  hardwareFamily: string;
+  supportedFirmware?: string[];
+  identity?: Record<string, unknown>;
+  capabilities: Record<string, DeviceProfileCapability>;
+  timing?: Record<string, unknown>;
+  fields: DeviceProfileField[];
+  faults?: unknown[];
+  tests?: unknown[];
+  modules?: unknown[];
+  [key: string]: unknown;
+}
+
 export interface ProfileValidationResult {
   valid: boolean;
   errors: string[];

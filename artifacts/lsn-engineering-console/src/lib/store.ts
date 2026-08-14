@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { v4 as uuidv4 } from 'uuid';
 import profileJson from '../../profiles/lsn-v0.1.json';
-import { validateDeviceProfile } from './profile-validation';
+import { validateDeviceProfile, type DeviceProfileDocument, type DeviceProfileField } from './profile-validation';
 
 export type ConnectionState = 'disconnected' | 'connecting' | 'connected' | 'faulted';
 export type HardwareMode = 'simulation' | 'hardware';
@@ -436,6 +436,7 @@ interface LSNStore {
   discovered: boolean;
   logicalState: LogicalState;
   profile: ProfileItem[];
+  activeProfileDocument: DeviceProfileDocument;
   baseCapabilities: CapabilityModel;
   capabilities: CapabilityModel;
   transactions: Transaction[];
@@ -650,6 +651,73 @@ const INITIAL_PROFILE: ProfileItem[] = profileJson.fields.map((item, index) => (
   capability: 'capability' in item ? item.capability as CapabilityKey : undefined,
 }));
 
+const INITIAL_PROFILE_DOCUMENT = structuredClone(profileJson) as unknown as DeviceProfileDocument;
+
+function parseProfileInteger(value: string): number | null {
+  if (value === 'TBD') return null;
+  return /^-?\d+$/.test(value.trim()) ? Number.parseInt(value, 10) : null;
+}
+
+function parseProfileAssembly(value: string): Record<string, unknown> | null {
+  if (value === 'TBD') return null;
+  try {
+    const parsed: unknown = JSON.parse(value);
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+      ? parsed as Record<string, unknown>
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+function profileItemToDocumentField(item: ProfileItem, existing?: DeviceProfileField): DeviceProfileField {
+  return {
+    ...existing,
+    symbolicName: item.symbolicName,
+    direction: item.direction,
+    dataType: item.dataType,
+    access: item.access,
+    cipService: item.cipService,
+    class: parseProfileInteger(item.class),
+    instance: parseProfileInteger(item.instance),
+    attribute: parseProfileInteger(item.attribute),
+    assembly: parseProfileAssembly(item.assembly),
+    implementationStatus: effectiveFirmwareStatus(item),
+    simulationStatus: item.simulationStatus,
+    expectedFirmwareBehavior: item.expectedFirmwareBehavior,
+    expectedReportedResponse: item.expectedReportedResponse,
+    notes: item.notes,
+    ...(item.capability ? { capability: item.capability } : {}),
+  };
+}
+
+function documentWithProfileItems(
+  document: DeviceProfileDocument,
+  items: ProfileItem[],
+  capabilities: CapabilityModel,
+): DeviceProfileDocument {
+  const itemByName = new Map(items.map(item => [item.symbolicName, item]));
+  const fields = document.fields.map(field => {
+    const item = itemByName.get(field.symbolicName);
+    return item ? profileItemToDocumentField(item, field) : field;
+  });
+  const documentNames = new Set(document.fields.map(field => field.symbolicName));
+  for (const item of items) {
+    if (!documentNames.has(item.symbolicName)) fields.push(profileItemToDocumentField(item));
+  }
+  const capabilityDocuments = { ...document.capabilities };
+  for (const [key, enabled] of Object.entries(capabilities)) {
+    if (capabilityDocuments[key]) {
+      capabilityDocuments[key] = { ...capabilityDocuments[key], enabled };
+    }
+  }
+  return {
+    ...structuredClone(document),
+    capabilities: capabilityDocuments,
+    fields,
+  };
+}
+
 export const INITIAL_TESTS: TestResult[] = [
   { id: 't_disc', name: 'Discovery', category: 'Session', status: 'pending', expected: 'Controller responds to discovery beacon', actual: '', duration: 0, evidence: '', manualObservation: false },
   { id: 't_id', name: 'Identity Verification', category: 'Session', status: 'pending', expected: 'Identity matches profile expectations', actual: '', duration: 0, evidence: '', manualObservation: false },
@@ -672,6 +740,40 @@ export const INITIAL_TESTS: TestResult[] = [
 
 let globalSequence = 0;
 
+export function migratePersistedLsnState(
+  persistedState: unknown,
+  persistedVersion: number,
+): Partial<LSNStore> {
+  const state = (persistedState && typeof persistedState === 'object'
+    ? persistedState
+    : {}) as Partial<LSNStore>;
+  const savedProfile = Array.isArray(state.profile) ? state.profile : INITIAL_PROFILE;
+  const profile = persistedVersion < 4
+    ? savedProfile.map(item => {
+        const canonical = INITIAL_PROFILE.find(candidate => candidate.symbolicName === item.symbolicName);
+        return {
+          ...item,
+          implementationStatus: 'TBD' as ImplementationStatus,
+          simulationStatus: canonical?.simulationStatus ?? 'NOT_TESTED',
+        };
+      })
+    : savedProfile;
+  const capabilities = state.capabilities ?? DEFAULT_CAPABILITIES;
+  const fallbackDocument: DeviceProfileDocument = {
+    ...structuredClone(INITIAL_PROFILE_DOCUMENT),
+    profileVersion: state.device?.profile || INITIAL_PROFILE_DOCUMENT.profileVersion,
+    protocolVersion: state.device?.protocolVersion || INITIAL_PROFILE_DOCUMENT.protocolVersion,
+    hardwareFamily: state.device?.platform || INITIAL_PROFILE_DOCUMENT.hardwareFamily,
+  };
+  const sourceDocument = state.activeProfileDocument ?? fallbackDocument;
+  return {
+    ...state,
+    tests: persistedVersion < 4 ? INITIAL_TESTS : (state.tests ?? INITIAL_TESTS),
+    profile,
+    activeProfileDocument: documentWithProfileItems(sourceDocument, profile, capabilities),
+  };
+}
+
 export const useStore = create<LSNStore>()(
   persist(
     (set, get) => ({
@@ -683,6 +785,7 @@ export const useStore = create<LSNStore>()(
       device: DEFAULT_DEVICE,
       logicalState: DEFAULT_STATE,
       profile: INITIAL_PROFILE,
+      activeProfileDocument: INITIAL_PROFILE_DOCUMENT,
       baseCapabilities: DEFAULT_CAPABILITIES,
       capabilities: DEFAULT_CAPABILITIES,
       transactions: [],
@@ -706,23 +809,41 @@ export const useStore = create<LSNStore>()(
         navCollapsed: false,
       },
 
-      setMode: (mode) => set(state => ({
-        mode,
-        connectionState: 'disconnected',
-        hardwareUnlocked: false,
-        capabilities: mode === 'hardware' ? state.baseCapabilities : state.capabilities,
-        logicalState: mode === 'hardware' ? {
-          ...state.logicalState,
-          interlockOK: true,
-          remoteStopOK: true,
-          modulesEnabled: false,
-        } : state.logicalState,
-      })),
+      setMode: (mode) => set(state => {
+        const capabilities = mode === 'hardware' ? state.baseCapabilities : state.capabilities;
+        return {
+          mode,
+          connectionState: 'disconnected',
+          hardwareUnlocked: false,
+          capabilities,
+          activeProfileDocument: documentWithProfileItems(
+            state.activeProfileDocument,
+            state.profile,
+            capabilities,
+          ),
+          logicalState: mode === 'hardware' ? {
+            ...state.logicalState,
+            interlockOK: true,
+            remoteStopOK: true,
+            modulesEnabled: false,
+          } : state.logicalState,
+        };
+      }),
       setHardwareUnlocked: (unlocked) => set({ hardwareUnlocked: unlocked }),
       setCapability: (capability, enabled) => {
         if (get().mode !== 'simulation' || !get().settings.devMode) return;
         set(state => ({
           capabilities: { ...state.capabilities, [capability]: enabled },
+          activeProfileDocument: {
+            ...state.activeProfileDocument,
+            capabilities: {
+              ...state.activeProfileDocument.capabilities,
+              [capability]: {
+                ...state.activeProfileDocument.capabilities[capability],
+                enabled,
+              },
+            },
+          },
           logicalState: {
             ...state.logicalState,
             ...(capability === 'interlock' && !enabled ? { interlockOK: true } : {}),
@@ -968,9 +1089,17 @@ export const useStore = create<LSNStore>()(
         }));
       },
       
-      updateProfileItem: (id, updates) => set(state => ({
-        profile: state.profile.map(p => p.id === id ? { ...p, ...updates } : p)
-      })),
+      updateProfileItem: (id, updates) => set(state => {
+        const profile = state.profile.map(p => p.id === id ? { ...p, ...updates } : p);
+        return {
+          profile,
+          activeProfileDocument: documentWithProfileItems(
+            state.activeProfileDocument,
+            profile,
+            state.capabilities,
+          ),
+        };
+      }),
 
       importProfile: (jsonString) => {
         try {
@@ -979,7 +1108,7 @@ export const useStore = create<LSNStore>()(
           if (!validation.valid) {
             return { success: false, error: `JSON Schema validation failed: ${validation.errors.join('; ')}` };
           }
-          const validated = parsed as typeof profileJson;
+          const validated = parsed as DeviceProfileDocument;
           if (validated.fields.length === 0) {
             return { success: false, error: 'JSON Schema validation passed, but fields must not be empty.' };
           }
@@ -998,7 +1127,7 @@ export const useStore = create<LSNStore>()(
             simulationStatus: item.simulationStatus as SimulationStatus,
             expectedFirmwareBehavior: item.expectedFirmwareBehavior,
             expectedReportedResponse: item.expectedReportedResponse,
-            notes: item.notes,
+            notes: item.notes ?? '',
             capability: 'capability' in item ? item.capability as CapabilityKey : undefined,
           }));
           const importedCapabilities: CapabilityModel = {
@@ -1006,7 +1135,24 @@ export const useStore = create<LSNStore>()(
             remoteStop: validated.capabilities.remoteStop.enabled,
             sensors: validated.capabilities.sensors.enabled,
           };
-          set({ profile: imported, baseCapabilities: importedCapabilities, capabilities: importedCapabilities });
+          const activeProfileDocument = documentWithProfileItems(
+            structuredClone(validated),
+            imported,
+            importedCapabilities,
+          );
+          set(state => ({
+            profile: imported,
+            activeProfileDocument,
+            baseCapabilities: importedCapabilities,
+            capabilities: importedCapabilities,
+            device: {
+              ...state.device,
+              profile: validated.profileVersion,
+              protocolVersion: validated.protocolVersion,
+              platform: validated.hardwareFamily,
+              product: validated.displayName ?? state.device.product,
+            },
+          }));
           return { success: true, message: `JSON Schema validated; loaded ${imported.length} interface fields.` };
         } catch (error) {
           return { success: false, error: `Invalid JSON: ${error instanceof Error ? error.message : 'parse failed'}` };
@@ -1032,6 +1178,11 @@ export const useStore = create<LSNStore>()(
           return {
             settings,
             capabilities: state.baseCapabilities,
+            activeProfileDocument: documentWithProfileItems(
+              state.activeProfileDocument,
+              state.profile,
+              state.baseCapabilities,
+            ),
             logicalState: sanitizeLogicalStateForCapabilities(state.logicalState, state.baseCapabilities),
             transactions: state.transactions.filter(transaction => isTransactionSupported(transaction, state.baseCapabilities)),
           };
@@ -1048,6 +1199,11 @@ export const useStore = create<LSNStore>()(
           navCollapsed: false,
         },
         capabilities: state.baseCapabilities,
+        activeProfileDocument: documentWithProfileItems(
+          state.activeProfileDocument,
+          state.profile,
+          state.baseCapabilities,
+        ),
         logicalState: sanitizeLogicalStateForCapabilities(state.logicalState, state.baseCapabilities),
         transactions: state.transactions.filter(transaction => isTransactionSupported(transaction, state.baseCapabilities)),
       })),
@@ -2583,31 +2739,13 @@ export const useStore = create<LSNStore>()(
     }),
     {
       name: 'lsn-console-storage',
-      version: 4,
-      migrate: (persistedState) => {
-        const state = persistedState as Partial<LSNStore>;
-        return {
-          ...state,
-          // Reset tests to the canonical current set so stale records from older
-          // app versions (different IDs, names, or missing capability fields) do
-          // not survive a version bump and cause every test to fail immediately.
-          tests: INITIAL_TESTS,
-          profile: Array.isArray(state.profile)
-            ? state.profile.map(item => {
-                const canonical = INITIAL_PROFILE.find(candidate => candidate.symbolicName === item.symbolicName);
-                return {
-                  ...item,
-                  implementationStatus: 'TBD' as ImplementationStatus,
-                  simulationStatus: canonical?.simulationStatus ?? 'NOT_TESTED',
-                };
-              })
-            : INITIAL_PROFILE,
-        };
-      },
+      version: 5,
+      migrate: migratePersistedLsnState,
       partialize: (state) => state.settings.localPersistence ? {
         device: state.device,
         logicalState: sanitizeLogicalStateForCapabilities(state.logicalState, state.capabilities),
         profile: state.profile,
+        activeProfileDocument: state.activeProfileDocument,
         transactions: state.transactions.filter(transaction => isTransactionSupported(transaction, state.capabilities)),
         tests: state.tests,
         baseCapabilities: state.baseCapabilities,

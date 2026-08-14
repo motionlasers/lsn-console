@@ -8,6 +8,7 @@ import {
   isTestSupported,
   isTransactionSupported,
   getTelemetryFreshness,
+  migratePersistedLsnState,
   useStore,
   visibleLogicalState,
   type RuntimeSessionState,
@@ -111,6 +112,61 @@ test('Navigation preferences default correctly and reset together', () => {
   useStore.getState().resetSettings();
   expect(useStore.getState().settings.brandLogo).toBe('sia');
   expect(useStore.getState().settings.navCollapsed).toBe(false);
+});
+
+test('Active profile document follows profile edits and preserves imported metadata', () => {
+  const originalProfile = structuredClone(useStore.getState().profile);
+  const originalDocument = structuredClone(useStore.getState().activeProfileDocument);
+  const originalDevice = structuredClone(useStore.getState().device);
+  try {
+    const ready = useStore.getState().profile.find(item => item.symbolicName === 'Ready');
+    expect(ready).toBeDefined();
+    useStore.getState().updateProfileItem(ready!.id, { simulationStatus: 'TESTING' });
+    expect(
+      useStore.getState().activeProfileDocument.fields.find(field => field.symbolicName === 'Ready')?.simulationStatus,
+    ).toBe('TESTING');
+
+    const imported = structuredClone(originalDocument);
+    imported.profileVersion = '0.1.1-test';
+    imported.protocolVersion = 'LSN v0.1-test';
+    imported.customHandoffMetadata = { source: 'store-test' };
+    const result = useStore.getState().importProfile(JSON.stringify(imported));
+    expect(result.success).toBe(true);
+    expect(useStore.getState().activeProfileDocument.profileVersion).toBe('0.1.1-test');
+    expect(useStore.getState().activeProfileDocument.customHandoffMetadata).toEqual({ source: 'store-test' });
+    expect(useStore.getState().activeProfileDocument.modules).toEqual(imported.modules);
+    expect(useStore.getState().device.protocolVersion).toBe('LSN v0.1-test');
+  } finally {
+    useStore.setState({
+      profile: originalProfile,
+      activeProfileDocument: originalDocument,
+      device: originalDevice,
+    });
+  }
+});
+
+test('Persistence migration reconstructs the active profile document from legacy profile state', () => {
+  const state = useStore.getState();
+  const legacyProfile = structuredClone(state.profile);
+  const ready = legacyProfile.find(item => item.symbolicName === 'Ready')!;
+  ready.simulationStatus = 'TESTING';
+  const migrated = migratePersistedLsnState({
+    profile: legacyProfile,
+    capabilities: state.capabilities,
+    device: {
+      ...state.device,
+      profile: '0.1.legacy',
+      protocolVersion: 'LSN v0.1-legacy',
+      platform: 'WT32-ETH01-legacy',
+    },
+  }, 4);
+
+  expect(migrated.activeProfileDocument?.profileVersion).toBe('0.1.legacy');
+  expect(migrated.activeProfileDocument?.protocolVersion).toBe('LSN v0.1-legacy');
+  expect(migrated.activeProfileDocument?.hardwareFamily).toBe('WT32-ETH01-legacy');
+  expect(
+    migrated.activeProfileDocument?.fields.find(field => field.symbolicName === 'Ready')?.simulationStatus,
+  ).toBe('TESTING');
 });
 
 test('Phase 1 hides disabled capability fields, tests, and logical state', () => {
