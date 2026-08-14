@@ -39,7 +39,7 @@ export default function Help() {
         </Button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div data-tour="help-safety" className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <Card className="border-warning/50 bg-warning/5 overflow-hidden">
           <div className="h-1 bg-warning w-full" />
           <CardHeader className="pb-3">
@@ -82,7 +82,7 @@ export default function Help() {
         </Card>
       </div>
 
-      <Card className="border-border bg-card/50">
+      <Card data-tour="help-workflows" className="border-border bg-card/50">
         <CardHeader className="border-b border-border/50 bg-black/20 pb-4">
           <CardTitle className="text-sm font-mono tracking-widest text-primary flex items-center gap-2">
             <Workflow className="w-4 h-4" />
@@ -194,7 +194,7 @@ export default function Help() {
         </Card>
       </div>
 
-      <Card className="border-border bg-card/50">
+      <Card data-tour="help-reference" className="border-border bg-card/50">
         <CardHeader className="border-b border-border/50 bg-black/20 pb-4">
           <CardTitle className="text-sm font-mono tracking-widest text-primary flex items-center gap-2">
             <BookOpen className="w-4 h-4" />

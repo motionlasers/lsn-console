@@ -11,7 +11,7 @@ export default function Diagnostics() {
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-6 h-full">
-      <Card className="border-border bg-card/50 backdrop-blur flex flex-col">
+      <Card data-tour="diagnostics-faults" className="border-border bg-card/50 backdrop-blur flex flex-col">
         <CardHeader className="border-b border-border/50 bg-black/20 pb-4">
           <CardTitle className="text-sm font-mono tracking-widest text-primary flex items-center gap-2">
             <ShieldAlert className="w-4 h-4" />
@@ -113,7 +113,7 @@ export default function Diagnostics() {
         </CardContent>
       </Card>
       
-      <Card className="border-border bg-card/50 backdrop-blur">
+      <Card data-tour="diagnostics-health" className="border-border bg-card/50 backdrop-blur">
         <CardHeader className="border-b border-border/50 bg-black/20 pb-4">
           <CardTitle className="text-sm font-mono tracking-widest text-primary flex items-center gap-2">
             <TerminalSquare className="w-4 h-4" />

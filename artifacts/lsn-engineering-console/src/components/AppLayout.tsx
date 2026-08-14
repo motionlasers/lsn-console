@@ -12,6 +12,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
   const telemetry = useTelemetryState();
   const { hasSeenTour, isTourActive, startTour } = useTourStore();
   const tourMounted = useRef(false);
+  const applicationShellRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const interval = window.setInterval(() => {
@@ -31,10 +32,23 @@ export function AppLayout({ children }: { children: ReactNode }) {
     return undefined;
   }, [hasSeenTour, isTourActive, startTour]);
 
+  useEffect(() => {
+    const shell = applicationShellRef.current;
+    if (!shell) return;
+    shell.inert = isTourActive;
+    if (isTourActive) shell.setAttribute("aria-hidden", "true");
+    else shell.removeAttribute("aria-hidden");
+    return () => {
+      shell.inert = false;
+      shell.removeAttribute("aria-hidden");
+    };
+  }, [isTourActive]);
+
   return (
-    <div className="flex h-screen w-full bg-background text-foreground overflow-hidden font-sans">
-      <Sidebar />
-      <div className="flex-1 flex flex-col min-w-0 relative">
+    <div className="h-screen w-full bg-background text-foreground overflow-hidden font-sans">
+      <div ref={applicationShellRef} className="flex h-full w-full">
+        <Sidebar />
+        <div className="flex-1 flex flex-col min-w-0 relative">
         {/* Top Status Bar */}
         <div className="bg-warning/10 text-warning border-b border-warning/20 px-4 py-1.5 text-[10px] font-mono flex items-center justify-center tracking-widest text-center uppercase font-bold shrink-0">
           DISCLAIMER: SIMULATION EVIDENCE IS NOT PHYSICAL VALIDATION. ALL HARDWARE MODES AWAITING FIRMWARE IMPLEMENTATION.
@@ -76,7 +90,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
               className="absolute w-[clamp(34rem,58vw,52rem)] max-w-none h-auto opacity-[0.025] right-[-6%] bottom-[-16%] select-none"
             />
           </div>
-          <main className="h-full overflow-auto p-6 relative z-10">
+          <main id="main-workspace" tabIndex={-1} className="h-full overflow-auto p-6 relative z-10">
             <div className="absolute inset-0 pointer-events-none opacity-[0.02] mix-blend-overlay z-0" 
                  style={{ backgroundImage: 'url("data:image/svg+xml,%3Csvg viewBox=\'0 0 200 200\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cfilter id=\'noiseFilter\'%3E%3CfeTurbulence type=\'fractalNoise\' baseFrequency=\'0.65\' numOctaves=\'3\' stitchTiles=\'stitch\'/%3E%3C/filter%3E%3Crect width=\'100%25\' height=\'100%25\' filter=\'url(%23noiseFilter)\'/%3E%3C/svg%3E")' }}>
             </div>
@@ -84,6 +98,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
               {children}
             </div>
           </main>
+        </div>
         </div>
       </div>
       <TourOverlay />

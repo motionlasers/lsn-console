@@ -22,7 +22,7 @@ export default function Control() {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-6 h-full">
       <div className="col-span-1 space-y-6">
-        <Card className="border-border bg-card/50 backdrop-blur">
+        <Card data-tour="control-emission" className="border-border bg-card/50 backdrop-blur">
           <CardHeader className="border-b border-border/50 bg-black/20 pb-4">
             <CardTitle className="text-sm font-mono tracking-widest text-primary flex items-center gap-2">
               <PlaySquare className="w-4 h-4" />
@@ -74,7 +74,7 @@ export default function Control() {
           </CardContent>
         </Card>
         
-        <Card className="border-border bg-card/50 backdrop-blur">
+        <Card data-tour="control-safety" className="border-border bg-card/50 backdrop-blur">
           <CardHeader className="border-b border-border/50 bg-black/20 pb-4">
             <CardTitle className="text-sm font-mono tracking-widest text-primary flex items-center gap-2">
               <AlertCircle className="w-4 h-4" />
@@ -105,7 +105,7 @@ export default function Control() {
       </div>
 
       <div className="col-span-1">
-        <Card className="h-full border-border bg-card/50 backdrop-blur flex flex-col">
+        <Card data-tour="control-recent" className="h-full border-border bg-card/50 backdrop-blur flex flex-col">
           <CardHeader className="border-b border-border/50 bg-black/20 pb-4">
             <CardTitle className="text-sm font-mono tracking-widest text-primary flex items-center gap-2">
               <Clock className="w-4 h-4" />

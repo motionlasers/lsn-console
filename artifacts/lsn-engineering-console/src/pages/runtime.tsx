@@ -90,7 +90,7 @@ export default function Runtime() {
 
   return (
     <div className="space-y-6 max-w-6xl pb-12 mx-auto">
-      <Card className="border-border bg-card/50 backdrop-blur">
+      <Card data-tour="runtime-counters" className="border-border bg-card/50 backdrop-blur">
         <CardHeader className="border-b border-border/50 bg-black/20 pb-4">
           <CardTitle className="text-sm font-mono tracking-widest text-primary flex items-center gap-2">
             <ActivityIcon className="w-4 h-4" />
@@ -149,7 +149,7 @@ export default function Runtime() {
         </CardContent>
       </Card>
 
-      <Card className="border-border bg-card/50 backdrop-blur">
+      <Card data-tour="runtime-observation" className="border-border bg-card/50 backdrop-blur">
         <CardHeader className="border-b border-border/50 bg-black/20 pb-4">
           <CardTitle className="text-sm font-mono tracking-widest text-primary flex items-center gap-2">
             <Activity className="w-4 h-4" />
@@ -238,7 +238,7 @@ export default function Runtime() {
         </CardContent>
       </Card>
 
-      <Card className="border-border bg-card/50 backdrop-blur">
+      <Card data-tour="runtime-timer-test" className="border-border bg-card/50 backdrop-blur">
         <CardHeader className="border-b border-border/50 bg-black/20 pb-4">
           <CardTitle className="text-sm font-mono tracking-widest text-primary flex items-center gap-2">
             <Timer className="w-4 h-4" />
@@ -310,7 +310,7 @@ export default function Runtime() {
         </CardContent>
       </Card>
 
-      <Card className="border-border bg-card/50 backdrop-blur">
+      <Card data-tour="runtime-persistence-test" className="border-border bg-card/50 backdrop-blur">
         <CardHeader className="border-b border-border/50 bg-black/20 pb-4">
           <CardTitle className="text-sm font-mono tracking-widest text-primary flex items-center gap-2">
             <Database className="w-4 h-4" />

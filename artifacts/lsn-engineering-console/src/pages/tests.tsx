@@ -40,9 +40,9 @@ export default function Tests() {
 
   return (
     <>
-      <Card className="flex flex-col h-full border-border bg-card/50 backdrop-blur">
+      <Card data-tour="tests-suite" className="flex flex-col h-full border-border bg-card/50 backdrop-blur">
         <CardHeader className="border-b border-border/50 bg-black/20 pb-4">
-          <div className="flex flex-row items-center justify-between mb-4">
+          <div data-tour="tests-actions" className="flex flex-row items-center justify-between mb-4">
             <CardTitle className="text-sm font-mono tracking-widest text-primary flex items-center gap-2">
               <TestTube className="w-4 h-4" />
               Validation Suite
@@ -85,7 +85,7 @@ export default function Tests() {
           </div>
         </CardHeader>
         <CardContent className="p-0 flex-1 overflow-hidden">
-          <div className="h-[calc(100vh-16rem)] overflow-y-auto custom-scrollbar">
+          <div data-tour="tests-table" className="h-[calc(100vh-16rem)] overflow-y-auto custom-scrollbar">
             <Table>
               <TableHeader className="sticky top-0 bg-card z-10">
                 <TableRow className="border-border/50 hover:bg-transparent">

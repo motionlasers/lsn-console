@@ -24,7 +24,7 @@ export default function ProtocolInspector() {
 
   return (
     <>
-      <Card className="flex flex-col h-full border-border bg-card/50 backdrop-blur">
+      <Card data-tour="protocol-transactions" className="flex flex-col h-full border-border bg-card/50 backdrop-blur">
         <CardHeader className="border-b border-border/50 bg-black/20 pb-4 flex flex-row items-center justify-between">
           <CardTitle className="text-sm font-mono tracking-widest text-primary flex items-center gap-2">
             <Network className="w-4 h-4" />
@@ -47,7 +47,7 @@ export default function ProtocolInspector() {
           </div>
         </CardHeader>
         <CardContent className="flex-1 overflow-hidden p-0">
-          <div className="h-[calc(100vh-16rem)] overflow-y-auto custom-scrollbar">
+          <div data-tour="protocol-table" className="h-[calc(100vh-16rem)] overflow-y-auto custom-scrollbar">
             <Table>
               <TableHeader className="sticky top-0 bg-card z-10">
                 <TableRow className="border-border/50 hover:bg-transparent">

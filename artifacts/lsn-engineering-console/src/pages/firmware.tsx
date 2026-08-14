@@ -61,7 +61,7 @@ export default function Firmware() {
   };
 
   return (
-    <Card className="max-w-4xl border-border bg-card/50 backdrop-blur">
+    <Card data-tour="firmware-package" className="max-w-4xl border-border bg-card/50 backdrop-blur">
       <CardHeader className="border-b border-border/50 bg-black/20 pb-4">
         <CardTitle className="text-sm font-mono tracking-widest text-primary flex items-center gap-2">
           <ListTree className="w-4 h-4" />
@@ -76,7 +76,7 @@ export default function Firmware() {
         </div>
         <TelemetryNotice />
         
-        <div className="grid grid-cols-2 gap-4 bg-black/20 p-4 border border-border/50 rounded-sm">
+        <div data-tour="firmware-history" className="grid grid-cols-2 gap-4 bg-black/20 p-4 border border-border/50 rounded-sm">
           <div>
             <div className="text-[10px] text-muted-foreground font-mono uppercase tracking-widest mb-1">Current Version</div>
             <TelemetryValue lastReported={device.firmware}>
@@ -198,6 +198,7 @@ export default function Firmware() {
                   </div>
 
                   <Button 
+                    data-tour="firmware-controls"
                     className="w-full mt-4 font-mono text-xs border-primary text-primary hover:bg-primary/20" 
                     variant="outline"
                     disabled={mode === 'hardware' || connectionState !== 'connected'}

@@ -107,7 +107,7 @@ export default function Profile() {
   return (
     <div className="flex flex-col h-full gap-6 animate-in fade-in duration-300">
       
-      {settings.devMode && mode === 'simulation' && <Card className="border-warning/40 bg-warning/5 backdrop-blur">
+      {settings.devMode && mode === 'simulation' && <Card data-tour="profile-capabilities" className="border-warning/40 bg-warning/5 backdrop-blur">
         <CardHeader className="border-b border-border/50 bg-black/20 pb-4">
           <CardTitle className="text-sm font-mono tracking-widest text-primary flex items-center gap-2">
              Simulation / Developer Experimental Capabilities
@@ -142,13 +142,13 @@ export default function Profile() {
         </CardContent>
       </Card>}
 
-      <Card className="border-border bg-card/50 backdrop-blur">
+      <Card data-tour="profile-interface" className="border-border bg-card/50 backdrop-blur">
         <CardHeader className="border-b border-border/50 bg-black/20 pb-4 flex flex-row items-center justify-between">
           <CardTitle className="text-sm font-mono tracking-widest text-primary flex items-center gap-2">
             <FileJson className="w-4 h-4" />
             Active Profile Specification
           </CardTitle>
-          <div className="flex flex-wrap items-center justify-end gap-3">
+          <div data-tour="profile-export" className="flex flex-wrap items-center justify-end gap-3">
             <div className="text-[10px] font-mono text-muted-foreground text-right">
               <div>
                 PROTOCOL MAPPING:{' '}

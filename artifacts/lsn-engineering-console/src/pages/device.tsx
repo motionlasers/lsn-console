@@ -15,7 +15,7 @@ export default function HardwareDevice() {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-in fade-in duration-300">
       
-      <Card className="col-span-1 border-border bg-card/50 backdrop-blur">
+      <Card data-tour="device-mode" className="col-span-1 border-border bg-card/50 backdrop-blur">
         <CardHeader className="border-b border-border/50 bg-black/20 pb-4">
           <CardTitle className="text-sm font-mono tracking-widest text-primary flex items-center gap-2">
             <Cpu className="w-4 h-4" />
@@ -69,7 +69,7 @@ export default function HardwareDevice() {
       </Card>
 
       <div className="col-span-1 space-y-6">
-        <Card className="border-border bg-card/50 backdrop-blur">
+        <Card data-tour="device-identity" className="border-border bg-card/50 backdrop-blur">
           <CardHeader className="border-b border-border/50 bg-black/20 pb-4">
             <CardTitle className="text-sm font-mono tracking-widest text-primary flex items-center gap-2">
               <Power className="w-4 h-4" />
@@ -102,6 +102,7 @@ export default function HardwareDevice() {
           </CardContent>
         </Card>
 
+        <div data-tour="device-hardware-lock">
         {mode === 'hardware' && !hardwareUnlocked && (
           <Card className="border-destructive/30 bg-destructive/10 backdrop-blur">
              <CardContent className="pt-6">
@@ -146,6 +147,7 @@ export default function HardwareDevice() {
             </div>
           </div>
         )}
+        </div>
       </div>
       
     </div>

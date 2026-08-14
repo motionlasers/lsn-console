@@ -11,14 +11,14 @@ export default function Modules() {
   const showDevToggle = settings?.devMode && mode === 'simulation';
 
   return (
-    <Card className="max-w-2xl border-border bg-card/50 backdrop-blur">
+    <Card data-tour="modules-overview" className="max-w-2xl border-border bg-card/50 backdrop-blur">
       <CardHeader className="border-b border-border/50 bg-black/20 pb-4">
         <CardTitle className="text-sm font-mono tracking-widest text-primary flex items-center gap-2">
           <Settings className="w-4 h-4" />
           Sensor Modules (Simulation)
         </CardTitle>
       </CardHeader>
-      <CardContent className="pt-6">
+      <CardContent data-tour="modules-list" className="pt-6">
         <div className="mb-4"><TelemetryNotice /></div>
         {!isEnabled ? (
           <div className="flex flex-col items-center justify-center p-8 border border-dashed border-border/50 rounded-sm">

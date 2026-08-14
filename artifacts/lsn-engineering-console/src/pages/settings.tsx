@@ -57,7 +57,7 @@ export default function SettingsPage() {
   };
 
   return (
-    <Card className="max-w-2xl border-border bg-card/50 backdrop-blur">
+    <Card data-tour="settings-overview" className="max-w-2xl border-border bg-card/50 backdrop-blur">
       <CardHeader className="border-b border-border/50 bg-black/20 pb-4">
         <CardTitle className="text-sm font-mono tracking-widest text-primary flex items-center gap-2">
           <Settings className="w-4 h-4" />
@@ -66,7 +66,7 @@ export default function SettingsPage() {
       </CardHeader>
       <CardContent className="pt-6 space-y-6">
         
-        <div className="space-y-4">
+        <div data-tour="settings-preferences" className="space-y-4">
           <div className="flex items-center justify-between">
             <div>
               <div className="text-sm font-mono text-foreground">Navigation Brand</div>
@@ -124,7 +124,7 @@ export default function SettingsPage() {
             </Button>
           </div>
 
-          <div className="flex items-center justify-between border-t border-border/50 pt-4">
+          <div data-tour="settings-tour" className="flex items-center justify-between border-t border-border/50 pt-4">
             <div>
               <div className="text-sm font-mono text-foreground">First-Launch Tour</div>
               <div className="text-xs font-mono text-muted-foreground">Replay the guided console overview</div>

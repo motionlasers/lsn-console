@@ -41,7 +41,7 @@ export default function Dashboard() {
     <div className="grid grid-cols-1 md:grid-cols-3 gap-6 animate-in fade-in duration-300">
       
       {/* Device Identity Panel */}
-      <Card className="col-span-1 md:col-span-2 border-border bg-card/50 backdrop-blur">
+      <Card data-tour="dashboard-identity" className="col-span-1 md:col-span-2 border-border bg-card/50 backdrop-blur">
         <CardHeader className="border-b border-border/50 bg-black/20 pb-4">
           <CardTitle className="text-sm font-mono tracking-widest text-primary flex items-center gap-2">
             <Cpu className="w-4 h-4" />
@@ -88,7 +88,7 @@ export default function Dashboard() {
       </Card>
 
       {/* Connection Control */}
-      <Card className="col-span-1 border-border bg-card/50 backdrop-blur">
+      <Card data-tour="dashboard-session" className="col-span-1 border-border bg-card/50 backdrop-blur">
         <CardHeader className="border-b border-border/50 bg-black/20 pb-4">
           <CardTitle className="text-sm font-mono tracking-widest text-primary flex items-center gap-2">
             <Network className="w-4 h-4" />
@@ -132,7 +132,7 @@ export default function Dashboard() {
       </Card>
 
       {/* Primary Logical State */}
-      <Card className="col-span-1 border-border bg-card/50 backdrop-blur">
+      <Card data-tour="dashboard-state" className="col-span-1 border-border bg-card/50 backdrop-blur">
         <CardHeader className="border-b border-border/50 bg-black/20 pb-4">
           <CardTitle className="text-sm font-mono tracking-widest text-primary flex items-center gap-2">
             <Zap className="w-4 h-4" />
@@ -153,7 +153,7 @@ export default function Dashboard() {
       </Card>
 
       {/* Manual Overrides (Simulation) */}
-      <Card className="col-span-1 md:col-span-2 border-border bg-card/50 backdrop-blur">
+      <Card data-tour="dashboard-controls" className="col-span-1 md:col-span-2 border-border bg-card/50 backdrop-blur">
         <CardHeader className="border-b border-border/50 bg-black/20 pb-4 flex flex-row items-center justify-between">
           <CardTitle className="text-sm font-mono tracking-widest text-primary flex items-center gap-2">
             <Clock className="w-4 h-4" />

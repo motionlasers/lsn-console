@@ -7,3 +7,10 @@ uri = "file://lsn-console-final-review.zip"
 type = "unspecified"
 title = "LSN Console Final Review — Screenshot Set"
 description = "34 screenshots across all 31 requested scenarios at 1440×900. Includes connected/disconnected states, telemetry integrity states, firmware update flows, developer mode views, and future-capabilities panel."
+
+[[outputs]]
+id = "H8yJUaVa91GbgXVJuoGla"
+uri = "file://lsn-console-final-final-review.zip"
+type = "unspecified"
+title = "LSN Console Final Review Screenshot Set"
+description = "Verified 35-image external-review set at 1440×1000, including capture notes and SHA-256 manifest. The ZIP passed archive integrity validation."

@@ -104,7 +104,7 @@ export default function Logs() {
   };
 
   return (
-    <Card className="max-w-4xl border-border bg-card/50 backdrop-blur h-full flex flex-col">
+    <Card data-tour="logs-overview" className="max-w-4xl border-border bg-card/50 backdrop-blur h-full flex flex-col">
       <CardHeader className="border-b border-border/50 bg-black/20 pb-4 flex flex-row justify-between items-center">
         <CardTitle className="text-sm font-mono tracking-widest text-primary flex items-center gap-2">
           <Terminal className="w-4 h-4" />
@@ -113,7 +113,7 @@ export default function Logs() {
       </CardHeader>
       <CardContent className="pt-6 flex-1 flex flex-col gap-6">
         
-        <div className="grid grid-cols-3 gap-4">
+        <div data-tour="logs-actions" className="grid grid-cols-3 gap-4">
           <div className="border border-border/50 bg-black/20 p-4 rounded-sm flex flex-col items-center justify-center gap-3 text-center">
             <div className="font-mono text-sm text-foreground">Transaction Log</div>
             <div className="font-mono text-[10px] text-muted-foreground">{transactions.length} Records</div>
@@ -150,7 +150,7 @@ export default function Logs() {
           </div>
         </div>
 
-        <div className="flex-1 border border-border/50 bg-black/40 rounded-sm p-4 font-mono text-[10px] text-muted-foreground overflow-y-auto custom-scrollbar">
+        <div data-tour="logs-table" className="flex-1 border border-border/50 bg-black/40 rounded-sm p-4 font-mono text-[10px] text-muted-foreground overflow-y-auto custom-scrollbar">
           <div className="text-primary mb-2">// RECENT LOG OUTPUT</div>
           {transactions.slice(0, 50).map(tx => (
             <div key={tx.id} className="mb-1 opacity-80 hover:opacity-100 hover:bg-white/5 px-1 py-0.5 rounded">

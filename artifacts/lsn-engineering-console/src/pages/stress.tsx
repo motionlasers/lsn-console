@@ -58,7 +58,7 @@ export default function StressTesting() {
         </CardHeader>
         <CardContent className="pt-6">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-            <div className="lg:col-span-5 space-y-6">
+            <div data-tour="stress-config" className="lg:col-span-5 space-y-6">
               <div className="text-[10px] uppercase tracking-widest font-mono text-muted-foreground border-b border-border/50 pb-2 flex items-center gap-2">
                 <Settings2 className="w-4 h-4 text-primary" /> Configuration
               </div>
@@ -115,7 +115,7 @@ export default function StressTesting() {
 
             </div>
 
-            <div className="lg:col-span-7 flex flex-col space-y-6">
+            <div data-tour="stress-progress" className="lg:col-span-7 flex flex-col space-y-6">
               <div className="text-[10px] uppercase tracking-widest font-mono text-muted-foreground border-b border-border/50 pb-2 flex items-center gap-2">
                 <ActivitySquare className="w-4 h-4 text-primary" /> Execution & Metrics
               </div>

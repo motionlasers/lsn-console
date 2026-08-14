@@ -126,6 +126,7 @@ export function Sidebar() {
               data-testid={`link-nav-${item.label.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`}
               data-tour-target={isTourTarget ? "true" : undefined}
               aria-label={isCollapsed ? item.label : undefined}
+               aria-current={isActive ? "page" : undefined}
               >
                 <Icon className="w-4 h-4 shrink-0" />
                 <span className={cn(isCollapsed && "sr-only")}>{item.label}</span>

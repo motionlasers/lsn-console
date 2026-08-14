@@ -1,0 +1,31 @@
+LSN Engineering Console — Final External Review Screenshot Set
+Captured: 2026-08-14
+Viewport: 1440 × 1000
+Mode: Simulation
+Device: LSN-SIM-001
+
+This directory contains 35 PNG screenshots covering the requested connected,
+disconnected, runtime, validation, stress, protocol, profile, firmware-package,
+firmware-management, diagnostics, logs, modules, Help, Settings, and guided-tour
+states.
+
+Current-implementation notes:
+
+- Screenshot 24 was intentionally omitted because the Console does not provide
+  an in-app generated C/C++ header preview.
+- Screenshot 22 records the immediate post-download application state. The
+  Console currently closes the package dialog without displaying a separate
+  success confirmation.
+- Screenshot 23 reopens the strongest available in-app package summary because
+  the Console does not display the downloaded ZIP's file listing.
+- Screenshots 21 and 23 are intentionally the same package-summary dialog for
+  those two evidence requests.
+- The Dashboard experimental-capability card currently exposes Interlock and
+  Remote Stop controls. The Sensors capability is shown in the Profile
+  developer-mode capability summary rather than on that Dashboard card.
+- Firmware success used the built-in happy_path scenario for 0.2.0-sim.
+- Firmware failure used the built-in interrupted_network scenario.
+- The guided-tour screenshot uses the corrected neutral backdrop. The selected
+  section is not dimmed or blurred and remains fully readable.
+
+No application redesign or code changes were made during this capture task.
