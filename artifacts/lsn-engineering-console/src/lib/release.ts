@@ -7,7 +7,7 @@
  * human-readable history lives in CHANGELOG.md; tests/release.test.ts keeps
  * the two in lockstep so neither becomes a manually drifting copy.
  */
-import consolePackage from '../../package.json';
+import consolePackage from '../../package.json' with { type: 'json' };
 
 /** Impact of a Console release on the external LSN protocol / interface. */
 export type ProtocolImpact = 'none' | 'additive' | 'breaking';
@@ -68,17 +68,33 @@ export const WINDOWS_ARTIFACTS = {
   signed: false,
 } as const;
 
-/**
- * Optional stable base URL for published Windows release assets.
- * When configured (VITE_LSN_RELEASE_BASE_URL), Downloads offers direct
- * download actions; otherwise it shows the exact published artifact names
- * and the release tag that produces them.
- */
-export const RELEASE_ASSET_BASE_URL: string | null =
-  (import.meta.env?.VITE_LSN_RELEASE_BASE_URL as string | undefined)?.replace(/\/+$/, '') ?? null;
+const DEFAULT_RELEASE_ASSET_ROOT_URL =
+  'https://github.com/motionlasers/lsn-console/releases/download';
 
-export function releaseAssetUrl(filename: string): string | null {
-  return RELEASE_ASSET_BASE_URL ? `${RELEASE_ASSET_BASE_URL}/${filename}` : null;
+/**
+ * Convert legacy version-specific and moving "latest" configuration values
+ * into the stable repository release root. The Console's own releaseTag is
+ * appended separately so every deployed web revision remains pinned forever.
+ */
+export function normalizeReleaseAssetRoot(url: string): string {
+  return url
+    .replace(/\/+$/, '')
+    .replace(
+      /\/releases\/(?:latest\/download|download\/lsn-console-v[^/]+)$/,
+      '/releases/download',
+    );
+}
+
+export const RELEASE_ASSET_ROOT_URL = normalizeReleaseAssetRoot(
+  (import.meta.env?.VITE_LSN_RELEASE_BASE_URL as string | undefined) ??
+    DEFAULT_RELEASE_ASSET_ROOT_URL,
+);
+
+export const RELEASE_ASSET_BASE_URL =
+  `${RELEASE_ASSET_ROOT_URL}/${WINDOWS_ARTIFACTS.releaseTag}`;
+
+export function releaseAssetUrl(filename: string): string {
+  return `${RELEASE_ASSET_BASE_URL}/${filename}`;
 }
 
 /** Reverse-chronological Console release history (mirrors CHANGELOG.md). */

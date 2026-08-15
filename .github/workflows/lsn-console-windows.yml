@@ -84,7 +84,9 @@ jobs:
           if [ -n "$PORTABLE" ]; then
             cp "$PORTABLE" "$DIST/LSN-Engineering-Console-Portable-${VERSION}.zip"
           else
-            echo "No portable ZIP produced; continuing with installer only."
+            echo "Expected portable ZIP was not produced." >&2
+            find "$OUT" -type f >&2
+            exit 1
           fi
           (cd "$DIST" && sha256sum * > SHA256SUMS.txt && cat SHA256SUMS.txt)
       - uses: actions/upload-artifact@v4
@@ -106,3 +108,18 @@ jobs:
             - LSN Protocol, Device Profile, and the LSN-Firmware-Interface-v0.1 package are unchanged (v0.1).
 
             See `artifacts/lsn-engineering-console/CHANGELOG.md` for the full release entry.
+      - name: Verify permanent release asset URLs
+        if: startsWith(github.ref, 'refs/tags/lsn-console-v')
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION=$(node -p "require('./artifacts/lsn-engineering-console/package.json').version")
+          RELEASE_BASE="https://github.com/${GITHUB_REPOSITORY}/releases/download/${GITHUB_REF_NAME}"
+          for ASSET in \
+            "LSN-Engineering-Console-Setup-${VERSION}-dev.exe" \
+            "LSN-Engineering-Console-Portable-${VERSION}.zip"; do
+            URL="${RELEASE_BASE}/${ASSET}"
+            echo "Verifying ${URL}"
+            curl --fail --silent --show-error --location --head \
+              --retry 5 --retry-delay 3 --retry-all-errors "${URL}" >/dev/null
+          done

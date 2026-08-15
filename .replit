@@ -90,4 +90,4 @@ channel = "stable-25_05"
 [userenv]
 
 [userenv.shared]
-VITE_LSN_RELEASE_BASE_URL = "https://github.com/motionlasers/lsn-console/releases/latest/download"
+VITE_LSN_RELEASE_BASE_URL = "https://github.com/motionlasers/lsn-console/releases/download"

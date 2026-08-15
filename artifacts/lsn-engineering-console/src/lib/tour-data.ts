@@ -1,4 +1,4 @@
-import { CONSOLE_VERSION } from "./release";
+import { CONSOLE_VERSION } from "./release.ts";
 
 export type TourPlacement = "top" | "right" | "bottom" | "left";
 export type TourPhase = "intro" | "overview" | "detail";

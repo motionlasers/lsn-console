@@ -7,3 +7,6 @@ description: Durable rules for headless-browser regression checks run through th
 - **Why:** a passing browser gate was killed twice purely because lingering dev-server child handles kept the process alive.
 - **How to apply:** browser gates must own their server (fresh allocated port, verify the response is really the app, fail if the child dies), tear down the whole process group, and exit explicitly. Run independent browser contexts concurrently to stay inside the budget.
 - Tour geometry: at narrow widths the coachmark often cannot fit beside a tall target — non-overlap assertions must be conditional on geometric feasibility, mirroring the positioning algorithm's own contract.
+- Browser scripts that import TypeScript directly under Node 24 must use explicit `.ts` relative extensions, and imported JSON must include `with { type: 'json' }`.
+- **Why:** Vite's resolver accepts extensionless TypeScript and implicit JSON imports, while Node's native ESM/TypeScript loader rejects both before the browser test starts.
+- **How to apply:** when a browser test imports application `.ts` modules directly, keep the entire transitive import chain valid for strict Node ESM as well as Vite.

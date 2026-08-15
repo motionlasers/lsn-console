@@ -34,9 +34,12 @@ the package version; CI enforces this). Release artifacts:
 - `LSN-Engineering-Console-Portable-<version>.zip` — optional portable ZIP
 - `SHA256SUMS.txt` — checksums for both
 
-Tagged builds publish these as GitHub release assets with release notes. To
-surface direct download buttons on the Downloads page, set
-`VITE_LSN_RELEASE_BASE_URL` at build time to the stable release-asset base URL.
+Tagged builds publish these as GitHub release assets with release notes. The
+Downloads page derives permanent URLs from the Console version's matching tag,
+so a newer GitHub release cannot break links in an older deployed web build.
+`VITE_LSN_RELEASE_BASE_URL` may override the version-neutral repository root
+(ending in `/releases/download`); it must not contain a release tag. Legacy
+tagged and `latest/download` values are normalized to that stable root.
 
 Builds are unsigned Development Previews: Microsoft Defender SmartScreen warns
 on first run ("More info" → "Run anyway"). They are for internal development

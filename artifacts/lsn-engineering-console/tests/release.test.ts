@@ -7,10 +7,14 @@ import {
   CONSOLE_RELEASE_LABEL,
   CONSOLE_VERSION,
   CURRENT_RELEASE,
+  RELEASE_ASSET_BASE_URL,
+  RELEASE_ASSET_ROOT_URL,
   VERSION_TRACKS,
   WINDOWS_ARTIFACTS,
   getProtocolImpactSummary,
   getReleaseExportMetadata,
+  normalizeReleaseAssetRoot,
+  releaseAssetUrl,
   releaseRequiresFirmwareAction,
   type ConsoleRelease,
 } from '../src/lib/release';
@@ -50,6 +54,30 @@ describe('Release identity', () => {
     expect(WINDOWS_ARTIFACTS.portable).toBe('LSN-Engineering-Console-Portable-0.2.1.zip');
     expect(WINDOWS_ARTIFACTS.releaseTag).toBe('lsn-console-v0.2.1');
     expect(WINDOWS_ARTIFACTS.signed).toBe(false);
+  });
+
+  it('pins download URLs to the matching immutable release tag', () => {
+    expect(RELEASE_ASSET_ROOT_URL).toBe(
+      'https://github.com/motionlasers/lsn-console/releases/download',
+    );
+    expect(RELEASE_ASSET_BASE_URL).toBe(
+      'https://github.com/motionlasers/lsn-console/releases/download/lsn-console-v0.2.1',
+    );
+    expect(releaseAssetUrl(WINDOWS_ARTIFACTS.installer)).toBe(
+      'https://github.com/motionlasers/lsn-console/releases/download/lsn-console-v0.2.1/LSN-Engineering-Console-Setup-0.2.1-dev.exe',
+    );
+    expect(releaseAssetUrl(WINDOWS_ARTIFACTS.portable)).toBe(
+      'https://github.com/motionlasers/lsn-console/releases/download/lsn-console-v0.2.1/LSN-Engineering-Console-Portable-0.2.1.zip',
+    );
+  });
+
+  it('migrates legacy moving or version-specific release roots', () => {
+    expect(normalizeReleaseAssetRoot(
+      'https://github.com/motionlasers/lsn-console/releases/latest/download',
+    )).toBe('https://github.com/motionlasers/lsn-console/releases/download');
+    expect(normalizeReleaseAssetRoot(
+      'https://github.com/motionlasers/lsn-console/releases/download/lsn-console-v0.2.0/',
+    )).toBe('https://github.com/motionlasers/lsn-console/releases/download');
   });
 
   it('keeps the Forge installer name in sync with the artifact identity', async () => {
@@ -213,5 +241,11 @@ describe('Release drift guard', () => {
     expect(workflow).toContain('LSN-Engineering-Console-Setup-${VERSION}-dev.exe');
     expect(workflow).toContain('LSN-Engineering-Console-Portable-${VERSION}.zip');
     expect(workflow).toContain('lsn-console-v');
+    expect(workflow).toContain(
+      'releases/download/${GITHUB_REF_NAME}',
+    );
+    expect(workflow).toContain(
+      'curl --fail --silent --show-error --location --head',
+    );
   });
 });
