@@ -33,4 +33,30 @@ describe('Electron security boundary', () => {
     expect(main).toContain('event.sender.session.fetch');
     expect(preload).toContain("ipcRenderer.invoke('desktop:auth-request'");
   });
+
+  it('uses the renderer persistent session for auth — no ephemeral in-memory partition', () => {
+    // Cookie persistence across restarts depends on Electron's default on-disk
+    // session. An in-memory partition (partition: 'in-memory' or session.fromPartition
+    // with no 'persist:' prefix) would discard cookies on every app close, breaking
+    // the stay-signed-in guarantee introduced in v0.2.1.
+    expect(main).not.toMatch(/partition\s*:\s*['"]in-memory['"]/);
+    expect(main).not.toMatch(/fromPartition\s*\(/);
+    // Auth requests must flow through event.sender.session (the window's own
+    // on-disk session), not a separately constructed session object.
+    expect(main).toMatch(/event\.sender\.session\.fetch/);
+    expect(main).not.toMatch(/session\.defaultSession\.fetch/);
+    expect(main).not.toMatch(/new\s+Session\s*\(/);
+  });
+
+  it('exposes authRequest through the preload bridge so the renderer never calls fetch directly', () => {
+    // If the renderer called fetch() directly from file://, the URL would not
+    // resolve and the app would get a Network error on every auth attempt.
+    expect(preload).toContain('authRequest');
+    expect(preload).toContain("ipcRenderer.invoke('desktop:auth-request'");
+    // The preload must NOT import node:http, node:https, or fetch polyfills —
+    // all network I/O must stay in the main process.
+    expect(preload).not.toMatch(/require\(['"]node:https?['"]\)/);
+    expect(preload).not.toMatch(/require\(['"]https?['"]\)/);
+    expect(preload).not.toContain('global.fetch');
+  });
 });
