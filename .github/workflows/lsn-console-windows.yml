@@ -64,21 +64,26 @@ jobs:
         env:
           PORT: 4173
           BASE_PATH: ./
-      - name: Prepare required Windows signing certificate
+      - name: Prepare optional Windows signing certificate
         shell: bash
         env:
           WINDOWS_CERTIFICATE_PFX_BASE64: ${{ secrets.WINDOWS_CERTIFICATE_PFX_BASE64 }}
           WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
         run: |
           set -euo pipefail
-          if [ -z "$WINDOWS_CERTIFICATE_PFX_BASE64" ] || [ -z "$WINDOWS_CERTIFICATE_PASSWORD" ]; then
-            echo "Signed releases require WINDOWS_CERTIFICATE_PFX_BASE64 and WINDOWS_CERTIFICATE_PASSWORD GitHub secrets." >&2
+          if [ -n "$WINDOWS_CERTIFICATE_PFX_BASE64" ] && [ -n "$WINDOWS_CERTIFICATE_PASSWORD" ]; then
+            CERT_PATH="$RUNNER_TEMP/lsn-windows-signing.pfx"
+            printf '%s' "$WINDOWS_CERTIFICATE_PFX_BASE64" | base64 --decode > "$CERT_PATH"
+            echo "WINDOWS_CERTIFICATE_FILE=$CERT_PATH" >> "$GITHUB_ENV"
+            echo "WINDOWS_CERTIFICATE_PASSWORD=$WINDOWS_CERTIFICATE_PASSWORD" >> "$GITHUB_ENV"
+            echo "WINDOWS_SIGNING_MODE=signed" >> "$GITHUB_ENV"
+          elif [ -z "$WINDOWS_CERTIFICATE_PFX_BASE64" ] && [ -z "$WINDOWS_CERTIFICATE_PASSWORD" ]; then
+            echo "No signing certificate configured; building an unsigned Development Preview."
+            echo "WINDOWS_SIGNING_MODE=unsigned" >> "$GITHUB_ENV"
+          else
+            echo "Both Windows signing secrets must be configured together." >&2
             exit 1
           fi
-          CERT_PATH="$RUNNER_TEMP/lsn-windows-signing.pfx"
-          printf '%s' "$WINDOWS_CERTIFICATE_PFX_BASE64" | base64 --decode > "$CERT_PATH"
-          echo "WINDOWS_CERTIFICATE_FILE=$CERT_PATH" >> "$GITHUB_ENV"
-          echo "WINDOWS_CERTIFICATE_PASSWORD=$WINDOWS_CERTIFICATE_PASSWORD" >> "$GITHUB_ENV"
       - run: pnpm --filter @workspace/lsn-engineering-console run make
       - name: Verify installer Authenticode identity
         shell: pwsh
@@ -91,14 +96,24 @@ jobs:
             throw "Expected signed installer was not produced."
           }
           $signature = Get-AuthenticodeSignature -LiteralPath $installer.FullName
-          if ($signature.Status -ne 'Valid') {
-            throw "Installer Authenticode status is $($signature.Status), expected Valid."
+          if ($env:WINDOWS_SIGNING_MODE -eq 'signed') {
+            if ($signature.Status -ne 'Valid') {
+              throw "Installer Authenticode status is $($signature.Status), expected Valid."
+            }
+            $publisher = $signature.SignerCertificate.GetNameInfo(
+              [System.Security.Cryptography.X509Certificates.X509NameType]::SimpleName,
+              $false
+            )
+            if ($publisher -ne 'Saber Industrial Applications') {
+              throw "Unexpected installer publisher: $publisher"
+            }
+            Write-Host "Verified installer publisher: $publisher"
+            Remove-Item -LiteralPath $env:WINDOWS_CERTIFICATE_FILE -Force
+          } elseif ($signature.Status -ne 'NotSigned') {
+            throw "Unsigned build has unexpected Authenticode status $($signature.Status)."
+          } else {
+            Write-Host "Verified unsigned Development Preview installer."
           }
-          if ($signature.SignerCertificate.Subject -notmatch 'Saber Industrial Applications') {
-            throw "Unexpected installer signer: $($signature.SignerCertificate.Subject)"
-          }
-          Write-Host "Verified installer signer: $($signature.SignerCertificate.Subject)"
-          Remove-Item -LiteralPath $env:WINDOWS_CERTIFICATE_FILE -Force
       - name: Collect and validate release artifacts
         shell: bash
         run: |
@@ -123,6 +138,23 @@ jobs:
             exit 1
           fi
           (cd "$DIST" && sha256sum * > SHA256SUMS.txt && cat SHA256SUMS.txt)
+      - name: Write release notes for signing mode
+        shell: bash
+        run: |
+          if [ "$WINDOWS_SIGNING_MODE" = "signed" ]; then
+            SECURITY_NOTE="The installer is Authenticode-signed by Saber Industrial Applications."
+          else
+            SECURITY_NOTE="The installer is unsigned. Windows SmartScreen will warn on first run; choose More info, then Run anyway."
+          fi
+          cat > windows-release-notes.md <<EOF
+          Development Preview build of the LSN Engineering Console.
+
+          - ${SECURITY_NOTE}
+          - Hardware Mode truthfully reports that real WT32-ETH01 discovery, EtherNet/IP (CIP) communication, physical validation, and firmware upload are not yet implemented.
+          - LSN Protocol, Device Profile, and the LSN-Firmware-Interface-v0.1 package are unchanged (v0.1).
+
+          See artifacts/lsn-engineering-console/CHANGELOG.md for the full release entry.
+          EOF
       - uses: actions/upload-artifact@v4
         with:
           name: LSN-Engineering-Console-Windows
@@ -133,15 +165,7 @@ jobs:
         with:
           files: release-assets/*
           name: LSN Engineering Console ${{ github.ref_name }} (Development Preview)
-          body: |
-            Authenticode-signed internal Development Preview build of the LSN Engineering Console.
-
-            - The installer is signed by Saber Industrial Applications and is eligible for in-app updates.
-            - Hardware Mode truthfully reports that real WT32-ETH01 discovery, EtherNet/IP (CIP)
-              communication, physical validation, and firmware upload are not yet implemented.
-            - LSN Protocol, Device Profile, and the LSN-Firmware-Interface-v0.1 package are unchanged (v0.1).
-
-            See `artifacts/lsn-engineering-console/CHANGELOG.md` for the full release entry.
+          body_path: windows-release-notes.md
       - name: Verify permanent release asset URLs
         if: startsWith(github.ref, 'refs/tags/lsn-console-v')
         shell: bash

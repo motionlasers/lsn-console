@@ -34,6 +34,10 @@ function installerNameForVersion(version) {
   return `LSN-Engineering-Console-Setup-${version}-dev.exe`;
 }
 
+function checksumUrlForVersion(version) {
+  return `${RELEASE_DOWNLOAD_PREFIX}lsn-console-v${version}/${CHECKSUM_ASSET_NAME}`;
+}
+
 function validateReleaseAssetUrl(url, tag, filename) {
   if (typeof url !== 'string') return false;
   try {
@@ -107,17 +111,35 @@ function publicState(state) {
     errorCode: state.errorCode,
     canRetry: state.canRetry,
     checkedAt: state.checkedAt,
+    installerTrust: state.installerTrust,
   };
+}
+
+function classifyPublisherSignature(signature, expectedPublisher) {
+  if (signature?.Status === 'NotSigned') return 'unsigned';
+  if (
+    signature?.Status === 'Valid' &&
+    typeof signature.Publisher === 'string' &&
+    typeof expectedPublisher === 'string' &&
+    expectedPublisher.length > 0
+  ) {
+    return signature.Publisher.trim().toLowerCase() ===
+      expectedPublisher.trim().toLowerCase()
+      ? 'trusted-publisher'
+      : 'unexpected-publisher';
+  }
+  return 'invalid';
 }
 
 function isTrustedPublisherSignature(signature, expectedPublisher) {
   return (
-    signature?.Status === 'Valid' &&
-    typeof signature.Subject === 'string' &&
-    typeof expectedPublisher === 'string' &&
-    expectedPublisher.length > 0 &&
-    signature.Subject.toLowerCase().includes(expectedPublisher.toLowerCase())
+    classifyPublisherSignature(signature, expectedPublisher) ===
+    'trusted-publisher'
   );
+}
+
+function isInstallableTrust(trust) {
+  return trust === 'trusted-publisher' || trust === 'unsigned';
 }
 
 async function sha256File(filePath) {
@@ -137,7 +159,8 @@ class WindowsUpdateService {
     this.supported = options.supported;
     this.fetch = options.fetch;
     this.updatesDir = options.updatesDir;
-    this.verifySignature = options.verifySignature;
+    this.inspectSignature = options.inspectSignature;
+    this.confirmInstall = options.confirmInstall;
     this.launchInstaller = options.launchInstaller;
     this.onStateChange = options.onStateChange ?? (() => {});
     this.now = options.now ?? (() => new Date().toISOString());
@@ -188,9 +211,10 @@ class WindowsUpdateService {
         throw new Error('Invalid prepared update metadata');
       }
       const installerPath = path.join(this.updatesDir, metadata.installerName);
+      const installerTrust = await this.inspectSignature(installerPath);
       if (
         (await sha256File(installerPath)) !== metadata.sha256 ||
-        !(await this.verifySignature(installerPath))
+        !isInstallableTrust(installerTrust)
       ) {
         throw new Error('Prepared update verification failed');
       }
@@ -200,6 +224,7 @@ class WindowsUpdateService {
         installerName: metadata.installerName,
         installerPath,
         sha256: metadata.sha256,
+        installerTrust,
       };
       this.setState({
         status: 'deferred',
@@ -207,6 +232,7 @@ class WindowsUpdateService {
         releaseName: metadata.releaseName,
         message: `Version ${metadata.version} is downloaded and ready to install.`,
         canRetry: true,
+        installerTrust,
       });
     } catch {
       await this.removePreparedUpdate();
@@ -268,6 +294,7 @@ class WindowsUpdateService {
             message: `Version ${this.prepared.version} is downloaded and ready to install.`,
             canRetry: true,
             checkedAt,
+          installerTrust: this.prepared.installerTrust,
           });
         }
         return this.setState({
@@ -286,6 +313,7 @@ class WindowsUpdateService {
           message: `Version ${selected.version} is downloaded and ready to install.`,
           canRetry: true,
           checkedAt,
+          installerTrust: this.prepared.installerTrust,
         });
       }
 
@@ -351,8 +379,9 @@ class WindowsUpdateService {
       if (actualHash !== expectedHash) {
         throw new Error('Downloaded installer checksum did not match');
       }
-      if (!(await this.verifySignature(temporaryPath))) {
-        throw new Error('Downloaded installer signature is not trusted');
+      const installerTrust = await this.inspectSignature(temporaryPath);
+      if (!isInstallableTrust(installerTrust)) {
+        throw new Error(`Downloaded installer signature is ${installerTrust}`);
       }
       await fs.rename(temporaryPath, installerPath);
       const metadata = {
@@ -360,6 +389,7 @@ class WindowsUpdateService {
         releaseName: selected.releaseName,
         installerName: selected.installerName,
         sha256: actualHash,
+        installerTrust,
       };
       await fs.writeFile(
         path.join(this.updatesDir, 'ready.json'),
@@ -374,6 +404,7 @@ class WindowsUpdateService {
         message: `Version ${selected.version} is verified and ready to install.`,
         canRetry: true,
         checkedAt,
+        installerTrust,
       });
     } catch (error) {
       console.error('[desktop-updater] update download failed', error);
@@ -485,6 +516,25 @@ class WindowsUpdateService {
     return text;
   }
 
+  async fetchPublishedInstallerHash(version, installerName) {
+    if (
+      !parseStableVersion(version) ||
+      installerName !== installerNameForVersion(version)
+    ) {
+      throw new Error('Invalid prepared update identity');
+    }
+    const response = await this.fetchWithTimeout(
+      checksumUrlForVersion(version),
+    );
+    if (!response.ok) {
+      throw new Error(`Checksum revalidation returned ${response.status}`);
+    }
+    return parseChecksumManifest(
+      await this.readTextLimited(response, MAX_MANIFEST_BYTES),
+      installerName,
+    );
+  }
+
   defer() {
     if (this.state.status !== 'ready' || !this.prepared) return this.getState();
     return this.setState({
@@ -493,6 +543,7 @@ class WindowsUpdateService {
       releaseName: this.prepared.releaseName,
       message: `Version ${this.prepared.version} is ready whenever you choose to install it.`,
       canRetry: true,
+      installerTrust: this.prepared.installerTrust,
     });
   }
 
@@ -509,20 +560,52 @@ class WindowsUpdateService {
 
   async runInstall() {
     const prepared = this.prepared;
-    this.setState({
-      status: 'installing',
-      latestVersion: prepared.version,
-      releaseName: prepared.releaseName,
-      message: `Starting the installer for version ${prepared.version}…`,
-      canRetry: false,
-    });
     try {
+      const actualHash = await sha256File(prepared.installerPath);
+      const installerTrust = await this.inspectSignature(
+        prepared.installerPath,
+      );
       if (
-        (await sha256File(prepared.installerPath)) !== prepared.sha256 ||
-        !(await this.verifySignature(prepared.installerPath))
+        actualHash !== prepared.sha256 ||
+        !isInstallableTrust(installerTrust) ||
+        installerTrust !== prepared.installerTrust
       ) {
         throw new Error('Prepared installer verification failed');
       }
+      if (
+        installerTrust === 'unsigned' &&
+        (await this.fetchPublishedInstallerHash(
+          prepared.version,
+          prepared.installerName,
+        )) !== actualHash
+      ) {
+        throw new Error('Published installer checksum changed');
+      }
+      if (
+        installerTrust === 'unsigned' &&
+        !(await this.confirmInstall({
+          version: prepared.version,
+          releaseName: prepared.releaseName,
+          installerTrust,
+        }))
+      ) {
+        return this.setState({
+          status: 'deferred',
+          latestVersion: prepared.version,
+          releaseName: prepared.releaseName,
+          message: `Version ${prepared.version} remains ready to install.`,
+          canRetry: true,
+          installerTrust,
+        });
+      }
+      this.setState({
+        status: 'installing',
+        latestVersion: prepared.version,
+        releaseName: prepared.releaseName,
+        message: `Starting the installer for version ${prepared.version}…`,
+        canRetry: false,
+        installerTrust,
+      });
       await this.launchInstaller(prepared.installerPath);
       return this.getState();
     } catch (error) {
@@ -544,6 +627,8 @@ module.exports = {
   CHECKSUM_ASSET_NAME,
   RELEASE_API_URL,
   WindowsUpdateService,
+  checksumUrlForVersion,
+  classifyPublisherSignature,
   compareStableVersions,
   installerNameForVersion,
   isTrustedPublisherSignature,

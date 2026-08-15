@@ -30,7 +30,7 @@ Windows builds are produced by `.github/workflows/lsn-console-windows.yml`,
 triggered manually or by pushing a `lsn-console-vX.Y.Z` tag (the tag must match
 the package version; CI enforces this). Release artifacts:
 
-- `LSN-Engineering-Console-Setup-<version>-dev.exe` — Authenticode-signed Squirrel installer
+- `LSN-Engineering-Console-Setup-<version>-dev.exe` — signed when a certificate is configured, otherwise unsigned
 - `LSN-Engineering-Console-Portable-<version>.zip` — optional portable ZIP
 - `SHA256SUMS.txt` — checksums for both
 
@@ -41,12 +41,12 @@ so a newer GitHub release cannot break links in an older deployed web build.
 (ending in `/releases/download`); it must not contain a release tag. Legacy
 tagged and `latest/download` values are normalized to that stable root.
 
-The original v0.2.1 Development Preview remains an unsigned historical
-release. New tagged builds fail before packaging unless the protected GitHub
-secrets `WINDOWS_CERTIFICATE_PFX_BASE64` and
-`WINDOWS_CERTIFICATE_PASSWORD` are configured. CI verifies that the final
-installer has a valid Authenticode signature from Saber Industrial
-Applications before generating checksums or publishing any release asset.
+The protected GitHub secrets `WINDOWS_CERTIFICATE_PFX_BASE64` and
+`WINDOWS_CERTIFICATE_PASSWORD` are optional but must be configured together.
+When present, CI signs the installer and verifies the Saber Industrial
+Applications publisher. When absent, CI publishes an explicitly unsigned
+Development Preview and its release notes explain the expected Windows
+SmartScreen **More info → Run anyway** steps.
 
 ## Packaged Windows updates
 
@@ -57,11 +57,15 @@ now** and **Later** actions. Update failures never block the installed app.
 
 The updater accepts only the exact Setup filename and `SHA256SUMS.txt` asset
 under the matching `lsn-console-v<version>` tag. Before offering installation,
-it verifies both the published SHA-256 and a valid Windows Authenticode
-signature whose subject contains `Saber Industrial Applications`. An unsigned
-or differently signed installer is rejected and the current version continues
-running. Therefore the current unsigned Development Preview assets are never
-eligible for automatic installation.
+it always verifies the published SHA-256. A truly unsigned Development Preview
+is eligible after the consent prompt clearly explains the expected Windows
+SmartScreen warning. A signed installer is eligible only when Authenticode is
+valid and its subject contains `Saber Industrial Applications`; a broken
+signature or a valid signature from another publisher is rejected.
+Immediately before launching an unsigned installer, the app fetches the exact
+immutable release tag's checksum manifest again and compares it with the
+cached file. This prevents altered local update metadata from authorizing a
+replacement unsigned executable after a restart.
 
 The app launches the verified Squirrel `Setup.exe` without renderer-provided
 arguments, paths, or URLs. Downloaded installers are kept in private per-user

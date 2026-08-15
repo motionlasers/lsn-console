@@ -253,12 +253,20 @@ describe('Release drift guard', () => {
     expect(workflow).toContain('secrets.WINDOWS_CERTIFICATE_PASSWORD');
     expect(workflow).toContain('Get-AuthenticodeSignature');
     expect(workflow).toContain("signature.Status -ne 'Valid'");
+    expect(workflow).toContain("signature.Status -ne 'NotSigned'");
+    expect(workflow).toContain('X509NameType]::SimpleName');
+    expect(workflow).toContain(
+      "$publisher -ne 'Saber Industrial Applications'",
+    );
+    expect(workflow).toContain('WINDOWS_SIGNING_MODE=unsigned');
+    expect(workflow).toContain(
+      'No signing certificate configured; building an unsigned Development Preview.',
+    );
     expect(workflow).toContain('Saber Industrial Applications');
     expect(workflow.indexOf('Get-AuthenticodeSignature')).toBeLessThan(
       workflow.indexOf('sha256sum *'),
     );
-    expect(workflow).not.toContain(
-      'Unsigned internal Development Preview build',
-    );
+    expect(workflow).toContain('More info, then Run anyway');
+    expect(workflow).toContain('body_path: windows-release-notes.md');
   });
 });

@@ -15,8 +15,8 @@ module.exports = {
       name: '@electron-forge/maker-squirrel',
       config: {
         name: 'LSN_Engineering_Console',
-        // Tagged CI releases provide a protected PFX and password. Local
-        // packaging can omit them, but the release workflow fails closed.
+        // CI uses these optional values when a protected certificate is
+        // available; otherwise it produces an explicitly unsigned preview.
         certificateFile: process.env.WINDOWS_CERTIFICATE_FILE || undefined,
         certificatePassword:
           process.env.WINDOWS_CERTIFICATE_PASSWORD || undefined,

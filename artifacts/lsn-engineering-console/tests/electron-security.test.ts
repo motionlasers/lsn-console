@@ -62,7 +62,12 @@ describe('Electron security boundary', () => {
 
   it('keeps update networking, verification, files, and installer launch in main', () => {
     expect(main).toContain("require('./update-service.cjs')");
-    expect(main).toContain('verifySaberAuthenticodeSignature');
+    expect(main).toContain('inspectWindowsInstallerSignature');
+    expect(main).toContain('classifyPublisherSignature');
+    expect(main).toContain('confirmUnsignedInstaller');
+    expect(main).toContain('dialog.showMessageBox');
+    expect(main).toContain('More info');
+    expect(main).toContain('Run anyway');
     expect(main).toContain("'powershell.exe'");
     expect(main).toContain('spawn(installerPath, []');
     expect(main).not.toContain("'--silent'");

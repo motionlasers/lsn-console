@@ -264,6 +264,7 @@ async function downloadsWarningChecks(context) {
       releaseName: 'LSN Engineering Console v0.2.2',
       message: 'Version 0.2.2 is verified and ready to install.',
       canRetry: true,
+      installerTrust: 'unsigned',
     });
   });
   const readyDialog = page.getByTestId('dialog-desktop-update-ready');
@@ -274,6 +275,13 @@ async function downloadsWarningChecks(context) {
   check(
     await page.getByTestId('button-update-install').isVisible(),
     `${label}: verified update offers Install now`,
+  );
+  const readyText = await readyDialog.textContent();
+  check(
+    readyText.includes('Unsigned update ready') &&
+      readyText.includes('More info') &&
+      readyText.includes('Run anyway'),
+    `${label}: unsigned update explains the expected SmartScreen steps`,
   );
   await page.getByTestId('button-update-later').click();
   await waitFor(
@@ -290,6 +298,7 @@ async function downloadsWarningChecks(context) {
       releaseName: 'LSN Engineering Console v0.2.2',
       message: 'Version 0.2.2 is ready whenever you choose to install it.',
       canRetry: true,
+      installerTrust: 'unsigned',
     });
   });
   const reviewButton = page.getByTestId('button-check-for-updates');

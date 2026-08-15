@@ -1,6 +1,6 @@
 import crypto from 'node:crypto';
 import { createRequire } from 'node:module';
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -8,6 +8,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 const require = createRequire(import.meta.url);
 const {
   WindowsUpdateService,
+  checksumUrlForVersion,
+  classifyPublisherSignature,
   compareStableVersions,
   installerNameForVersion,
   isTrustedPublisherSignature,
@@ -21,6 +23,11 @@ const {
     install: () => Promise<Record<string, unknown>>;
     getState: () => Record<string, unknown>;
   };
+  checksumUrlForVersion: (version: string) => string;
+  classifyPublisherSignature: (
+    signature: Record<string, unknown>,
+    expectedPublisher: string,
+  ) => string;
   compareStableVersions: (left: string, right: string) => number;
   installerNameForVersion: (version: string) => string;
   isTrustedPublisherSignature: (
@@ -73,7 +80,8 @@ async function createService(options: {
   installer?: Uint8Array;
   manifestHash?: string;
   contentLength?: boolean;
-  verifySignature?: (installerPath: string) => Promise<boolean>;
+  inspectSignature?: (installerPath: string) => Promise<string>;
+  confirmInstall?: (update: Record<string, unknown>) => Promise<boolean>;
   launchInstaller?: (installerPath: string) => Promise<void>;
 }) {
   const updatesDir = await mkdtemp(path.join(os.tmpdir(), 'lsn-updates-'));
@@ -105,16 +113,19 @@ async function createService(options: {
     }
     return new Response('not found', { status: 404 });
   });
-  const verifySignature =
-    options.verifySignature ?? vi.fn(async () => true);
+  const inspectSignature =
+    options.inspectSignature ?? vi.fn(async () => 'unsigned');
   const launchInstaller =
     options.launchInstaller ?? vi.fn(async () => undefined);
+  const confirmInstall =
+    options.confirmInstall ?? vi.fn(async () => true);
   const service = new WindowsUpdateService({
     currentVersion: '0.2.1',
     supported: true,
     fetch,
     updatesDir,
-    verifySignature,
+    inspectSignature,
+    confirmInstall,
     launchInstaller,
     onStateChange: (state: Record<string, unknown>) => states.push(state),
     now: () => '2026-08-15T12:00:00.000Z',
@@ -125,8 +136,9 @@ async function createService(options: {
     updatesDir,
     states,
     fetch,
-    verifySignature,
+    inspectSignature,
     launchInstaller,
+    confirmInstall,
   };
 }
 
@@ -175,11 +187,54 @@ describe('Windows update release selection', () => {
     ).toThrow('Checksum not found');
   });
 
-  it('requires a valid Authenticode result from the expected publisher', () => {
+  it('derives the checksum URL from the fixed repository and exact release tag', () => {
+    expect(checksumUrlForVersion('0.2.2')).toBe(
+      'https://github.com/motionlasers/lsn-console/releases/download/lsn-console-v0.2.2/SHA256SUMS.txt',
+    );
+  });
+
+  it('distinguishes trusted, unsigned, unexpected, and invalid signatures', () => {
+    expect(
+      classifyPublisherSignature(
+        {
+          Status: 'Valid',
+          Publisher: 'Saber Industrial Applications',
+          Subject: 'CN=Saber Industrial Applications, O=Saber Industrial Applications',
+        },
+        'Saber Industrial Applications',
+      ),
+    ).toBe('trusted-publisher');
+    expect(
+      classifyPublisherSignature(
+        { Status: 'NotSigned', Subject: '' },
+        'Saber Industrial Applications',
+      ),
+    ).toBe('unsigned');
+    expect(
+      classifyPublisherSignature(
+        {
+          Status: 'Valid',
+          Publisher: 'Unexpected Publisher',
+          Subject: 'CN=Unexpected Publisher',
+        },
+        'Saber Industrial Applications',
+      ),
+    ).toBe('unexpected-publisher');
+    expect(
+      classifyPublisherSignature(
+        {
+          Status: 'HashMismatch',
+          Publisher: 'Saber Industrial Applications',
+          Subject: 'CN=Saber Industrial Applications',
+        },
+        'Saber Industrial Applications',
+      ),
+    ).toBe('invalid');
     expect(
       isTrustedPublisherSignature(
         {
           Status: 'Valid',
+          Publisher: 'Saber Industrial Applications',
           Subject: 'CN=Saber Industrial Applications, O=Saber Industrial Applications',
         },
         'Saber Industrial Applications',
@@ -193,7 +248,11 @@ describe('Windows update release selection', () => {
     ).toBe(false);
     expect(
       isTrustedPublisherSignature(
-        { Status: 'Valid', Subject: 'CN=Unexpected Publisher' },
+        {
+          Status: 'Valid',
+          Publisher: 'Unexpected Publisher',
+          Subject: 'CN=Unexpected Publisher',
+        },
         'Saber Industrial Applications',
       ),
     ).toBe(false);
@@ -202,7 +261,7 @@ describe('Windows update release selection', () => {
 
 describe('WindowsUpdateService', () => {
   it('downloads with progress, verifies, defers, and launches only the prepared installer', async () => {
-    const { service, states, verifySignature, launchInstaller } =
+    const { service, states, inspectSignature, launchInstaller } =
       await createService({});
 
     const ready = await service.check();
@@ -211,6 +270,7 @@ describe('WindowsUpdateService', () => {
       currentVersion: '0.2.1',
       latestVersion: '0.2.2',
       percent: undefined,
+      installerTrust: 'unsigned',
     });
     expect(states.some((state) => state.status === 'downloading')).toBe(true);
     expect(
@@ -218,17 +278,53 @@ describe('WindowsUpdateService', () => {
         (state) => state.status === 'downloading' && state.percent === 100,
       ),
     ).toBe(true);
-    expect(verifySignature).toHaveBeenCalledTimes(1);
+    expect(inspectSignature).toHaveBeenCalledTimes(1);
 
     expect(service.defer()).toMatchObject({ status: 'deferred' });
     expect(await service.install()).toMatchObject({ status: 'installing' });
-    expect(verifySignature).toHaveBeenCalledTimes(2);
+    expect(inspectSignature).toHaveBeenCalledTimes(2);
     expect(launchInstaller).toHaveBeenCalledTimes(1);
     expect(launchInstaller).toHaveBeenCalledWith(
       expect.stringMatching(
         /LSN-Engineering-Console-Setup-0\.2\.2-dev\.exe$/,
       ),
     );
+  });
+
+  it('requires main-process consent every time before launching an unsigned installer', async () => {
+    const confirmInstall = vi.fn(async () => false);
+    const { service, launchInstaller } = await createService({
+      confirmInstall,
+    });
+    await service.check();
+    expect(await service.install()).toMatchObject({
+      status: 'deferred',
+      installerTrust: 'unsigned',
+    });
+    expect(confirmInstall).toHaveBeenCalledWith({
+      version: '0.2.2',
+      releaseName: 'LSN Engineering Console lsn-console-v0.2.2',
+      installerTrust: 'unsigned',
+    });
+    expect(launchInstaller).not.toHaveBeenCalled();
+
+    confirmInstall.mockResolvedValueOnce(true);
+    expect(await service.install()).toMatchObject({ status: 'installing' });
+    expect(confirmInstall).toHaveBeenCalledTimes(2);
+    expect(launchInstaller).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not trust a valid certificate whose publisher only contains the expected name', () => {
+    expect(
+      classifyPublisherSignature(
+        {
+          Status: 'Valid',
+          Publisher: 'Saber Industrial Applications Update',
+          Subject: 'CN=Saber Industrial Applications Update',
+        },
+        'Saber Industrial Applications',
+      ),
+    ).toBe('unexpected-publisher');
   });
 
   it('supports indeterminate byte progress when content length is unavailable', async () => {
@@ -261,17 +357,88 @@ describe('WindowsUpdateService', () => {
       supported: true,
       fetch: first.fetch,
       updatesDir: first.updatesDir,
-      verifySignature: first.verifySignature,
+      inspectSignature: first.inspectSignature,
+      confirmInstall: first.confirmInstall,
       launchInstaller: first.launchInstaller,
     });
     expect(await restored.initialize()).toMatchObject({
       status: 'deferred',
       currentVersion: '0.2.1',
       latestVersion: '0.2.2',
+      installerTrust: 'unsigned',
     });
   });
 
-  it('keeps the installed version usable after checksum or signature failure', async () => {
+  it('rechecks the published hash before launching a restored unsigned installer', async () => {
+    const first = await createService({});
+    await first.service.check();
+    first.service.defer();
+
+    const metadataPath = path.join(first.updatesDir, 'ready.json');
+    const metadata = JSON.parse(await readFile(metadataPath, 'utf8')) as {
+      installerName: string;
+      sha256: string;
+    };
+    const replacement = Buffer.from('different unsigned installer bytes');
+    metadata.sha256 = crypto
+      .createHash('sha256')
+      .update(replacement)
+      .digest('hex');
+    await writeFile(
+      path.join(first.updatesDir, metadata.installerName),
+      replacement,
+    );
+    await writeFile(metadataPath, JSON.stringify(metadata));
+
+    const restored = new WindowsUpdateService({
+      currentVersion: '0.2.1',
+      supported: true,
+      fetch: first.fetch,
+      updatesDir: first.updatesDir,
+      inspectSignature: first.inspectSignature,
+      confirmInstall: first.confirmInstall,
+      launchInstaller: first.launchInstaller,
+    });
+    expect(await restored.initialize()).toMatchObject({
+      status: 'deferred',
+      installerTrust: 'unsigned',
+    });
+    expect(await restored.check()).toMatchObject({ status: 'deferred' });
+    expect(await restored.install()).toMatchObject({
+      status: 'error',
+      errorCode: 'UPDATE_INSTALL_FAILED',
+    });
+    expect(first.confirmInstall).not.toHaveBeenCalled();
+    expect(first.launchInstaller).not.toHaveBeenCalled();
+  });
+
+  it('accepts a valid signature from the expected publisher', async () => {
+    const { service } = await createService({
+      inspectSignature: vi.fn(async () => 'trusted-publisher'),
+    });
+    expect(await service.check()).toMatchObject({
+      status: 'ready',
+      installerTrust: 'trusted-publisher',
+    });
+  });
+
+  it.each(['invalid', 'unexpected-publisher'])(
+    'rejects a %s installer without blocking the installed version',
+    async (signatureResult) => {
+      const { service, launchInstaller } = await createService({
+        inspectSignature: vi.fn(async () => signatureResult),
+      });
+      expect(await service.check()).toMatchObject({
+        status: 'error',
+        currentVersion: '0.2.1',
+        errorCode: 'UPDATE_DOWNLOAD_FAILED',
+        canRetry: true,
+      });
+      expect(launchInstaller).not.toHaveBeenCalled();
+    },
+  );
+
+  it('keeps the installed version usable after checksum failure', async () => {
     const { service, launchInstaller } = await createService({
       manifestHash: 'f'.repeat(64),
     });

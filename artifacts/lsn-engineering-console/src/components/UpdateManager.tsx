@@ -119,6 +119,7 @@ export function UpdateProvider({ children }: { children: ReactNode }) {
   const showReadyDialog =
     state?.status === 'ready' ||
     (state?.status === 'deferred' && reviewingDeferred);
+  const isUnsignedUpdate = state?.installerTrust === 'unsigned';
 
   return (
     <UpdateContext.Provider value={value}>
@@ -208,16 +209,38 @@ export function UpdateProvider({ children }: { children: ReactNode }) {
           data-testid="dialog-desktop-update-ready"
         >
           <DialogHeader>
-            <div className="mb-2 flex h-10 w-10 items-center justify-center border border-primary/40 bg-primary/10 text-primary">
-              <ShieldCheck className="h-5 w-5" />
+            <div className={`mb-2 flex h-10 w-10 items-center justify-center border ${
+              isUnsignedUpdate
+                ? 'border-warning/50 bg-warning/10 text-warning'
+                : 'border-primary/40 bg-primary/10 text-primary'
+            }`}>
+              {isUnsignedUpdate ? (
+                <AlertTriangle className="h-5 w-5" />
+              ) : (
+                <ShieldCheck className="h-5 w-5" />
+              )}
             </div>
             <DialogTitle className="font-mono text-sm uppercase tracking-widest">
-              Verified update ready
+              {isUnsignedUpdate
+                ? 'Unsigned update ready'
+                : 'Signed update ready'}
             </DialogTitle>
             <DialogDescription className="font-mono text-[11px] leading-relaxed">
-              LSN Engineering Console v{state?.latestVersion} has been downloaded.
-              Its checksum and Saber Windows signature were verified. Install now,
-              or keep using v{state?.currentVersion} and install later.
+              {isUnsignedUpdate ? (
+                <>
+                  LSN Engineering Console v{state?.latestVersion} has been downloaded
+                  and its published SHA-256 checksum was verified. This Development
+                  Preview is unsigned, so Windows SmartScreen will warn when it opens.
+                  Choose <strong>More info</strong>, then <strong>Run anyway</strong>,
+                  or keep using v{state?.currentVersion} and install later.
+                </>
+              ) : (
+                <>
+                  LSN Engineering Console v{state?.latestVersion} has been downloaded.
+                  Its checksum and Saber Windows signature were verified. Install now,
+                  or keep using v{state?.currentVersion} and install later.
+                </>
+              )}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="flex-row justify-end gap-2">
@@ -251,7 +274,7 @@ export function UpdateProvider({ children }: { children: ReactNode }) {
         >
           <div className="flex items-center gap-3 border border-primary/40 bg-card px-5 py-4 font-mono text-xs">
             <Loader2 className="h-4 w-4 animate-spin text-primary" />
-            STARTING VERIFIED INSTALLER…
+            STARTING CHECKSUM-VERIFIED INSTALLER…
           </div>
         </div>
       )}

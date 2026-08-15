@@ -6,7 +6,7 @@ const fs = require('node:fs/promises');
 const { promisify } = require('node:util');
 const {
   WindowsUpdateService,
-  isTrustedPublisherSignature,
+  classifyPublisherSignature,
 } = require('./update-service.cjs');
 
 const isDev = !app.isPackaged;
@@ -69,13 +69,14 @@ function createWindow() {
   return window;
 }
 
-async function verifySaberAuthenticodeSignature(installerPath) {
-  if (process.platform !== 'win32') return false;
+async function inspectWindowsInstallerSignature(installerPath) {
+  if (process.platform !== 'win32') return 'invalid';
   const script = [
     '$signature = Get-AuthenticodeSignature -LiteralPath $env:LSN_UPDATE_INSTALLER',
     '[PSCustomObject]@{',
     'Status = [string]$signature.Status',
     'Subject = [string]$signature.SignerCertificate.Subject',
+    'Publisher = if ($signature.SignerCertificate) { [string]$signature.SignerCertificate.GetNameInfo([System.Security.Cryptography.X509Certificates.X509NameType]::SimpleName, $false) } else { "" }',
     '} | ConvertTo-Json -Compress',
   ].join('; ');
   const { stdout } = await execFileAsync(
@@ -89,7 +90,22 @@ async function verifySaberAuthenticodeSignature(installerPath) {
     },
   );
   const signature = JSON.parse(stdout);
-  return isTrustedPublisherSignature(signature, EXPECTED_UPDATE_PUBLISHER);
+  return classifyPublisherSignature(signature, EXPECTED_UPDATE_PUBLISHER);
+}
+
+async function confirmUnsignedInstaller(update) {
+  const result = await dialog.showMessageBox({
+    type: 'warning',
+    title: 'Install unsigned Development Preview?',
+    message: `Install LSN Engineering Console v${update.version}?`,
+    detail:
+      'The published SHA-256 checksum was verified, but this installer is not code-signed. Windows SmartScreen will warn when it opens. Choose More info, then Run anyway in the Windows warning.',
+    buttons: ['Install now', 'Cancel'],
+    defaultId: 1,
+    cancelId: 1,
+    noLink: true,
+  });
+  return result.response === 0;
 }
 
 async function launchVerifiedInstaller(installerPath) {
@@ -122,7 +138,8 @@ function configureWindowsUpdates() {
     supported: app.isPackaged && process.platform === 'win32',
     fetch: (url, options) => net.fetch(url, options),
     updatesDir: path.join(app.getPath('userData'), 'updates'),
-    verifySignature: verifySaberAuthenticodeSignature,
+    inspectSignature: inspectWindowsInstallerSignature,
+    confirmInstall: confirmUnsignedInstaller,
     launchInstaller: launchVerifiedInstaller,
     onStateChange: broadcastUpdateState,
   });

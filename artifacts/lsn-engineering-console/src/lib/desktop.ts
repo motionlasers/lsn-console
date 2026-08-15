@@ -54,6 +54,7 @@ export interface DesktopUpdateState {
   errorCode?: string;
   canRetry: boolean;
   checkedAt?: string;
+  installerTrust?: 'trusted-publisher' | 'unsigned';
 }
 
 export interface LsnDesktopBridge {
