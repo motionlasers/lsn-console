@@ -12,6 +12,12 @@ export interface DesktopPlatformInfo {
   appVersion?: string;
 }
 
+export function getDefaultRuntimeMode(
+  platform: DesktopPlatformInfo,
+): 'hardware' | null {
+  return platform.packaged && platform.platform === 'win32' ? 'hardware' : null;
+}
+
 export interface DesktopHardwareCapabilities {
   controlTransport: string;
   profileMapping: string;

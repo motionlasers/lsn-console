@@ -229,7 +229,61 @@ async function downloadsWarningChecks(context) {
     `${label}: "Go to Profile →" navigates to /profile (got ${route})`,
   );
 
-  // ── 4. Desktop update progress and defer/review states ─────────────────────
+  // ── 4. Packaged Windows default and mode-transition reset ─────────────────
+  await page.goto(BASE + '/device');
+  const hardwareModeButton = page.getByRole('button', { name: 'HARDWARE MODE' });
+  await waitFor(
+    () => hardwareModeButton.isVisible().catch(() => false),
+    `${label}: Hardware Mode button visible`,
+  );
+  check(
+    (await hardwareModeButton.getAttribute('class')).includes('border-destructive'),
+    `${label}: packaged Windows runtime defaults to Hardware Mode`,
+  );
+
+  await page.getByRole('button', { name: 'SIMULATION MODE' }).click();
+  await page.locator('a[href="/"]').first().click();
+  await waitFor(
+    () => new URL(page.url()).pathname === '/',
+    `${label}: client-side navigation to Dashboard`,
+  );
+  const discoverButton = page.getByRole('button', { name: 'DISCOVER' });
+  await discoverButton.click();
+  await waitFor(
+    async () => !(await discoverButton.isVisible().catch(() => false)),
+    `${label}: simulated device discovery completes`,
+  );
+  check(
+    !(await page.getByText('AWAITING DEVICE DISCOVERY').isVisible().catch(() => false)),
+    `${label}: simulated identity is visible after discovery`,
+  );
+
+  await page.locator('a[href="/device"]').first().click();
+  await waitFor(
+    () => new URL(page.url()).pathname === '/device',
+    `${label}: client-side navigation back to Device`,
+  );
+  await page.getByRole('button', { name: 'HARDWARE MODE' }).click();
+  await page.locator('a[href="/"]').first().click();
+  await waitFor(
+    () => new URL(page.url()).pathname === '/',
+    `${label}: client-side navigation to reset Dashboard`,
+  );
+  const awaitingDiscovery = page.getByText('AWAITING DEVICE DISCOVERY');
+  await waitFor(
+    () => awaitingDiscovery.isVisible().catch(() => false),
+    `${label}: mode switch clears simulated discovery`,
+  );
+  check(
+    await awaitingDiscovery.isVisible(),
+    `${label}: switching to Hardware Mode removes the simulated ESP32 identity`,
+  );
+  check(
+    await page.locator('#main-workspace').getByText('DISCONNECTED', { exact: true }).isVisible(),
+    `${label}: switching modes resets the active connection`,
+  );
+
+  // ── 5. Desktop update progress and defer/review states ─────────────────────
   await page.evaluate(() => {
     window.__lsnUpdateTest.publishUpdateState({
       status: 'downloading',

@@ -835,6 +835,9 @@ export const useStore = create<LSNStore>()(
         return {
           mode,
           connectionState: 'disconnected',
+          discovered: false,
+          lastValidTelemetryAt: null,
+          responseAttempt: 0,
           hardwareUnlocked: false,
           capabilities,
           activeProfileDocument: documentWithProfileItems(

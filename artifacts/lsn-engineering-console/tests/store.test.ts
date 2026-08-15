@@ -326,6 +326,39 @@ test('Initial state is correct and deterministic', () => {
   expect(getTelemetryFreshness(state.connectionState, state.lastValidTelemetryAt, 1000).state).toBe('UNKNOWN');
 });
 
+test('Changing modes clears discovered and connected device state', () => {
+  useStore.setState({
+    connectionState: 'connected',
+    discovered: true,
+    lastValidTelemetryAt: 1_000,
+    responseAttempt: 4,
+    hardwareUnlocked: true,
+  });
+
+  useStore.getState().setMode('hardware');
+  expect(useStore.getState()).toMatchObject({
+    mode: 'hardware',
+    connectionState: 'disconnected',
+    discovered: false,
+    lastValidTelemetryAt: null,
+    responseAttempt: 0,
+    hardwareUnlocked: false,
+  });
+
+  useStore.setState({
+    connectionState: 'faulted',
+    discovered: true,
+    lastValidTelemetryAt: 2_000,
+  });
+  useStore.getState().setMode('simulation');
+  expect(useStore.getState()).toMatchObject({
+    mode: 'simulation',
+    connectionState: 'disconnected',
+    discovered: false,
+    lastValidTelemetryAt: null,
+  });
+});
+
 test('Disconnected telemetry is stale and never current', () => {
   const freshness = getTelemetryFreshness('disconnected', 1_000, 15_200);
   expect(freshness).toMatchObject({ state: 'STALE', isLive: false, ageMs: 14_200 });

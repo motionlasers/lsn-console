@@ -1,4 +1,4 @@
-import { type ReactNode } from 'react';
+import { type ReactNode, useEffect, useState } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ErrorBoundary } from '@/components/error-boundary';
 import { Toaster } from '@/components/ui/toaster';
@@ -15,6 +15,11 @@ import { AppLayout } from '@/components/AppLayout';
 import { AuthGate } from '@/components/AuthGate';
 import { getRouterRuntimeConfig } from '@/lib/router';
 import { UpdateProvider } from '@/components/UpdateManager';
+import {
+  getDefaultRuntimeMode,
+  getDesktopBridge,
+} from '@/lib/desktop';
+import { useStore } from '@/lib/store';
 
 // Pages
 import Dashboard from '@/pages/dashboard';
@@ -69,6 +74,34 @@ function RoutedErrorBoundary({ children }: { children: ReactNode }) {
   return <ErrorBoundary resetKey={location}>{children}</ErrorBoundary>;
 }
 
+function RuntimeModeInitializer({ children }: { children: ReactNode }) {
+  const [ready, setReady] = useState(() => getDesktopBridge() === null);
+
+  useEffect(() => {
+    const bridge = getDesktopBridge();
+    if (!bridge) return;
+    let cancelled = false;
+    void bridge.getPlatform()
+      .then((platform) => {
+        if (!cancelled && getDefaultRuntimeMode(platform) === 'hardware') {
+          useStore.getState().setMode('hardware');
+        }
+      })
+      .catch(() => {
+        // The web/default Simulation Mode remains available if desktop runtime
+        // detection is unavailable; startup must never be blocked.
+      })
+      .finally(() => {
+        if (!cancelled) setReady(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  return ready ? children : null;
+}
+
 function App() {
   const routerConfig = getRouterRuntimeConfig(
     window.location.protocol,
@@ -79,14 +112,16 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <UpdateProvider>
-          <WouterRouter
-            hook={routerConfig.useHashLocation ? useHashLocation : undefined}
-            base={routerConfig.base}
-          >
-            <AuthGate>
-              <Router />
-            </AuthGate>
-          </WouterRouter>
+          <RuntimeModeInitializer>
+            <WouterRouter
+              hook={routerConfig.useHashLocation ? useHashLocation : undefined}
+              base={routerConfig.base}
+            >
+              <AuthGate>
+                <Router />
+              </AuthGate>
+            </WouterRouter>
+          </RuntimeModeInitializer>
         </UpdateProvider>
         <Toaster />
       </TooltipProvider>
