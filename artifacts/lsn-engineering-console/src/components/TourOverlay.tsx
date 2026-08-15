@@ -4,7 +4,7 @@ import { ChevronLeft, ChevronRight, Info, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { useTourStore } from "@/hooks/use-tour";
-import { getTourPageProgress, TOUR_STEPS } from "@/lib/tour-data";
+import { getDetailStepsForRoute, getTourPageProgress, TOUR_STEPS } from "@/lib/tour-data";
 import {
   computeTourPosition,
   getTourScrollBehavior,
@@ -60,6 +60,22 @@ function PhaseLabel({ progress }: { progress: ReturnType<typeof getTourPageProgr
   );
 }
 
+function PageGuideLabel({
+  page,
+  position,
+  count,
+}: {
+  page: string;
+  position: number;
+  count: number;
+}) {
+  return (
+    <span>
+      PAGE GUIDE · {page.toUpperCase()} · SECTION {position}/{count}
+    </span>
+  );
+}
+
 /** Build the live-region announcement text for a step. */
 function buildAnnouncement(
   progress: ReturnType<typeof getTourPageProgress>,
@@ -80,7 +96,7 @@ function buildAnnouncement(
 }
 
 export function TourOverlay() {
-  const { isTourActive, currentStep, endTour, nextStep, prevStep } = useTourStore();
+  const { isTourActive, currentStep, pageTourStart, endTour, nextStep, prevStep } = useTourStore();
   const [location, setLocation] = useLocation();
   const [dontShowAgain, setDontShowAgain] = useState(false);
   const [targetRect, setTargetRect] = useState<TourRect | null>(null);
@@ -91,11 +107,35 @@ export function TourOverlay() {
   const previousFocusRef = useRef<HTMLElement | null>(null);
   const targetRef = useRef<HTMLElement | null>(null);
   const stepData = TOUR_STEPS[currentStep];
-  const isLastStep = currentStep === TOUR_STEPS.length - 1;
+  const isPageTour = pageTourStart !== null;
+  const pageTourFirstStep = pageTourStart === null ? undefined : TOUR_STEPS[pageTourStart];
+  const pageTourSteps = pageTourFirstStep
+    ? getDetailStepsForRoute(pageTourFirstStep.route)
+    : [];
+  const pageTourPosition = pageTourSteps.findIndex((step) => step.id === stepData?.id);
+  const pageTourStepNumber = Math.max(0, pageTourPosition) + 1;
+  const isLastStep = isPageTour
+    ? pageTourPosition === pageTourSteps.length - 1
+    : currentStep === TOUR_STEPS.length - 1;
   const pageProgress = getTourPageProgress(currentStep);
   const finishTour = () => {
+    if (isPageTour) {
+      endTour(false);
+      return;
+    }
     setLocation("/downloads");
     endTour(dontShowAgain);
+  };
+  const goBack = () => {
+    if (isPageTour && pageTourStart !== null && currentStep <= pageTourStart) return;
+    prevStep();
+  };
+  const goForward = () => {
+    if (isLastStep) {
+      finishTour();
+      return;
+    }
+    nextStep();
   };
 
   useEffect(() => {
@@ -107,12 +147,12 @@ export function TourOverlay() {
   }, []);
 
   useEffect(() => {
-    if (isTourActive && stepData && location !== stepData.route) {
+    if (isTourActive && !isPageTour && stepData && location !== stepData.route) {
       setTargetRect(null);
       setTargetMissing(false);
       setLocation(stepData.route);
     }
-  }, [isTourActive, location, setLocation, stepData]);
+  }, [isPageTour, isTourActive, location, setLocation, stepData]);
 
   useEffect(() => {
     if (!isTourActive) return;
@@ -308,7 +348,15 @@ export function TourOverlay() {
             data-testid="tour-phase-label"
           >
             <Info className="w-4 h-4 shrink-0" />
-            <PhaseLabel progress={pageProgress} />
+            {isPageTour ? (
+              <PageGuideLabel
+                page={stepData.page}
+                position={pageTourStepNumber}
+                count={pageTourSteps.length}
+              />
+            ) : (
+              <PhaseLabel progress={pageProgress} />
+            )}
           </div>
           <CardTitle id="tour-title" className="text-lg font-bold font-sans tracking-tight pr-6">
             {stepData.title}
@@ -322,36 +370,47 @@ export function TourOverlay() {
             </p>
           )}
           <div className="mt-4 text-[10px] text-muted-foreground/70">
-            OVERALL STEP {currentStep + 1} OF {TOUR_STEPS.length}
+            {isPageTour
+              ? `PAGE GUIDE STEP ${pageTourStepNumber} OF ${pageTourSteps.length}`
+              : `OVERALL STEP ${currentStep + 1} OF ${TOUR_STEPS.length}`}
           </div>
         </CardContent>
         <CardFooter className="flex flex-col gap-4 border-t border-border bg-black/20 pt-4 pb-4">
           <div className="flex flex-wrap items-center justify-between gap-3 w-full">
-            <label className="flex items-center gap-2 text-xs font-mono text-muted-foreground cursor-pointer select-none">
-              <input
-                type="checkbox"
-                id="dont-show-tour"
-                checked={dontShowAgain}
-                onChange={(event) => setDontShowAgain(event.target.checked)}
-                data-testid="checkbox-dont-show-tour"
-                className="w-4 h-4 rounded-sm border border-tour-accent/50 bg-black/20 text-tour-accent focus:ring-tour-accent accent-tour-accent"
-              />
-              Don&apos;t show again
-            </label>
+            {!isPageTour && (
+              <label className="flex items-center gap-2 text-xs font-mono text-muted-foreground cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  id="dont-show-tour"
+                  checked={dontShowAgain}
+                  onChange={(event) => setDontShowAgain(event.target.checked)}
+                  data-testid="checkbox-dont-show-tour"
+                  className="w-4 h-4 rounded-sm border border-tour-accent/50 bg-black/20 text-tour-accent focus:ring-tour-accent accent-tour-accent"
+                />
+                Don&apos;t show again
+              </label>
+            )}
             <div className="flex items-center gap-2 ml-auto">
               <Button variant="ghost" size="sm" onClick={() => endTour(dontShowAgain)} className="font-mono text-xs text-muted-foreground" data-testid="button-tour-skip">
                 SKIP
               </Button>
-              <Button variant="outline" size="sm" onClick={prevStep} disabled={currentStep === 0} className="font-mono text-xs" data-testid="button-tour-back">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={goBack}
+                disabled={isPageTour ? currentStep <= (pageTourStart ?? 0) : currentStep === 0}
+                className="font-mono text-xs"
+                data-testid="button-tour-back"
+              >
                 <ChevronLeft className="w-4 h-4 mr-1" /> BACK
               </Button>
               <Button
                 size="sm"
-                onClick={() => isLastStep ? finishTour() : nextStep()}
+                onClick={goForward}
                 className="font-mono text-xs bg-tour-accent text-tour-accent-foreground hover:bg-tour-accent/90"
                 data-testid={isLastStep ? "button-tour-finish" : "button-tour-next"}
               >
-                {isLastStep ? "GO TO DOWNLOADS" : "NEXT"}
+                {isLastStep ? (isPageTour ? "CLOSE" : "GO TO DOWNLOADS") : "NEXT"}
                 {!isLastStep && <ChevronRight className="w-4 h-4 ml-1" />}
               </Button>
             </div>
@@ -359,14 +418,19 @@ export function TourOverlay() {
           <div
             className="w-full h-1 bg-border/30 rounded-full overflow-hidden"
             role="progressbar"
-            aria-label={`Guided tour progress, step ${currentStep + 1} of ${TOUR_STEPS.length}`}
+            aria-label={`Guided tour progress, step ${isPageTour ? pageTourStepNumber : currentStep + 1} of ${isPageTour ? pageTourSteps.length : TOUR_STEPS.length}`}
             aria-valuemin={1}
-            aria-valuemax={TOUR_STEPS.length}
-            aria-valuenow={currentStep + 1}
+            aria-valuemax={isPageTour ? pageTourSteps.length : TOUR_STEPS.length}
+            aria-valuenow={isPageTour ? pageTourStepNumber : currentStep + 1}
           >
             <div
               className={cn("h-full bg-tour-accent", !reducedMotion && "transition-[width] duration-200")}
-              style={{ width: `${((currentStep + 1) / TOUR_STEPS.length) * 100}%` }}
+              style={{
+                width: `${(
+                  (isPageTour ? pageTourStepNumber / pageTourSteps.length : (currentStep + 1) / TOUR_STEPS.length)
+                  * 100
+                )}%`,
+              }}
             />
           </div>
         </CardFooter>

@@ -3,3 +3,4 @@
 - [Deterministic stress timing](deterministic-stress-timing.md) — stress evidence follows actual active-output time, exact phase boundaries, and clean-only PASS semantics.
 - [Phone-safe tour landmarks](phone-safe-tour-landmarks.md) — guided-tour targets must be compact, above-fold landmarks rather than tall content cards.
 - [Browser validation checks](browser-validation-checks.md) — headless-browser checks must own their server, kill its process group, and force-exit, or the validation time budget kills a passing run.
+- [Tour preference isolation](tour-preference-isolation.md) — page-scoped guides must never change the persisted full-tour dismissal preference.

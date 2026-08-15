@@ -6,7 +6,9 @@ export interface TourState {
   hasSeenTour: boolean;
   isTourActive: boolean;
   currentStep: number;
+  pageTourStart: number | null;
   startTour: () => void;
+  startPageTour: (firstStepIndex: number) => void;
   endTour: (dontShowAgain: boolean) => void;
   nextStep: () => void;
   prevStep: () => void;
@@ -19,8 +21,18 @@ export const useTourStore = create<TourState>()(
       hasSeenTour: false,
       isTourActive: false,
       currentStep: 0,
-      startTour: () => set({ isTourActive: true, currentStep: 0 }),
-      endTour: (dontShowAgain) => set({ isTourActive: false, hasSeenTour: dontShowAgain }),
+      pageTourStart: null,
+      startTour: () => set({ isTourActive: true, currentStep: 0, pageTourStart: null }),
+      startPageTour: (firstStepIndex) => set({
+        isTourActive: true,
+        currentStep: firstStepIndex,
+        pageTourStart: firstStepIndex,
+      }),
+      endTour: (dontShowAgain) => set((state) => ({
+        isTourActive: false,
+        hasSeenTour: state.pageTourStart === null ? dontShowAgain : state.hasSeenTour,
+        pageTourStart: null,
+      })),
       nextStep: () => set((state) => ({
         currentStep: Math.min(TOUR_STEPS.length - 1, state.currentStep + 1),
       })),

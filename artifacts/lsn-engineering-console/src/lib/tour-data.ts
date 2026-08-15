@@ -525,6 +525,18 @@ export const TOUR_STEPS: TourStep[] = [
   },
 ];
 
+/** Return the detailed walkthrough steps available on a specific route. */
+export function getDetailStepsForRoute(route: string): TourStep[] {
+  return TOUR_STEPS.filter(
+    (step) => (step.phase ?? "detail") === "detail" && step.route === route,
+  );
+}
+
+/** Whether a route has at least one step suitable for a page-scoped guide. */
+export function hasPageTour(route: string): boolean {
+  return getDetailStepsForRoute(route).length > 0;
+}
+
 /**
  * Number of distinct navigation pages in the detailed walkthrough.
  * Overview and intro steps are excluded from this count.

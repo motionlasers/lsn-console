@@ -4,6 +4,7 @@ import { useStore } from "@/lib/store";
 import { ShieldAlert, LogOut, User } from "lucide-react";
 import { useTourStore } from "@/hooks/use-tour";
 import { TourOverlay } from "@/components/TourOverlay";
+import { PageTourButton } from "@/components/PageTourButton";
 import lsnLogo from "@assets/LSN-Industrial-transparent_1786661922957.png";
 import { LiveTelemetryBadge, useTelemetryState } from "@/components/TelemetryState";
 import { useAuth } from "@/contexts/AuthContext";
@@ -130,6 +131,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
         </div>
       </div>
       <TourOverlay />
+      <PageTourButton />
       <WhatsNewDialog />
     </div>
   );
