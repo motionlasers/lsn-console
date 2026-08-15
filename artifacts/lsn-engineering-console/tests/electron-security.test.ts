@@ -24,4 +24,13 @@ describe('Electron security boundary', () => {
     expect(preload).not.toContain('require(\'node:fs');
     expect(preload).not.toContain('require("node:fs');
   });
+
+  it('proxies only allowlisted desktop auth routes to the production HTTPS API', () => {
+    expect(main).toContain("'desktop:auth-request'");
+    expect(main).toContain('https://lsn.saberindustrial.net');
+    expect(main).toContain("origin.protocol !== 'https:'");
+    expect(main).toContain('isAllowedAuthRequest(pathname, method)');
+    expect(main).toContain('event.sender.session.fetch');
+    expect(preload).toContain("ipcRenderer.invoke('desktop:auth-request'");
+  });
 });

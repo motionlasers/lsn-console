@@ -84,6 +84,31 @@ export function releaseAssetUrl(filename: string): string | null {
 /** Reverse-chronological Console release history (mirrors CHANGELOG.md). */
 export const CONSOLE_RELEASES: ConsoleRelease[] = [
   {
+    version: '0.2.1',
+    label: 'v0.2.1 Development Preview',
+    releaseType: 'development-preview',
+    date: '2026-08-14',
+    added: [],
+    changed: [
+      'Guided-tour coachmarks now stay clear of active navigation, keep controls visible on short screens, and support comma/period Back and Next hotkeys.',
+      'Downloads now explains how firmware engineers resolve intentionally TBD protocol mappings before Hardware Mode can transmit.',
+    ],
+    fixed: [
+      'Packaged Windows login now sends allowlisted authentication requests through the Electron main process to the published HTTPS API instead of resolving /api URLs under file://.',
+    ],
+    knownLimitations: [
+      'The Windows installer is unsigned; Microsoft Defender SmartScreen will warn on first run ("More info" \u2192 "Run anyway"). Internal development use only.',
+      'Hardware Mode remains truthfully non-functional: real WT32-ETH01 discovery, EtherNet/IP (CIP) sessions, physical control validation, and firmware upload are not implemented.',
+      'Simulation Mode is the supported validation environment; simulation evidence never advances firmware implementation status.',
+      'CIP Class/Instance/Attribute/Assembly values and other Device Profile mappings remain intentionally TBD for the firmware engineer.',
+    ],
+    protocolImpact: 'none',
+    protocolImpactStatement:
+      'No protocol impact. LSN Protocol remains v0.1 and the external firmware interface is unchanged; no firmware action is required for this Console release.',
+    deviceProfileImpactStatement:
+      'Device Profile unchanged. The active profile remains lsn-v0.1.0 and the generated package remains LSN-Firmware-Interface-v0.1.zip.',
+  },
+  {
     version: '0.2.0',
     label: 'v0.2.0 Development Preview',
     releaseType: 'development-preview',

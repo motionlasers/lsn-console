@@ -1,3 +1,5 @@
+import { CONSOLE_VERSION } from "./release";
+
 export type TourPlacement = "top" | "right" | "bottom" | "left";
 export type TourPhase = "intro" | "overview" | "detail";
 
@@ -511,7 +513,7 @@ export const TOUR_STEPS: TourStep[] = [
     page: "Downloads",
     target: "downloads-windows",
     title: "Install the Windows Desktop Console",
-    description: "The v0.2.0 Windows Console is a packaged Electron application running the same shared React UI — no Node.js, Python, or build tools required. Download the installer for a standard Windows setup or the portable ZIP. Windows SmartScreen will warn on first run because this is an unsigned internal engineering build; choose 'More info' then 'Run anyway' to proceed.",
+    description: `The v${CONSOLE_VERSION} Windows Console is a packaged Electron application running the same shared React UI — no Node.js, Python, or build tools required. Download the installer for a standard Windows setup or the portable ZIP. Windows SmartScreen will warn on first run because this is an unsigned internal engineering build; choose 'More info' then 'Run anyway' to proceed.`,
     preferredPlacement: "right",
   },
   {
@@ -538,7 +540,7 @@ export const TOUR_STEPS: TourStep[] = [
     page: "Downloads",
     target: "downloads-workflow",
     title: "Begin firmware development",
-    description: "You're ready to begin firmware development. Use both v0.2.0 handoff resources here: the Windows Development Preview Console and the unchanged LSN-Firmware-Interface-v0.1 package.",
+    description: `You're ready to begin firmware development. Use both v${CONSOLE_VERSION} handoff resources here: the Windows Development Preview Console and the unchanged LSN-Firmware-Interface-v0.1 package.`,
     preferredPlacement: "left",
   },
 ];

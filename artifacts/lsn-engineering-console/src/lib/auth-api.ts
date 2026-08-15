@@ -1,6 +1,8 @@
 // Auth API client — all requests go to /api/auth/* and /api/admin/*
 // Cookies are included automatically (same-origin, HttpOnly session cookie).
 
+import { getDesktopBridge } from "./desktop";
+
 export interface SessionUser {
   userId: number;
   username: string;
@@ -22,17 +24,29 @@ async function apiFetch<T>(
   options?: RequestInit,
 ): Promise<{ ok: true; data: T } | { ok: false; error: string; status: number }> {
   try {
-    const res = await fetch(url, {
-      credentials: "include",
-      headers: { "Content-Type": "application/json", ...options?.headers },
-      ...options,
-    });
-    const body = await res.json().catch(() => ({}));
-    if (res.ok) return { ok: true, data: body as T };
+    const bridge = getDesktopBridge();
+    const method = options?.method ?? "GET";
+    const response = bridge
+      ? await bridge.authRequest(
+          url,
+          method,
+          typeof options?.body === "string" ? options.body : undefined,
+        )
+      : await fetch(url, {
+          credentials: "include",
+          headers: { "Content-Type": "application/json", ...options?.headers },
+          ...options,
+        }).then(async (res) => ({
+          status: res.status,
+          body: await res.json().catch(() => ({})),
+        }));
+    if (response.status >= 200 && response.status < 300) {
+      return { ok: true, data: response.body as T };
+    }
     return {
       ok: false,
-      error: (body as { error?: string }).error ?? "Request failed",
-      status: res.status,
+      error: (response.body as { error?: string }).error ?? "Request failed",
+      status: response.status,
     };
   } catch {
     return { ok: false, error: "Network error", status: 0 };

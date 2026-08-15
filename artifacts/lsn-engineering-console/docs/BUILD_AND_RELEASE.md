@@ -21,6 +21,10 @@ LSN Protocol (v0.1), Device Profile (lsn-v0.1.0), and the generated
 The Electron main process owns all future TCP/UDP and maintenance networking,
 the filesystem, and native save dialogs. The renderer has no Node integration
 and accesses only the narrow allowlisted preload API (`window.lsnDesktop`).
+Packaged authentication and user-administration requests are also sent through
+that bridge to the published HTTPS API at `https://lsn.saberindustrial.net`.
+`LSN_API_BASE_URL` may override that origin at desktop runtime, but packaged
+builds reject non-HTTPS origins.
 
 Windows builds are produced by `.github/workflows/lsn-console-windows.yml`,
 triggered manually or by pushing a `lsn-console-vX.Y.Z` tag (the tag must match

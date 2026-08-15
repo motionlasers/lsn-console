@@ -26,8 +26,18 @@ export interface DesktopSaveResult {
   error?: string;
 }
 
+export interface DesktopAuthResponse {
+  status: number;
+  body: unknown;
+}
+
 export interface LsnDesktopBridge {
   getPlatform: () => Promise<DesktopPlatformInfo>;
+  authRequest: (
+    path: string,
+    method: string,
+    body?: string,
+  ) => Promise<DesktopAuthResponse>;
   getHardwareCapabilities: () => Promise<DesktopHardwareCapabilities>;
   selectFirmwarePackage: () => Promise<string | null>;
   saveFile: (filename: string, data: Uint8Array | string) => Promise<DesktopSaveResult>;

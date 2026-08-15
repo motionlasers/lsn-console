@@ -27,8 +27,8 @@ const read = (path: string) => readFileSync(resolve(root, path), 'utf8');
 describe('Release identity', () => {
   it('centralizes the Console version from package.json', () => {
     expect(CONSOLE_VERSION).toBe(consolePackage.version);
-    expect(CONSOLE_VERSION).toBe('0.2.0');
-    expect(CONSOLE_RELEASE_LABEL).toBe('v0.2.0 Development Preview');
+    expect(CONSOLE_VERSION).toBe('0.2.1');
+    expect(CONSOLE_RELEASE_LABEL).toBe('v0.2.1 Development Preview');
     expect(CURRENT_RELEASE.version).toBe(CONSOLE_VERSION);
     expect(CURRENT_RELEASE.releaseType).toBe('development-preview');
   });
@@ -46,9 +46,9 @@ describe('Release identity', () => {
   });
 
   it('names the Windows artifacts for the current version', () => {
-    expect(WINDOWS_ARTIFACTS.installer).toBe('LSN-Engineering-Console-Setup-0.2.0-dev.exe');
-    expect(WINDOWS_ARTIFACTS.portable).toBe('LSN-Engineering-Console-Portable-0.2.0.zip');
-    expect(WINDOWS_ARTIFACTS.releaseTag).toBe('lsn-console-v0.2.0');
+    expect(WINDOWS_ARTIFACTS.installer).toBe('LSN-Engineering-Console-Setup-0.2.1-dev.exe');
+    expect(WINDOWS_ARTIFACTS.portable).toBe('LSN-Engineering-Console-Portable-0.2.1.zip');
+    expect(WINDOWS_ARTIFACTS.releaseTag).toBe('lsn-console-v0.2.1');
     expect(WINDOWS_ARTIFACTS.signed).toBe(false);
   });
 
@@ -73,8 +73,8 @@ describe('Changelog completeness', () => {
     expect(headings).toContain('0.1.0');
   });
 
-  it('contains a dated v0.2.0 Development Preview entry with required sections', () => {
-    expect(changelog).toMatch(/^## 0\.2\.0 — Development Preview \(2026-08-14\)/m);
+  it('contains a dated v0.2.1 Development Preview entry with required sections', () => {
+    expect(changelog).toMatch(/^## 0\.2\.1 — Development Preview \(2026-08-14\)/m);
     for (const section of ['### Added', '### Changed', '### Fixed', '### Known limitations', '### Protocol impact', '### Device Profile impact']) {
       expect(changelog).toContain(section);
     }
@@ -133,15 +133,16 @@ describe("What's New once-per-version behavior", () => {
   };
 
   it('shows only in the packaged desktop runtime', () => {
-    expect(shouldShowWhatsNew(null, '0.2.0', false)).toBe(false);
-    expect(shouldShowWhatsNew(null, '0.2.0', true)).toBe(true);
+    expect(shouldShowWhatsNew(null, '0.2.1', false)).toBe(false);
+    expect(shouldShowWhatsNew(null, '0.2.1', true)).toBe(true);
   });
 
   it('shows once per installed version and again after an upgrade', () => {
     const storage = memoryStorage();
-    expect(shouldShowWhatsNew(getAcknowledgedWhatsNewVersion(storage), '0.2.0', true)).toBe(true);
     acknowledgeWhatsNew('0.2.0', storage);
-    expect(shouldShowWhatsNew(getAcknowledgedWhatsNewVersion(storage), '0.2.0', true)).toBe(false);
+    expect(shouldShowWhatsNew(getAcknowledgedWhatsNewVersion(storage), '0.2.1', true)).toBe(true);
+    acknowledgeWhatsNew('0.2.1', storage);
+    expect(shouldShowWhatsNew(getAcknowledgedWhatsNewVersion(storage), '0.2.1', true)).toBe(false);
     expect(shouldShowWhatsNew(getAcknowledgedWhatsNewVersion(storage), '0.3.0', true)).toBe(true);
   });
 
@@ -183,8 +184,8 @@ describe('Export traceability', () => {
 
   it('identifies Console, protocol, profile, and connected firmware', () => {
     const metadata = getReleaseExportMetadata('0.1.0-sim');
-    expect(metadata.consoleVersion).toBe('0.2.0');
-    expect(metadata.consoleRelease).toBe('v0.2.0 Development Preview');
+    expect(metadata.consoleVersion).toBe('0.2.1');
+    expect(metadata.consoleRelease).toBe('v0.2.1 Development Preview');
     expect(metadata.protocolVersion).toBe('LSN v0.1');
     expect(metadata.deviceProfileVersion).toBe('0.1.0');
     expect(metadata.firmwareInterfacePackage).toBe('LSN-Firmware-Interface-v0.1');

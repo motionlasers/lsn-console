@@ -3,12 +3,36 @@ const path = require('node:path');
 const fs = require('node:fs/promises');
 
 const isDev = !app.isPackaged;
+const DEFAULT_API_ORIGIN = 'https://lsn.saberindustrial.net';
 const allowedChannels = new Set([
   'desktop:get-platform',
   'desktop:select-firmware',
   'desktop:hardware-capabilities',
   'desktop:save-file',
 ]);
+
+const authRoutes = [
+  { pattern: /^\/api\/auth\/session$/, methods: new Set(['GET']) },
+  { pattern: /^\/api\/auth\/login$/, methods: new Set(['POST']) },
+  { pattern: /^\/api\/auth\/logout$/, methods: new Set(['POST']) },
+  { pattern: /^\/api\/auth\/change-password$/, methods: new Set(['POST']) },
+  { pattern: /^\/api\/admin\/users$/, methods: new Set(['GET', 'POST']) },
+  { pattern: /^\/api\/admin\/users\/\d+$/, methods: new Set(['PUT', 'DELETE']) },
+];
+
+function getApiOrigin() {
+  const origin = new URL(process.env.LSN_API_BASE_URL || DEFAULT_API_ORIGIN);
+  if (app.isPackaged && origin.protocol !== 'https:') {
+    throw new Error('Packaged desktop API origin must use HTTPS');
+  }
+  return origin.origin;
+}
+
+function isAllowedAuthRequest(pathname, method) {
+  return authRoutes.some(
+    (route) => route.pattern.test(pathname) && route.methods.has(method),
+  );
+}
 
 function createWindow() {
   const window = new BrowserWindow({
@@ -38,6 +62,35 @@ ipcMain.handle('desktop:get-platform', () => ({
   packaged: app.isPackaged,
   appVersion: app.getVersion(),
 }));
+
+ipcMain.handle('desktop:auth-request', async (event, request) => {
+  const pathname = request?.path;
+  const method = request?.method ?? 'GET';
+  const body = request?.body;
+
+  if (
+    typeof pathname !== 'string' ||
+    typeof method !== 'string' ||
+    !isAllowedAuthRequest(pathname, method)
+  ) {
+    return { status: 400, body: { error: 'Desktop auth request not allowed' } };
+  }
+  if (body !== undefined && (typeof body !== 'string' || body.length > 65_536)) {
+    return { status: 400, body: { error: 'Invalid desktop auth request body' } };
+  }
+
+  const response = await event.sender.session.fetch(
+    new URL(pathname, getApiOrigin()),
+    {
+      method,
+      credentials: 'include',
+      headers: body === undefined ? undefined : { 'Content-Type': 'application/json' },
+      body,
+    },
+  );
+  const responseBody = await response.json().catch(() => ({}));
+  return { status: response.status, body: responseBody };
+});
 
 // Native save dialog for engineering exports (reports, logs, support bundles,
 // firmware packages). The renderer supplies only a suggested filename and the
