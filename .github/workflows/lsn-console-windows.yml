@@ -25,8 +25,9 @@ jobs:
         shell: bash
         run: |
           # pnpm marks platform-specific optional deps as excluded on non-Windows hosts.
-          # Install them explicitly with npm so Node's require walk finds them at root.
-          npm install --no-save --ignore-scripts \
+          # Use npm with a blank config (our .npmrc has pnpm-only keys that crash npm).
+          echo "" > /tmp/ci-npmrc
+          npm install --no-save --ignore-scripts --userconfig /tmp/ci-npmrc \
             @rollup/rollup-win32-x64-msvc@4.62.3 \
             @rollup/rollup-win32-x64-gnu@4.62.3 \
             lightningcss-win32-x64-msvc@1.32.0 \
