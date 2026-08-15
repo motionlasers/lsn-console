@@ -295,7 +295,7 @@ describe('LSN v0.1 device profile', () => {
     } finally {
       rmSync(directory, { recursive: true, force: true });
     }
-  });
+  }, 30_000); // Windows CI runners invoke cc/c++ slowly; give them 30 s
 
   it('escapes profile-controlled comments and rejects generated identifier collisions', async () => {
     const adversarial = structuredClone(profile);
