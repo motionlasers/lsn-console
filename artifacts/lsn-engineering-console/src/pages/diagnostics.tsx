@@ -113,8 +113,8 @@ export default function Diagnostics() {
         </CardContent>
       </Card>
       
-      <Card data-tour="diagnostics-health" className="border-border bg-card/50 backdrop-blur">
-        <CardHeader className="border-b border-border/50 bg-black/20 pb-4">
+      <Card className="border-border bg-card/50 backdrop-blur">
+        <CardHeader data-tour="diagnostics-health" className="border-b border-border/50 bg-black/20 pb-4">
           <CardTitle className="text-sm font-mono tracking-widest text-primary flex items-center gap-2">
             <TerminalSquare className="w-4 h-4" />
             Active Remediation

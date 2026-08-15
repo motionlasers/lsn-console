@@ -105,8 +105,8 @@ export default function Control() {
       </div>
 
       <div className="col-span-1">
-        <Card data-tour="control-recent" className="h-full border-border bg-card/50 backdrop-blur flex flex-col">
-          <CardHeader className="border-b border-border/50 bg-black/20 pb-4">
+        <Card className="h-full border-border bg-card/50 backdrop-blur flex flex-col">
+          <CardHeader data-tour="control-recent" className="border-b border-border/50 bg-black/20 pb-4">
             <CardTitle className="text-sm font-mono tracking-widest text-primary flex items-center gap-2">
               <Clock className="w-4 h-4" />
               Recent Control Action

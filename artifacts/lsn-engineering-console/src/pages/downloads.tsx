@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { Link } from 'wouter';
 import { useStore } from '@/lib/store';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -343,10 +344,21 @@ export default function Downloads() {
                   {packageSummary.tbdFieldCount > 0 && (
                     <div className="border border-warning/40 bg-warning/10 p-3 text-[11px] font-mono text-warning flex items-start gap-3 rounded-sm">
                       <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
-                      <div>
+                      <div className="min-w-0">
                         <strong className="tracking-wide">UNRESOLVED MAPPINGS DETECTED</strong>
                         <div className="mt-1.5 opacity-80 leading-relaxed">
-                          This package contains unresolved protocol mappings. These entries are intentionally marked TBD for firmware implementation.
+                          This package contains {packageSummary.tbdFieldCount} unresolved protocol mapping{packageSummary.tbdFieldCount !== 1 ? 's' : ''}. These entries are intentionally marked TBD for firmware implementation.
+                        </div>
+                        <ol className="mt-2 opacity-80 leading-relaxed list-decimal list-inside space-y-1">
+                          <li>Open the <strong>Profile</strong> page and identify fields with <strong>TBD</strong> in the CIP mapping columns.</li>
+                          <li>Edit your <strong>lsn_protocol_profile.json</strong> externally, assigning real EtherNet/IP CIP values (service, class, instance, attribute) to each TBD field.</li>
+                          <li>Use <strong>Import JSON</strong> on the Profile page to reload the updated profile into the console.</li>
+                          <li>Return here — the warning clears automatically once all active fields have resolved mappings.</li>
+                        </ol>
+                        <div className="mt-2.5">
+                          <Link href="/profile" className="inline-flex items-center gap-1 underline underline-offset-2 opacity-90 hover:opacity-100 transition-opacity">
+                            Go to Profile →
+                          </Link>
                         </div>
                       </div>
                     </div>

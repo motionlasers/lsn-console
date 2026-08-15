@@ -153,8 +153,8 @@ export default function Dashboard() {
       </Card>
 
       {/* Manual Overrides (Simulation) */}
-      <Card data-tour="dashboard-controls" className="col-span-1 md:col-span-2 border-border bg-card/50 backdrop-blur">
-        <CardHeader className="border-b border-border/50 bg-black/20 pb-4 flex flex-row items-center justify-between">
+      <Card className="col-span-1 md:col-span-2 border-border bg-card/50 backdrop-blur">
+        <CardHeader data-tour="dashboard-controls" className="border-b border-border/50 bg-black/20 pb-4 flex flex-row items-center justify-between">
           <CardTitle className="text-sm font-mono tracking-widest text-primary flex items-center gap-2">
             <Clock className="w-4 h-4" />
             Primary Controls

@@ -318,6 +318,13 @@ export function TourOverlay() {
     const overlapsY = rawPosition.y < nr.bottom + 4 && dlgBottom > nr.top - 4;
     if (!overlapsX || !overlapsY) return rawPosition;
     const newY = Math.min(nr.bottom + 16, window.innerHeight - coachmarkSize.height - 12);
+    // Skip the adjustment if it would push the coachmark back into the tour target.
+    if (targetRect) {
+      const newBottom = newY + coachmarkSize.height;
+      const targetOverlapX = rawPosition.x < targetRect.right && dlgRight > targetRect.left;
+      const targetOverlapY = newY < targetRect.bottom && newBottom > targetRect.top;
+      if (targetOverlapX && targetOverlapY) return rawPosition;
+    }
     return { ...rawPosition, y: newY };
   })();
 
