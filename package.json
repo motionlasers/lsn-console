@@ -3,6 +3,7 @@
   "version": "0.0.0",
   "license": "MIT",
   "pnpm": {
+    "onlyBuiltDependencies": ["electron-winstaller"],
     "supportedArchitectures": {
       "os": ["linux", "win32"],
       "cpu": ["x64"]
