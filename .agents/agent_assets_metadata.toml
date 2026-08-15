@@ -28,3 +28,10 @@ uri = "file://exports/LSN_Firmware_Integration_Handoff.pdf"
 type = "pdf"
 title = "LSN Firmware Integration Handoff"
 description = "A polished four-page PDF for the firmware engineer explaining the current Hardware Mode status, requested ESP32 interface details, and the path to physical testing."
+
+[[outputs]]
+id = "kiwJYeWmAbCsMxdm2W9_H"
+uri = "file://exports/LSN_EtherNetIP_Discovery_and_Connection_Steps.pdf"
+type = "pdf"
+title = "LSN EtherNet/IP Discovery and Connection Steps"
+description = "Focused three-page firmware handoff covering ESP32 ListIdentity discovery, EtherNet/IP RegisterSession connection, expected responses, and acceptance checks."
