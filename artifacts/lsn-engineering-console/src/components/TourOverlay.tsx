@@ -277,13 +277,30 @@ export function TourOverlay() {
 
   if (!isTourActive || !stepData) return null;
 
-  const position = targetRect
+  const rawPosition = targetRect
     ? computeTourPosition(targetRect, coachmarkSize, viewportSize(), stepData.preferredPlacement)
     : {
         x: Math.max(12, (window.innerWidth - coachmarkSize.width) / 2),
         y: Math.max(12, (window.innerHeight - coachmarkSize.height) / 2),
         placement: "bottom" as const,
       };
+
+  // Secondary nav-avoidance pass: if the coachmark overlaps the active sidebar
+  // nav item (aria-current="page"), push it down so it clears the link.  This
+  // matters when the positioning engine clamps to the top-left corner because
+  // the tour target fills most of the content area.
+  const position = (() => {
+    const navEl = document.querySelector<HTMLElement>('[aria-current="page"]');
+    if (!navEl) return rawPosition;
+    const nr = navEl.getBoundingClientRect();
+    const dlgRight = rawPosition.x + coachmarkSize.width;
+    const dlgBottom = rawPosition.y + coachmarkSize.height;
+    const overlapsX = rawPosition.x < nr.right + 4 && dlgRight > nr.left - 4;
+    const overlapsY = rawPosition.y < nr.bottom + 4 && dlgBottom > nr.top - 4;
+    if (!overlapsX || !overlapsY) return rawPosition;
+    const newY = Math.min(nr.bottom + 16, window.innerHeight - coachmarkSize.height - 12);
+    return { ...rawPosition, y: newY };
+  })();
 
   const announcement = buildAnnouncement(pageProgress, stepData, targetMissing);
 
