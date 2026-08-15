@@ -24,15 +24,18 @@ jobs:
       - name: Install Windows platform-native binaries
         shell: bash
         run: |
-          # pnpm marks platform-specific optional deps as excluded on non-Windows hosts.
-          # Use npm with a blank config (our .npmrc has pnpm-only keys that crash npm).
-          echo "" > /tmp/ci-npmrc
-          npm install --no-save --ignore-scripts --userconfig /tmp/ci-npmrc \
+          # pnpm excludes Windows-only optional deps when the lockfile is built on Linux.
+          # Install them from a clean temp dir (no workspace .npmrc / package.json interference)
+          # then copy into workspace node_modules where Node's require walk will find them.
+          mkdir -p /tmp/win-bins && cd /tmp/win-bins
+          npm init -y
+          npm install --no-save --ignore-scripts \
             @rollup/rollup-win32-x64-msvc@4.62.3 \
             @rollup/rollup-win32-x64-gnu@4.62.3 \
             lightningcss-win32-x64-msvc@1.32.0 \
             "@tailwindcss/oxide-win32-x64-msvc@4.3.3" \
             @esbuild/win32-x64@0.27.3
+          cp -r node_modules/. "$GITHUB_WORKSPACE/node_modules/"
       - run: pnpm --filter @workspace/lsn-engineering-console run lint
       - run: pnpm --filter @workspace/lsn-engineering-console run typecheck
       - run: pnpm --filter @workspace/lsn-engineering-console run test
