@@ -21,3 +21,10 @@ uri = "file://LSN-Firmware-Interface-v0.1.zip"
 type = "unspecified"
 title = "LSN Firmware Interface v0.1 — Corrected Final Package"
 description = "Regenerated package with canonical descriptions for all 15 active Phase 1 fields, independent Purpose/Behavior/Response content, disabled-future-capability guidance, and unchanged safe TBD protocol mappings."
+
+[[outputs]]
+id = "UL8pnKrkH92WSaLrWT5wO"
+uri = "file://exports/LSN_Firmware_Integration_Handoff.pdf"
+type = "pdf"
+title = "LSN Firmware Integration Handoff"
+description = "A polished four-page PDF for the firmware engineer explaining the current Hardware Mode status, requested ESP32 interface details, and the path to physical testing."
