@@ -245,12 +245,31 @@ export function TourOverlay() {
     if (isTourActive) cardRef.current?.focus({ preventScroll: true });
   }, [currentStep, isTourActive]);
 
+  // Stable refs so the keyboard effect doesn't re-register on every render.
+  const goBackRef = useRef(goBack);
+  const goForwardRef = useRef(goForward);
+  goBackRef.current = goBack;
+  goForwardRef.current = goForward;
+
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (!isTourActive) return;
       if (event.key === "Escape") {
         event.preventDefault();
         endTour(dontShowAgain);
+        return;
+      }
+      // , / . shortcuts — skip if focus is inside a text input.
+      const tag = (document.activeElement as HTMLElement | null)?.tagName;
+      const isTextInput = tag === "TEXTAREA" || (tag === "INPUT" && (document.activeElement as HTMLInputElement).type !== "checkbox");
+      if (event.key === "," && !isTextInput) {
+        event.preventDefault();
+        goBackRef.current();
+        return;
+      }
+      if (event.key === "." && !isTextInput) {
+        event.preventDefault();
+        goForwardRef.current();
         return;
       }
       if (event.key !== "Tab" || !cardRef.current) return;
@@ -411,7 +430,7 @@ export function TourOverlay() {
               : `OVERALL STEP ${currentStep + 1} OF ${TOUR_STEPS.length}`}
           </div>
         </CardContent>
-        <CardFooter className="flex flex-col gap-4 border-t border-border bg-black/20 pt-4 pb-4 shrink-0">
+        <CardFooter className="flex flex-col gap-2 border-t border-border bg-black/20 pt-4 pb-4 shrink-0">
           <div className="flex flex-wrap items-center justify-between gap-3 w-full">
             {!isPageTour && (
               <label className="flex items-center gap-2 text-xs font-mono text-muted-foreground cursor-pointer select-none">
@@ -450,6 +469,10 @@ export function TourOverlay() {
                 {!isLastStep && <ChevronRight className="w-4 h-4 ml-1" />}
               </Button>
             </div>
+          </div>
+          <div className="flex items-center justify-end gap-3 w-full text-[10px] font-mono text-muted-foreground/40 select-none" aria-hidden="true">
+            <span><kbd className="font-mono">,</kbd> back</span>
+            <span>next <kbd className="font-mono">.</kbd></span>
           </div>
           <div
             className="w-full h-1 bg-border/30 rounded-full overflow-hidden"
