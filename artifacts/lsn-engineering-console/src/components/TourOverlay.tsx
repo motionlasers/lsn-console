@@ -345,12 +345,12 @@ export function TourOverlay() {
         data-testid="dialog-firmware-tour"
         data-placement={position.placement}
         className={cn(
-          "fixed z-[102] w-[min(440px,calc(100vw-1.5rem))] max-h-[calc(100vh-1.5rem)] overflow-auto shadow-[0_0_40px_hsl(var(--tour-accent)/0.15)] border-tour-accent/40 bg-[#081217] text-foreground ring-1 ring-tour-accent/20 flex flex-col pointer-events-auto",
+          "fixed z-[102] w-[min(440px,calc(100vw-1.5rem))] max-h-[calc(100vh-1.5rem)] shadow-[0_0_40px_hsl(var(--tour-accent)/0.15)] border-tour-accent/40 bg-[#081217] text-foreground ring-1 ring-tour-accent/20 flex flex-col pointer-events-auto",
           !reducedMotion && "transition-[left,top] duration-200",
         )}
         style={{ left: position.x, top: position.y }}
       >
-        <CardHeader className="pb-4 border-b border-border bg-black/20 relative">
+        <CardHeader className="pb-4 border-b border-border bg-black/20 relative shrink-0">
           <button
             type="button"
             aria-label="Close guided tour"
@@ -379,7 +379,7 @@ export function TourOverlay() {
             {stepData.title}
           </CardTitle>
         </CardHeader>
-        <CardContent id="tour-description" data-testid="text-tour-description" className="pt-5 pb-5 text-sm text-muted-foreground font-mono leading-relaxed">
+        <CardContent id="tour-description" data-testid="text-tour-description" className="pt-5 pb-5 text-sm text-muted-foreground font-mono leading-relaxed flex-1 min-h-0 overflow-y-auto">
           <p>{targetMissing ? (stepData.unavailableDescription ?? `${stepData.description} This section is unavailable in the current mode or capability set.`) : stepData.description}</p>
           {!targetMissing && stepData.steps && stepData.steps.length > 0 && (
             <ol className="list-decimal ml-4 mt-3 space-y-1.5">
@@ -411,7 +411,7 @@ export function TourOverlay() {
               : `OVERALL STEP ${currentStep + 1} OF ${TOUR_STEPS.length}`}
           </div>
         </CardContent>
-        <CardFooter className="flex flex-col gap-4 border-t border-border bg-black/20 pt-4 pb-4">
+        <CardFooter className="flex flex-col gap-4 border-t border-border bg-black/20 pt-4 pb-4 shrink-0">
           <div className="flex flex-wrap items-center justify-between gap-3 w-full">
             {!isPageTour && (
               <label className="flex items-center gap-2 text-xs font-mono text-muted-foreground cursor-pointer select-none">
