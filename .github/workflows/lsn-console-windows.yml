@@ -21,6 +21,17 @@ jobs:
           node-version: 24
           cache: pnpm
       - run: pnpm install --no-frozen-lockfile
+      - name: Install Windows platform-native binaries
+        shell: bash
+        run: |
+          # pnpm marks platform-specific optional deps as excluded on non-Windows hosts.
+          # Install them explicitly with npm so Node's require walk finds them at root.
+          npm install --no-save --ignore-scripts \
+            @rollup/rollup-win32-x64-msvc@4.62.3 \
+            @rollup/rollup-win32-x64-gnu@4.62.3 \
+            lightningcss-win32-x64-msvc@1.32.0 \
+            "@tailwindcss/oxide-win32-x64-msvc@4.3.3" \
+            @esbuild/win32-x64@0.27.3
       - run: pnpm --filter @workspace/lsn-engineering-console run lint
       - run: pnpm --filter @workspace/lsn-engineering-console run typecheck
       - run: pnpm --filter @workspace/lsn-engineering-console run test
