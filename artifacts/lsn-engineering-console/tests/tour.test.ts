@@ -98,14 +98,25 @@ test('tour opens with intro then overview then detail steps in that order', () =
   expect(transitions).toEqual(['intro', 'overview', 'detail']);
 });
 
-test('first step is the intro navigation overview', () => {
-  expect(TOUR_STEPS[0].id).toBe('sidebar-nav');
+test('first step is the master-workflow intro', () => {
+  expect(TOUR_STEPS[0].id).toBe('master-workflow');
   expect(TOUR_STEPS[0].phase).toBe('intro');
 });
 
-test('overview steps immediately follow the intro step', () => {
+test('master-workflow intro step has exactly five ordered sub-steps', () => {
+  const step = TOUR_STEPS.find(s => s.id === 'master-workflow');
+  expect(step?.steps).toBeDefined();
+  expect(step?.steps?.length).toBe(5);
+  // Each sub-step must contain an em-dash separator so the bold label can be split
+  for (const item of step?.steps ?? []) {
+    expect(item, `sub-step must contain " — ": ${item}`).toContain(' — ');
+  }
+});
+
+test('overview steps immediately follow all intro steps', () => {
+  const introCount = TOUR_STEPS.filter(s => s.phase === 'intro').length;
   const overviewStart = TOUR_STEPS.findIndex(s => s.phase === 'overview');
-  expect(overviewStart).toBe(1);
+  expect(overviewStart).toBe(introCount); // overview begins directly after the last intro step
 });
 
 test('first detail step is a Dashboard section', () => {
@@ -181,7 +192,10 @@ test('detailed definitions cover every primary route with stable unique targets'
   };
   expect(TOUR_PAGE_COUNT).toBe(Object.keys(routeFiles).length);
   expect(new Set(TOUR_STEPS.map(step => step.id)).size).toBe(TOUR_STEPS.length);
-  expect(new Set(TOUR_STEPS.map(step => step.target)).size).toBe(TOUR_STEPS.length);
+  // Intro steps may intentionally share a layout landmark target (e.g. sidebar-nav);
+  // uniqueness is only required across non-intro steps.
+  const nonIntroSteps = TOUR_STEPS.filter(s => (s.phase ?? 'detail') !== 'intro');
+  expect(new Set(nonIntroSteps.map(step => step.target)).size).toBe(nonIntroSteps.length);
 
   for (const [route, file] of Object.entries(routeFiles)) {
     const detailSteps = TOUR_STEPS.filter(

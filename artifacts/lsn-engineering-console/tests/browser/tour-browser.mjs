@@ -390,15 +390,18 @@ async function overviewSequenceChecks(context) {
   await page.goto(BASE + '/');
   await waitFor(async () => overlayState(page), 'tour auto-start for overview check');
 
-  // Step 0: intro
-  const introStep = TOUR_STEPS[0];
-  const introState = await waitForStep(page, introStep, label);
-  check(introState.phaseLabel.includes('INTRO'), `${label}: step 0 shows INTRO label (got: ${introState.phaseLabel})`);
-  check(!introState.phaseLabel.includes('OVERVIEW'), `${label}: intro step does not show OVERVIEW label`);
-  check(!introState.phaseLabel.includes('PAGE '), `${label}: intro step does not show PAGE label`);
-  await page.click('[data-testid="button-tour-next"]');
+  // Intro steps: advance through every intro step before reaching the overview
+  const introSteps = TOUR_STEPS.filter(s => s.phase === 'intro');
+  for (let i = 0; i < introSteps.length; i++) {
+    const introStep = introSteps[i];
+    const introState = await waitForStep(page, introStep, label);
+    check(introState.phaseLabel.includes('INTRO'), `${label}: intro step ${i} shows INTRO label (got: ${introState.phaseLabel})`);
+    check(!introState.phaseLabel.includes('OVERVIEW'), `${label}: intro step ${i} does not show OVERVIEW label`);
+    check(!introState.phaseLabel.includes('PAGE '), `${label}: intro step ${i} does not show PAGE label`);
+    await page.click('[data-testid="button-tour-next"]');
+  }
 
-  // Steps 1..TOUR_OVERVIEW_COUNT: overview
+  // Steps after intro: overview
   await assertOverviewCoverage(page, label);
 
   // Next step after overview should be first detail (Dashboard)

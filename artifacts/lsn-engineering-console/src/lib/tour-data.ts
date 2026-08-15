@@ -11,6 +11,7 @@ export interface TourStep {
   phase?: TourPhase; // defaults to "detail" when absent
   preferredPlacement?: TourPlacement;
   unavailableDescription?: string;
+  steps?: string[]; // optional numbered sub-steps rendered as an inline list
 }
 
 /** All navigation destinations that must each appear in at least one overview step. */
@@ -35,6 +36,23 @@ export const OVERVIEW_NAV_PAGES = [
 
 export const TOUR_STEPS: TourStep[] = [
   // ─── INTRO ──────────────────────────────────────────────────────────────
+  {
+    id: "master-workflow",
+    route: "/",
+    page: "Dashboard",
+    target: "sidebar-nav",
+    title: "From concept to verified firmware — 5 steps",
+    description: "Follow these five steps to take a firmware design from first concept to a production-ready build.",
+    phase: "intro",
+    preferredPlacement: "right",
+    steps: [
+      "Configure — Set your session identity, select your hardware capabilities, and establish the simulation environment on the Dashboard and Device & Capabilities pages.",
+      "Validate logic — Step through Control, Status, Runtime, and Diagnostics to confirm your firmware behaves correctly against every rule and edge case — no hardware required.",
+      "Run the test suite — Use the Tests and Stress pages to execute the full validation suite and verify deterministic timing under load.",
+      "Package for handoff — On the Profile and Firmware pages, review the active capability snapshot, stage metadata, and export the firmware integration bundle.",
+      "Download & test on hardware — Visit the Downloads page, install the Windows engineering console, connect your target device, and run a live session to certify the build for production.",
+    ],
+  },
   {
     id: "sidebar-nav",
     route: "/",

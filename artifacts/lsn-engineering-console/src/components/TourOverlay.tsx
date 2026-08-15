@@ -364,6 +364,25 @@ export function TourOverlay() {
         </CardHeader>
         <CardContent id="tour-description" data-testid="text-tour-description" className="pt-5 pb-5 text-sm text-muted-foreground font-mono leading-relaxed">
           <p>{targetMissing ? (stepData.unavailableDescription ?? `${stepData.description} This section is unavailable in the current mode or capability set.`) : stepData.description}</p>
+          {!targetMissing && stepData.steps && stepData.steps.length > 0 && (
+            <ol className="list-decimal ml-4 mt-3 space-y-1.5">
+              {stepData.steps.map((item, i) => {
+                const dashIndex = item.indexOf(" — ");
+                return (
+                  <li key={i}>
+                    {dashIndex !== -1 ? (
+                      <>
+                        <strong>{item.slice(0, dashIndex)}</strong>
+                        {item.slice(dashIndex)}
+                      </>
+                    ) : (
+                      item
+                    )}
+                  </li>
+                );
+              })}
+            </ol>
+          )}
           {targetMissing && (
             <p className="mt-3 border border-warning/30 bg-warning/10 p-2 text-[11px] text-warning" role="status">
               TARGET UNAVAILABLE · Showing page-level guidance safely.
