@@ -478,7 +478,7 @@ export function TourOverlay() {
             </div>
           </div>
           <div className="flex items-center justify-end gap-1 w-full text-[10px] font-mono text-muted-foreground/40 select-none" aria-hidden="true">
-            <span>Use the hotkeys:</span>
+            <span>Use the comma and period hotkeys:</span>
             <span><kbd className="font-mono">,</kbd> (back)</span>
             <span>and</span>
             <span><kbd className="font-mono">.</kbd> (next)</span>
