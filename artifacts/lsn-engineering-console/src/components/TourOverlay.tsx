@@ -477,9 +477,11 @@ export function TourOverlay() {
               </Button>
             </div>
           </div>
-          <div className="flex items-center justify-end gap-3 w-full text-[10px] font-mono text-muted-foreground/40 select-none" aria-hidden="true">
-            <span><kbd className="font-mono">,</kbd> back</span>
-            <span>next <kbd className="font-mono">.</kbd></span>
+          <div className="flex items-center justify-end gap-1 w-full text-[10px] font-mono text-muted-foreground/40 select-none" aria-hidden="true">
+            <span>Use the hotkeys:</span>
+            <span><kbd className="font-mono">,</kbd> (back)</span>
+            <span>and</span>
+            <span><kbd className="font-mono">.</kbd> (next)</span>
           </div>
           <div
             className="w-full h-1 bg-border/30 rounded-full overflow-hidden"
