@@ -25,8 +25,8 @@ jobs:
         shell: bash
         run: |
           # pnpm excludes Windows-only optional deps when the lockfile is built on Linux.
-          # Install them from a clean temp dir (no workspace .npmrc / package.json interference)
-          # then copy into workspace node_modules where Node's require walk will find them.
+          # Install them from a clean temp dir then copy each package individually,
+          # removing any existing pnpm symlink first so cp can write a real directory.
           mkdir -p /tmp/win-bins && cd /tmp/win-bins
           npm init -y
           npm install --no-save --ignore-scripts \
@@ -35,7 +35,18 @@ jobs:
             lightningcss-win32-x64-msvc@1.32.0 \
             "@tailwindcss/oxide-win32-x64-msvc@4.3.3" \
             @esbuild/win32-x64@0.27.3
-          cp -r node_modules/. "$GITHUB_WORKSPACE/node_modules/"
+          NM="$GITHUB_WORKSPACE/node_modules"
+          mkdir -p "$NM/@rollup" "$NM/@esbuild" "$NM/@tailwindcss"
+          for pkg in rollup-win32-x64-msvc rollup-win32-x64-gnu; do
+            rm -rf "$NM/@rollup/$pkg"
+            cp -rf "node_modules/@rollup/$pkg" "$NM/@rollup/"
+          done
+          rm -rf "$NM/lightningcss-win32-x64-msvc"
+          cp -rf node_modules/lightningcss-win32-x64-msvc "$NM/"
+          rm -rf "$NM/@tailwindcss/oxide-win32-x64-msvc"
+          cp -rf "node_modules/@tailwindcss/oxide-win32-x64-msvc" "$NM/@tailwindcss/"
+          rm -rf "$NM/@esbuild/win32-x64"
+          cp -rf "node_modules/@esbuild/win32-x64" "$NM/@esbuild/"
       - run: pnpm --filter @workspace/lsn-engineering-console run lint
       - run: pnpm --filter @workspace/lsn-engineering-console run typecheck
       - run: pnpm --filter @workspace/lsn-engineering-console run test
