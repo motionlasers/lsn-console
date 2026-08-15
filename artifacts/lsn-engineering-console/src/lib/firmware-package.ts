@@ -1,5 +1,5 @@
 import JSZip from 'jszip';
-import consolePackage from '../../package.json';
+import consolePackage from '../../package.json' with { type: 'json' };
 import type {
   DeviceProfileDocument,
   DeviceProfileField,

@@ -30,7 +30,7 @@ Windows builds are produced by `.github/workflows/lsn-console-windows.yml`,
 triggered manually or by pushing a `lsn-console-vX.Y.Z` tag (the tag must match
 the package version; CI enforces this). Release artifacts:
 
-- `LSN-Engineering-Console-Setup-<version>-dev.exe` — unsigned Squirrel installer
+- `LSN-Engineering-Console-Setup-<version>-dev.exe` — Authenticode-signed Squirrel installer
 - `LSN-Engineering-Console-Portable-<version>.zip` — optional portable ZIP
 - `SHA256SUMS.txt` — checksums for both
 
@@ -41,6 +41,28 @@ so a newer GitHub release cannot break links in an older deployed web build.
 (ending in `/releases/download`); it must not contain a release tag. Legacy
 tagged and `latest/download` values are normalized to that stable root.
 
-Builds are unsigned Development Previews: Microsoft Defender SmartScreen warns
-on first run ("More info" → "Run anyway"). They are for internal development
-only and must not be represented as production installers.
+The original v0.2.1 Development Preview remains an unsigned historical
+release. New tagged builds fail before packaging unless the protected GitHub
+secrets `WINDOWS_CERTIFICATE_PFX_BASE64` and
+`WINDOWS_CERTIFICATE_PASSWORD` are configured. CI verifies that the final
+installer has a valid Authenticode signature from Saber Industrial
+Applications before generating checksums or publishing any release asset.
+
+## Packaged Windows updates
+
+The packaged Windows app checks the repository's latest normal GitHub release
+shortly after launch. A strictly newer stable Console version downloads in the
+background, reports byte/percentage progress, and is offered with **Install
+now** and **Later** actions. Update failures never block the installed app.
+
+The updater accepts only the exact Setup filename and `SHA256SUMS.txt` asset
+under the matching `lsn-console-v<version>` tag. Before offering installation,
+it verifies both the published SHA-256 and a valid Windows Authenticode
+signature whose subject contains `Saber Industrial Applications`. An unsigned
+or differently signed installer is rejected and the current version continues
+running. Therefore the current unsigned Development Preview assets are never
+eligible for automatic installation.
+
+The app launches the verified Squirrel `Setup.exe` without renderer-provided
+arguments, paths, or URLs. Downloaded installers are kept in private per-user
+app data so choosing **Later** remains available after restart.

@@ -14,6 +14,7 @@ import { useHashLocation } from 'wouter/use-hash-location';
 import { AppLayout } from '@/components/AppLayout';
 import { AuthGate } from '@/components/AuthGate';
 import { getRouterRuntimeConfig } from '@/lib/router';
+import { UpdateProvider } from '@/components/UpdateManager';
 
 // Pages
 import Dashboard from '@/pages/dashboard';
@@ -77,14 +78,16 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
-        <WouterRouter
-          hook={routerConfig.useHashLocation ? useHashLocation : undefined}
-          base={routerConfig.base}
-        >
-          <AuthGate>
-            <Router />
-          </AuthGate>
-        </WouterRouter>
+        <UpdateProvider>
+          <WouterRouter
+            hook={routerConfig.useHashLocation ? useHashLocation : undefined}
+            base={routerConfig.base}
+          >
+            <AuthGate>
+              <Router />
+            </AuthGate>
+          </WouterRouter>
+        </UpdateProvider>
         <Toaster />
       </TooltipProvider>
     </QueryClientProvider>

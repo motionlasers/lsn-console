@@ -1,9 +1,20 @@
-const { app, BrowserWindow, ipcMain, dialog } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, net } = require('electron');
+const { execFile } = require('node:child_process');
+const { spawn } = require('node:child_process');
 const path = require('node:path');
 const fs = require('node:fs/promises');
+const { promisify } = require('node:util');
+const {
+  WindowsUpdateService,
+  isTrustedPublisherSignature,
+} = require('./update-service.cjs');
 
 const isDev = !app.isPackaged;
 const DEFAULT_API_ORIGIN = 'https://lsn.saberindustrial.net';
+const EXPECTED_UPDATE_PUBLISHER = 'Saber Industrial Applications';
+const execFileAsync = promisify(execFile);
+let updateService = null;
+let updateReadyPromise = Promise.resolve();
 const allowedChannels = new Set([
   'desktop:get-platform',
   'desktop:select-firmware',
@@ -55,6 +66,74 @@ function createWindow() {
   } else {
     window.loadFile(path.join(__dirname, '..', 'dist', 'public', 'index.html'));
   }
+  return window;
+}
+
+async function verifySaberAuthenticodeSignature(installerPath) {
+  if (process.platform !== 'win32') return false;
+  const script = [
+    '$signature = Get-AuthenticodeSignature -LiteralPath $env:LSN_UPDATE_INSTALLER',
+    '[PSCustomObject]@{',
+    'Status = [string]$signature.Status',
+    'Subject = [string]$signature.SignerCertificate.Subject',
+    '} | ConvertTo-Json -Compress',
+  ].join('; ');
+  const { stdout } = await execFileAsync(
+    'powershell.exe',
+    ['-NoProfile', '-NonInteractive', '-Command', script],
+    {
+      env: { ...process.env, LSN_UPDATE_INSTALLER: installerPath },
+      windowsHide: true,
+      timeout: 30_000,
+      maxBuffer: 64 * 1024,
+    },
+  );
+  const signature = JSON.parse(stdout);
+  return isTrustedPublisherSignature(signature, EXPECTED_UPDATE_PUBLISHER);
+}
+
+async function launchVerifiedInstaller(installerPath) {
+  // Squirrel's Setup.exe is itself the bootstrapper for a full install/update.
+  // It does not use NSIS/Inno-style silent flags.
+  const child = spawn(installerPath, [], {
+    detached: true,
+    stdio: 'ignore',
+    windowsHide: false,
+  });
+  await new Promise((resolve, reject) => {
+    child.once('spawn', resolve);
+    child.once('error', reject);
+  });
+  child.unref();
+  app.quit();
+}
+
+function broadcastUpdateState(state) {
+  for (const window of BrowserWindow.getAllWindows()) {
+    if (!window.isDestroyed()) {
+      window.webContents.send('desktop:updates-state', state);
+    }
+  }
+}
+
+function configureWindowsUpdates() {
+  updateService = new WindowsUpdateService({
+    currentVersion: app.getVersion(),
+    supported: app.isPackaged && process.platform === 'win32',
+    fetch: (url, options) => net.fetch(url, options),
+    updatesDir: path.join(app.getPath('userData'), 'updates'),
+    verifySignature: verifySaberAuthenticodeSignature,
+    launchInstaller: launchVerifiedInstaller,
+    onStateChange: broadcastUpdateState,
+  });
+  updateReadyPromise = updateService.initialize();
+  void updateReadyPromise.then(() => {
+    const delay = process.argv.includes('--squirrel-firstrun') ? 10_000 : 5_000;
+    const timer = setTimeout(() => {
+      void updateService.check();
+    }, delay);
+    timer.unref();
+  });
 }
 
 ipcMain.handle('desktop:get-platform', () => ({
@@ -62,6 +141,31 @@ ipcMain.handle('desktop:get-platform', () => ({
   packaged: app.isPackaged,
   appVersion: app.getVersion(),
 }));
+
+ipcMain.handle('desktop:updates-get-state', async () => {
+  await updateReadyPromise;
+  return updateService?.getState() ?? {
+    status: 'unsupported',
+    currentVersion: app.getVersion(),
+    message: 'Automatic updates are not available in this runtime.',
+    canRetry: false,
+  };
+});
+
+ipcMain.handle('desktop:updates-check', async () => {
+  await updateReadyPromise;
+  return updateService?.check();
+});
+
+ipcMain.handle('desktop:updates-defer', async () => {
+  await updateReadyPromise;
+  return updateService?.defer();
+});
+
+ipcMain.handle('desktop:updates-install', async () => {
+  await updateReadyPromise;
+  return updateService?.install();
+});
 
 ipcMain.handle('desktop:auth-request', async (event, request) => {
   const pathname = request?.path;
@@ -139,6 +243,7 @@ ipcMain.on('desktop:invoke', (event, channel) => {
 });
 
 app.whenReady().then(() => {
+  configureWindowsUpdates();
   createWindow();
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();

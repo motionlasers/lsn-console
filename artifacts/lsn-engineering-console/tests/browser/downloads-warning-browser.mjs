@@ -99,6 +99,80 @@ async function downloadsWarningChecks(context) {
         version: 0,
       }),
     );
+    localStorage.setItem('lsn-whats-new-acknowledged-version', '0.2.1');
+    let updateState = {
+      status: 'up-to-date',
+      currentVersion: '0.2.1',
+      message: 'Version 0.2.1 is the latest available release.',
+      canRetry: true,
+    };
+    const updateListeners = new Set();
+    const publishUpdateState = (next) => {
+      updateState = next;
+      for (const listener of updateListeners) listener(next);
+    };
+    window.lsnDesktop = {
+      getPlatform: async () => ({
+        platform: 'win32',
+        packaged: true,
+        appVersion: '0.2.1',
+      }),
+      authRequest: async (requestPath) => ({
+        status: requestPath === '/api/auth/session' ? 200 : 204,
+        body: requestPath === '/api/auth/session'
+          ? {
+              user: {
+                id: 1,
+                username: 'browser-update-check',
+                isAdmin: false,
+                forcePasswordChange: false,
+              },
+            }
+          : {},
+      }),
+      getHardwareCapabilities: async () => ({
+        controlTransport: 'AWAITING FIRMWARE IMPLEMENTATION',
+        profileMapping: 'PROTOCOL MAPPING TBD',
+        maintenanceTransport: 'MAINTENANCE ENDPOINT NOT YET IMPLEMENTED',
+        physicalValidation: 'HARDWARE VALIDATION REQUIRED',
+        canTransmit: false,
+      }),
+      selectFirmwarePackage: async () => null,
+      saveFile: async () => ({ saved: false }),
+      getUpdateState: async () => updateState,
+      checkForUpdates: async () => {
+        publishUpdateState({
+          status: 'up-to-date',
+          currentVersion: '0.2.1',
+          message: 'Version 0.2.1 is the latest available release.',
+          canRetry: true,
+        });
+        return updateState;
+      },
+      deferUpdate: async () => {
+        publishUpdateState({
+          ...updateState,
+          status: 'deferred',
+          message: 'Version 0.2.2 is ready whenever you choose to install it.',
+          canRetry: true,
+        });
+        return updateState;
+      },
+      installUpdate: async () => {
+        publishUpdateState({
+          ...updateState,
+          status: 'installing',
+          message: 'Starting the verified installer.',
+          canRetry: false,
+        });
+        return updateState;
+      },
+      onUpdateState: (listener) => {
+        updateListeners.add(listener);
+        return () => updateListeners.delete(listener);
+      },
+    };
+    window.__lsnUpdateTest = { publishUpdateState };
   });
 
   // Navigate to /downloads. The default profile ships with cipService: "TBD"
@@ -143,15 +217,128 @@ async function downloadsWarningChecks(context) {
   const profileLink = page.locator('a:has-text("Go to Profile")');
   check(await profileLink.isVisible(), `${label}: "Go to Profile →" link is visible`);
 
-  // Click the link and wait for navigation to /profile.
-  await Promise.all([
-    page.waitForURL('**/profile', { timeout: 8000 }),
-    profileLink.click(),
-  ]);
+  // Click the link and observe Wouter's client-side URL change (no page load).
+  await profileLink.click();
+  await waitFor(
+    () => new URL(page.url()).pathname === '/profile',
+    `${label}: client-side navigation to /profile`,
+  );
   const route = new URL(page.url()).pathname;
   check(
     route === '/profile',
     `${label}: "Go to Profile →" navigates to /profile (got ${route})`,
+  );
+
+  // ── 4. Desktop update progress and defer/review states ─────────────────────
+  await page.evaluate(() => {
+    window.__lsnUpdateTest.publishUpdateState({
+      status: 'downloading',
+      currentVersion: '0.2.1',
+      latestVersion: '0.2.2',
+      receivedBytes: 42 * 1024 * 1024,
+      totalBytes: 100 * 1024 * 1024,
+      percent: 42,
+      message: 'Downloading version 0.2.2…',
+      canRetry: false,
+    });
+  });
+  const updateProgress = page.getByTestId('desktop-update-progress');
+  await waitFor(
+    () => updateProgress.isVisible().catch(() => false),
+    `${label}: desktop update progress visible`,
+  );
+  check(
+    (await updateProgress.textContent()).includes('42%'),
+    `${label}: update progress shows percentage`,
+  );
+  check(
+    (await updateProgress.textContent()).includes('42.0 MB of 100.0 MB'),
+    `${label}: update progress shows downloaded and total bytes`,
+  );
+
+  await page.evaluate(() => {
+    window.__lsnUpdateTest.publishUpdateState({
+      status: 'ready',
+      currentVersion: '0.2.1',
+      latestVersion: '0.2.2',
+      releaseName: 'LSN Engineering Console v0.2.2',
+      message: 'Version 0.2.2 is verified and ready to install.',
+      canRetry: true,
+    });
+  });
+  const readyDialog = page.getByTestId('dialog-desktop-update-ready');
+  await waitFor(
+    () => readyDialog.isVisible().catch(() => false),
+    `${label}: verified update dialog visible`,
+  );
+  check(
+    await page.getByTestId('button-update-install').isVisible(),
+    `${label}: verified update offers Install now`,
+  );
+  await page.getByTestId('button-update-later').click();
+  await waitFor(
+    async () => !(await readyDialog.isVisible().catch(() => false)),
+    `${label}: Later closes update dialog`,
+  );
+
+  await page.goto(BASE + '/help');
+  await page.evaluate(() => {
+    window.__lsnUpdateTest.publishUpdateState({
+      status: 'deferred',
+      currentVersion: '0.2.1',
+      latestVersion: '0.2.2',
+      releaseName: 'LSN Engineering Console v0.2.2',
+      message: 'Version 0.2.2 is ready whenever you choose to install it.',
+      canRetry: true,
+    });
+  });
+  const reviewButton = page.getByTestId('button-check-for-updates');
+  await waitFor(
+    () => reviewButton.isVisible().catch(() => false),
+    `${label}: manual update action visible on Help`,
+  );
+  check(
+    (await reviewButton.textContent()).includes('REVIEW UPDATE v0.2.2'),
+    `${label}: deferred update remains available for manual review`,
+  );
+  await reviewButton.click();
+  await waitFor(
+    () => readyDialog.isVisible().catch(() => false),
+    `${label}: deferred update can be reviewed again`,
+  );
+  check(
+    await readyDialog.isVisible(),
+    `${label}: manual review reopens verified update dialog`,
+  );
+  await page.getByTestId('button-update-later').click();
+
+  await page.evaluate(() => {
+    window.__lsnUpdateTest.publishUpdateState({
+      status: 'error',
+      currentVersion: '0.2.1',
+      latestVersion: '0.2.2',
+      message: 'The update failed. The installed version is unaffected.',
+      errorCode: 'UPDATE_DOWNLOAD_FAILED',
+      canRetry: true,
+    });
+  });
+  const updateError = page.getByTestId('desktop-update-error');
+  await waitFor(
+    () => updateError.isVisible().catch(() => false),
+    `${label}: nonblocking update error visible`,
+  );
+  check(
+    (await updateError.textContent()).includes('installed version is unaffected'),
+    `${label}: update failure confirms the installed version is unaffected`,
+  );
+  await page.getByTestId('button-update-retry').click();
+  await waitFor(
+    async () => !(await updateError.isVisible().catch(() => false)),
+    `${label}: retry clears update error`,
+  );
+  check(
+    !(await updateError.isVisible().catch(() => false)),
+    `${label}: retry returns to a non-error update state`,
   );
 
   await page.close();

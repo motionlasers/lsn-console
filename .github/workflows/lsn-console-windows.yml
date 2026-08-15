@@ -64,7 +64,41 @@ jobs:
         env:
           PORT: 4173
           BASE_PATH: ./
+      - name: Prepare required Windows signing certificate
+        shell: bash
+        env:
+          WINDOWS_CERTIFICATE_PFX_BASE64: ${{ secrets.WINDOWS_CERTIFICATE_PFX_BASE64 }}
+          WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+        run: |
+          set -euo pipefail
+          if [ -z "$WINDOWS_CERTIFICATE_PFX_BASE64" ] || [ -z "$WINDOWS_CERTIFICATE_PASSWORD" ]; then
+            echo "Signed releases require WINDOWS_CERTIFICATE_PFX_BASE64 and WINDOWS_CERTIFICATE_PASSWORD GitHub secrets." >&2
+            exit 1
+          fi
+          CERT_PATH="$RUNNER_TEMP/lsn-windows-signing.pfx"
+          printf '%s' "$WINDOWS_CERTIFICATE_PFX_BASE64" | base64 --decode > "$CERT_PATH"
+          echo "WINDOWS_CERTIFICATE_FILE=$CERT_PATH" >> "$GITHUB_ENV"
+          echo "WINDOWS_CERTIFICATE_PASSWORD=$WINDOWS_CERTIFICATE_PASSWORD" >> "$GITHUB_ENV"
       - run: pnpm --filter @workspace/lsn-engineering-console run make
+      - name: Verify installer Authenticode identity
+        shell: pwsh
+        run: |
+          $version = node -p "require('./artifacts/lsn-engineering-console/package.json').version"
+          $installer = Get-ChildItem -Path "artifacts/lsn-engineering-console/out/make" -Recurse `
+            -Filter "LSN-Engineering-Console-Setup-$version-dev.exe" |
+            Select-Object -First 1
+          if (-not $installer) {
+            throw "Expected signed installer was not produced."
+          }
+          $signature = Get-AuthenticodeSignature -LiteralPath $installer.FullName
+          if ($signature.Status -ne 'Valid') {
+            throw "Installer Authenticode status is $($signature.Status), expected Valid."
+          }
+          if ($signature.SignerCertificate.Subject -notmatch 'Saber Industrial Applications') {
+            throw "Unexpected installer signer: $($signature.SignerCertificate.Subject)"
+          }
+          Write-Host "Verified installer signer: $($signature.SignerCertificate.Subject)"
+          Remove-Item -LiteralPath $env:WINDOWS_CERTIFICATE_FILE -Force
       - name: Collect and validate release artifacts
         shell: bash
         run: |
@@ -100,9 +134,9 @@ jobs:
           files: release-assets/*
           name: LSN Engineering Console ${{ github.ref_name }} (Development Preview)
           body: |
-            Unsigned internal Development Preview build of the LSN Engineering Console.
+            Authenticode-signed internal Development Preview build of the LSN Engineering Console.
 
-            - Microsoft Defender SmartScreen will warn on first run ("More info" → "Run anyway").
+            - The installer is signed by Saber Industrial Applications and is eligible for in-app updates.
             - Hardware Mode truthfully reports that real WT32-ETH01 discovery, EtherNet/IP (CIP)
               communication, physical validation, and firmware upload are not yet implemented.
             - LSN Protocol, Device Profile, and the LSN-Firmware-Interface-v0.1 package are unchanged (v0.1).
@@ -117,7 +151,8 @@ jobs:
           RELEASE_BASE="https://github.com/${GITHUB_REPOSITORY}/releases/download/${GITHUB_REF_NAME}"
           for ASSET in \
             "LSN-Engineering-Console-Setup-${VERSION}-dev.exe" \
-            "LSN-Engineering-Console-Portable-${VERSION}.zip"; do
+            "LSN-Engineering-Console-Portable-${VERSION}.zip" \
+            "SHA256SUMS.txt"; do
             URL="${RELEASE_BASE}/${ASSET}"
             echo "Verifying ${URL}"
             curl --fail --silent --show-error --location --head \

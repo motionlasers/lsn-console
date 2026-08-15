@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import consolePackage from '../package.json';
+import consolePackage from '../package.json' with { type: 'json' };
 import {
   CONSOLE_RELEASES,
   CONSOLE_RELEASE_LABEL,
@@ -89,6 +89,8 @@ describe('Release identity', () => {
       (maker: { name: string }) => maker.name === '@electron-forge/maker-squirrel',
     );
     expect(squirrel.config.setupExe).toBe(WINDOWS_ARTIFACTS.installer);
+    expect(squirrel.config).toHaveProperty('certificateFile');
+    expect(squirrel.config).toHaveProperty('certificatePassword');
   });
 });
 
@@ -246,6 +248,17 @@ describe('Release drift guard', () => {
     );
     expect(workflow).toContain(
       'curl --fail --silent --show-error --location --head',
+    );
+    expect(workflow).toContain('secrets.WINDOWS_CERTIFICATE_PFX_BASE64');
+    expect(workflow).toContain('secrets.WINDOWS_CERTIFICATE_PASSWORD');
+    expect(workflow).toContain('Get-AuthenticodeSignature');
+    expect(workflow).toContain("signature.Status -ne 'Valid'");
+    expect(workflow).toContain('Saber Industrial Applications');
+    expect(workflow.indexOf('Get-AuthenticodeSignature')).toBeLessThan(
+      workflow.indexOf('sha256sum *'),
+    );
+    expect(workflow).not.toContain(
+      'Unsigned internal Development Preview build',
     );
   });
 });

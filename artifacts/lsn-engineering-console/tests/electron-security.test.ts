@@ -59,4 +59,26 @@ describe('Electron security boundary', () => {
     expect(preload).not.toMatch(/require\(['"]https?['"]\)/);
     expect(preload).not.toContain('global.fetch');
   });
+
+  it('keeps update networking, verification, files, and installer launch in main', () => {
+    expect(main).toContain("require('./update-service.cjs')");
+    expect(main).toContain('verifySaberAuthenticodeSignature');
+    expect(main).toContain("'powershell.exe'");
+    expect(main).toContain('spawn(installerPath, []');
+    expect(main).not.toContain("'--silent'");
+    expect(preload).toContain("ipcRenderer.invoke('desktop:updates-check')");
+    expect(preload).toContain("ipcRenderer.invoke('desktop:updates-defer')");
+    expect(preload).toContain("ipcRenderer.invoke('desktop:updates-install')");
+    expect(preload).not.toContain('LSN_UPDATE_INSTALLER');
+    expect(preload).not.toContain('releases/latest');
+  });
+
+  it('does not let the renderer choose an update URL, file path, or process command', () => {
+    expect(preload).toContain('checkForUpdates: () =>');
+    expect(preload).toContain('deferUpdate: () =>');
+    expect(preload).toContain('installUpdate: () =>');
+    expect(preload).not.toMatch(/checkForUpdates:\s*\([^)]*\w+[^)]*\)\s*=>/);
+    expect(preload).not.toMatch(/installUpdate:\s*\([^)]*\w+[^)]*\)\s*=>/);
+    expect(preload).not.toMatch(/deferUpdate:\s*\([^)]*\w+[^)]*\)\s*=>/);
+  });
 });

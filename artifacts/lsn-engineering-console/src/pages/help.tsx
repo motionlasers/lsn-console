@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { useTourStore } from "@/hooks/use-tour";
 import { ChangelogDialog, VersionTracks } from "@/components/ReleaseInfo";
 import { CONSOLE_RELEASE_LABEL, CURRENT_RELEASE } from "@/lib/release";
+import { UpdateCheckButton } from "@/components/UpdateManager";
 
 export default function Help() {
   const { startTour } = useTourStore();
@@ -36,6 +37,7 @@ export default function Help() {
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          <UpdateCheckButton />
           <ChangelogDialog
             trigger={
               <Button data-testid="button-help-changelog" variant="outline" className="font-mono text-xs border-border text-muted-foreground hover:text-foreground">

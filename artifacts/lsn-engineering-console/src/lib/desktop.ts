@@ -31,6 +31,31 @@ export interface DesktopAuthResponse {
   body: unknown;
 }
 
+export type DesktopUpdateStatus =
+  | 'idle'
+  | 'checking'
+  | 'up-to-date'
+  | 'downloading'
+  | 'ready'
+  | 'deferred'
+  | 'installing'
+  | 'error'
+  | 'unsupported';
+
+export interface DesktopUpdateState {
+  status: DesktopUpdateStatus;
+  currentVersion: string;
+  latestVersion?: string;
+  releaseName?: string;
+  receivedBytes?: number;
+  totalBytes?: number;
+  percent?: number;
+  message?: string;
+  errorCode?: string;
+  canRetry: boolean;
+  checkedAt?: string;
+}
+
 export interface LsnDesktopBridge {
   getPlatform: () => Promise<DesktopPlatformInfo>;
   authRequest: (
@@ -41,6 +66,13 @@ export interface LsnDesktopBridge {
   getHardwareCapabilities: () => Promise<DesktopHardwareCapabilities>;
   selectFirmwarePackage: () => Promise<string | null>;
   saveFile: (filename: string, data: Uint8Array | string) => Promise<DesktopSaveResult>;
+  getUpdateState: () => Promise<DesktopUpdateState>;
+  checkForUpdates: () => Promise<DesktopUpdateState>;
+  deferUpdate: () => Promise<DesktopUpdateState>;
+  installUpdate: () => Promise<DesktopUpdateState>;
+  onUpdateState: (
+    listener: (state: DesktopUpdateState) => void,
+  ) => () => void;
 }
 
 declare global {
