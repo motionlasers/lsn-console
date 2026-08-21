@@ -9,6 +9,7 @@ const evidenceDir = process.env.LSN_WINDOWS_SMOKE_EVIDENCE;
 const runLabel = process.env.LSN_WINDOWS_SMOKE_LABEL || 'installed';
 const expectPhysicalTransport =
   process.env.LSN_WINDOWS_EXPECT_PHYSICAL_TRANSPORT !== 'false';
+const expectUpdater = process.env.LSN_WINDOWS_EXPECT_UPDATER !== 'false';
 
 async function main() {
   if (process.platform !== 'win32') {
@@ -69,9 +70,23 @@ async function main() {
       throw new Error(`Unexpected hardware boundaries: ${JSON.stringify(hardware)}`);
     }
 
-    const updates = await window.evaluate(() => window.lsnDesktop.getUpdateState());
-    if (updates.currentVersion !== runtime.appVersion || updates.status === 'unsupported') {
+    const updates = await window.evaluate(() =>
+      typeof window.lsnDesktop.getUpdateState === 'function'
+        ? window.lsnDesktop.getUpdateState()
+        : null,
+    );
+    if (
+      expectUpdater &&
+      (!updates ||
+        updates.currentVersion !== runtime.appVersion ||
+        updates.status === 'unsupported')
+    ) {
       throw new Error(`Unexpected update state: ${JSON.stringify(updates)}`);
+    }
+    if (!expectUpdater && updates) {
+      throw new Error(
+        `Historical release unexpectedly exposed updater: ${JSON.stringify(updates)}`,
+      );
     }
 
     const screenshot = path.join(evidenceDir, `${runLabel}-login.png`);
@@ -83,10 +98,13 @@ async function main() {
       runtime,
       hardware: hardwareState,
       expectedPhysicalTransport: expectPhysicalTransport,
-      updates: {
-        status: updates.status,
-        currentVersion: updates.currentVersion,
-      },
+      expectedUpdater: expectUpdater,
+      updates: updates
+        ? {
+            status: updates.status,
+            currentVersion: updates.currentVersion,
+          }
+        : null,
       checks: [
         'installed executable launched',
         'packaged preload bridge available',
@@ -94,7 +112,9 @@ async function main() {
         'physical discovery/session limited to packaged Windows',
         'unresolved profile control/read fail closed',
         'maintenance transport remains unavailable',
-        'Windows updater initialized',
+        expectUpdater
+          ? 'Windows updater initialized'
+          : 'historical release recorded without updater bridge',
       ],
     };
     await fs.writeFile(

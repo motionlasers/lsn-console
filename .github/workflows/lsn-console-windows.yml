@@ -343,6 +343,7 @@ jobs:
             $env:GITHUB_WORKSPACE 'published-release-smoke-evidence'
           $env:LSN_WINDOWS_SMOKE_LABEL = 'published-release'
           $env:LSN_WINDOWS_EXPECT_PHYSICAL_TRANSPORT = 'false'
+          $env:LSN_WINDOWS_EXPECT_UPDATER = 'false'
           node artifacts/lsn-engineering-console/tests/windows/installed-smoke.mjs
       - uses: actions/upload-artifact@v4
         with:
