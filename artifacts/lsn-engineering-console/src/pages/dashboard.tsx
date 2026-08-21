@@ -184,7 +184,7 @@ export default function Dashboard() {
             <div className="col-span-1 flex flex-col gap-2">
               <Button
                 className={cn(
-                  "h-16 font-mono text-sm tracking-wider w-full rounded-sm",
+                  "h-16 w-full whitespace-normal break-words px-3 text-center font-mono text-sm leading-tight tracking-wider rounded-sm",
                   physicalControlActive
                     ? "bg-destructive hover:bg-destructive/90 text-destructive-foreground"
                     : "bg-primary hover:bg-primary/90 text-primary-foreground"

@@ -1,0 +1,653 @@
+Please perform a verification-only pass of the newly implemented LSN Engineering Console role, Device Profile review/publishing, and Windows profile-propagation workflow.
+
+Do **not** redesign or change functionality during this task unless a test cannot run because of a clear defect. If a defect is discovered, document it rather than silently changing behavior.
+
+The purpose of this task is to produce a single evidence package that can be independently reviewed to confirm that the implementation matches the approved architecture.
+
+# Required Deliverable
+
+Create:
+
+`LSN-Profile-Workflow-Verification.zip`
+
+The ZIP should contain a clearly organized verification package similar to:
+
+```text
+LSN-Profile-Workflow-Verification/
+│
+├── 00-VERIFICATION-SUMMARY.md
+├── 01-role-permission-matrix.csv
+├── 02-role-permission-test-results.json
+├── 03-profile-lifecycle-test-results.json
+├── 04-windows-profile-propagation-test-results.json
+├── 05-audit-log-sample.json
+│
+├── profiles/
+│   ├── profile-before.json
+│   ├── profile-draft-after-cip-edit.json
+│   ├── profile-review-candidate.json
+│   └── profile-development-published.json
+│
+├── diffs/
+│   └── cip-mapping-change-diff.txt
+│
+├── screenshots/
+│   ├── 01-superadmin-view.png
+│   ├── 02-firmware-admin-profile-edit.png
+│   ├── 03-client-reviewer-view.png
+│   ├── 04-client-sandbox.png
+│   ├── 05-review-candidate.png
+│   ├── 06-client-review-accepted.png
+│   ├── 07-development-published.png
+│   ├── 08-windows-profile-update-detected.png
+│   ├── 09-windows-profile-diff.png
+│   ├── 10-windows-profile-applied.png
+│   └── 11-audit-history.png
+│
+└── test-output/
+    ├── automated-test-summary.txt
+    └── relevant-test-logs.txt
+```
+
+The exact names may differ slightly if necessary, but the final ZIP must contain enough evidence for an external reviewer to independently confirm the workflow.
+
+# 1. Verify the Three Roles
+
+Verify these exact roles:
+
+* Superadmin
+* Firmware Admin
+* Client Reviewer
+
+Create:
+
+`01-role-permission-matrix.csv`
+
+with columns:
+
+* Capability
+* Superadmin
+* Firmware Admin
+* Client Reviewer
+* UI Enforced
+* Server/API Enforced
+* Test Result
+* Notes
+
+At minimum verify the following permissions.
+
+## Superadmin
+
+Must be able to:
+
+* view all profiles
+* edit profiles
+* publish Development Profiles
+* promote Production/Frozen Profiles
+* manage users
+* assign roles
+* view audit history
+* roll back Development Profiles
+
+## Firmware Admin
+
+Must be able to:
+
+* view profiles
+* edit Draft Profiles
+* change CIP mappings
+* change implementation status
+* change update rate / RPI
+* change timeout values
+* run Simulation Mode
+* generate Firmware Integration Packages
+* submit for Client Review
+* view Client Review comments
+* publish an accepted Development Profile
+* roll back a Development Profile
+* view profile history/diffs
+
+Must NOT be able to:
+
+* manage users
+* assign roles
+* change global security settings
+* promote Production/Frozen Profiles
+* delete protected audit history
+
+## Client Reviewer
+
+Must be able to:
+
+* view Review Candidate
+* view object/tag map
+* view connection model
+* view RPI/update rate
+* view communication-loss behavior
+* view runtime behavior
+* run Simulation Mode
+* use Client Sandbox
+* view diffs
+* comment
+* ACCEPT REVIEW
+* REQUEST CHANGES
+* download approved client-facing resources
+
+Must NOT be able to:
+
+* edit shared Device Profile
+* change CIP mappings
+* change implementation status
+* publish
+* roll back profiles
+* promote production
+* manage users
+* change security settings
+
+# 2. Prove Permissions Are Enforced Server-Side
+
+Do not verify permissions only by checking whether buttons are hidden.
+
+Attempt prohibited operations directly through the application's normal API/backend interfaces where practical.
+
+For example:
+
+Client Reviewer attempts:
+
+* update CIP mapping
+* publish Development Profile
+* promote Production Profile
+
+Firmware Admin attempts:
+
+* assign user role
+* promote Production Profile
+
+Expected result:
+
+**DENIED**
+
+Record the returned status/error in:
+
+`02-role-permission-test-results.json`
+
+Do not include secrets, tokens, passwords, or credentials in the evidence package.
+
+# 3. Verify Firmware Admin Can Change CIP Mappings
+
+Create a controlled test Draft Profile.
+
+Use a clearly artificial test mapping so the evidence is easy to identify.
+
+Example test change:
+
+```text
+TimerState
+
+Class:
+TBD → 0x70
+
+Instance:
+TBD → 1
+
+Attribute:
+TBD → 4
+```
+
+The actual test values do not become production decisions.
+
+Clearly label the profile:
+
+**VERIFICATION TEST PROFILE — NOT PRODUCTION**
+
+Show that Firmware Admin can:
+
+1. Open the Draft Profile.
+2. Edit the CIP mapping.
+3. Save the Draft.
+4. Run profile validation.
+5. Run the web simulator using that Draft.
+
+Export the profile before and after the edit into:
+
+`profiles/profile-before.json`
+
+and:
+
+`profiles/profile-draft-after-cip-edit.json`
+
+Create a readable diff:
+
+`diffs/cip-mapping-change-diff.txt`
+
+# 4. Verify Client Review Workflow
+
+Using the verification profile:
+
+1. Firmware Admin submits the profile for Client Review.
+2. A Review Candidate snapshot is created.
+3. Confirm the snapshot is immutable.
+4. Client Reviewer can view it.
+5. Client Reviewer can run Simulation Mode against it.
+6. Client Reviewer cannot alter the shared profile.
+7. Client Reviewer adds a test comment.
+8. Client Reviewer marks:
+   **ACCEPTED**
+9. Firmware Admin sees the acceptance state.
+
+Export:
+
+`profiles/profile-review-candidate.json`
+
+Capture screenshots showing:
+
+* Client Reviewer review screen
+* review comment
+* Accepted status
+
+# 5. Verify Review Snapshot Immutability
+
+After submitting the Review Candidate:
+
+1. Modify the working Draft as Firmware Admin.
+2. Confirm that the already-submitted Client Review snapshot does NOT silently change.
+3. Compare the Review Candidate to the modified Draft.
+
+Record the result in:
+
+`03-profile-lifecycle-test-results.json`
+
+Expected:
+
+**PASS — Review snapshot remains unchanged.**
+
+# 6. Verify Client Sandbox Isolation
+
+As Client Reviewer:
+
+1. Open the Client Sandbox.
+2. Change a simulated value such as:
+
+   * timeout
+   * update rate
+   * command state
+3. Run simulation.
+4. Confirm the sandbox behavior changes.
+5. Confirm the shared Review Candidate does not change.
+6. Confirm the Firmware Admin Draft does not change.
+7. Confirm the published Development Profile does not change.
+
+Capture screenshot:
+
+`04-client-sandbox.png`
+
+Record the result.
+
+# 7. Verify Development Publishing
+
+After Client Review is accepted:
+
+1. Firmware Admin publishes the profile as a Development Profile.
+2. Confirm Superadmin is not required for this step.
+3. Confirm Client Reviewer cannot perform this action.
+4. Confirm a new immutable Development Profile version is created.
+5. Confirm previous Development Profile versions remain available.
+
+Export:
+
+`profiles/profile-development-published.json`
+
+Record:
+
+* version
+* publication timestamp
+* user
+* role
+* review state
+
+# 8. Critical Test: Verify Profile Changes Reach Windows Without Rebuilding the App
+
+This is one of the most important verification items.
+
+Demonstrate that a Device Profile/CIP mapping update does NOT require a new Windows application build.
+
+Use the same Windows Console application version before and after the profile change.
+
+Example:
+
+```text
+Windows Console:
+v0.2.0 Development Preview
+
+Installed Profile:
+v0.1.3
+
+New Published Development Profile:
+v0.1.4
+```
+
+Verify the Windows Console:
+
+1. Detects that a newer published Development Profile exists.
+2. Displays:
+   **NEW PROFILE AVAILABLE**
+3. Shows the profile version.
+4. Provides:
+   **VIEW CHANGES**
+5. Displays a mapping diff.
+6. Provides:
+   **APPLY PROFILE UPDATE**
+7. Applies the updated profile.
+8. Reports the new active Device Profile version.
+9. Uses the new mapping in its runtime protocol configuration.
+10. Does not require reinstalling or rebuilding the Windows application.
+
+Capture:
+
+`08-windows-profile-update-detected.png`
+
+`09-windows-profile-diff.png`
+
+`10-windows-profile-applied.png`
+
+# 9. Prove the Windows Executable/App Version Did Not Change
+
+Record in:
+
+`04-windows-profile-propagation-test-results.json`
+
+at minimum:
+
+```text
+Windows Console Version Before:
+v0.2.0
+
+Windows Console Version After:
+v0.2.0
+
+Device Profile Before:
+[version]
+
+Device Profile After:
+[version]
+
+Windows Rebuild Required:
+NO
+
+Windows Reinstall Required:
+NO
+```
+
+If practical, also record the same application build ID/hash before and after the profile update.
+
+The key proof is:
+
+**Device Profile changed, Windows application binary did not.**
+
+# 10. Verify Updated CIP Mapping Is Actually Used by the Windows Console
+
+After applying the new published profile, demonstrate that the Windows Console's protocol layer now resolves the canonical field using the updated mapping.
+
+For the artificial TimerState test example, show conceptually:
+
+```text
+Canonical Field:
+TimerState
+
+Active Mapping:
+
+Class:
+0x70
+
+Instance:
+1
+
+Attribute:
+4
+```
+
+In Simulation Mode or a safe transport test, show that the Protocol Inspector reflects the currently loaded mapping.
+
+Do NOT pretend this means the physical ESP32 firmware implements that mapping.
+
+The evidence should prove only that the Windows Console dynamically consumed the published Device Profile.
+
+# 11. Explicitly Confirm What Does NOT Propagate Automatically
+
+In `00-VERIFICATION-SUMMARY.md`, include this statement clearly:
+
+> Publishing a Device Profile changes the runtime configuration used by the web Console and Windows Console. It does not rewrite or automatically modify the ESP32 firmware. The firmware implementation must expose matching CIP objects/mappings before physical hardware testing can succeed.
+
+This distinction is required.
+
+# 12. Verify Profile Updates Do Not Trigger Windows Builds
+
+Confirm that publishing a profile does not automatically invoke the Windows application CI/build pipeline.
+
+Record:
+
+```text
+Profile Publish:
+Runtime profile release only
+
+Windows application build:
+NOT triggered
+```
+
+Only actual application-code changes should require a new Windows build/release.
+
+# 13. Verify Dynamic Fields
+
+Confirm that these types of Device Profile changes can be consumed dynamically by the Windows Console without rebuilding where supported by the current architecture:
+
+* CIP Class
+* Instance
+* Attribute
+* Assembly
+* Byte/bit offsets
+* data types supported by the existing protocol engine
+* units
+* descriptions
+* update/RPI values
+* communication timeout
+* expected behavior
+* test tolerance values
+* capability flags
+* implementation status
+* protocol/profile version
+
+If any item currently requires an application rebuild, identify it clearly rather than reporting PASS.
+
+# 14. Verify Audit History
+
+Capture audit entries for:
+
+* Draft created
+* CIP mapping changed
+* Review submitted
+* Client Reviewer comment added
+* Review accepted
+* Development Profile published
+* Windows profile applied if application audit tracks this
+
+Create:
+
+`05-audit-log-sample.json`
+
+and:
+
+`11-audit-history.png`
+
+Audit entries should show:
+
+* timestamp
+* user
+* role
+* action
+* profile version
+
+Remove/redact any sensitive authentication information.
+
+# 15. Verify Production / Frozen Permissions
+
+Test:
+
+Firmware Admin attempts to promote Development Profile to Production/Frozen.
+
+Expected:
+
+**DENIED**
+
+Client Reviewer attempts the same.
+
+Expected:
+
+**DENIED**
+
+Superadmin performs promotion in a disposable verification scenario or test harness.
+
+Expected:
+
+**ALLOWED**
+
+Do not modify the actual production profile if one exists.
+
+Use a test fixture/profile.
+
+# 16. Verify Role-Specific UI
+
+Capture representative screenshots:
+
+## Superadmin
+
+Show governance/user/profile controls.
+
+## Firmware Admin
+
+Show:
+
+* Device Profile editing
+* CIP mappings
+* implementation status
+* Client Review submission
+* Development publish controls
+
+## Client Reviewer
+
+Show:
+
+* Review Candidate
+* simulation
+* interface details
+* comments
+* Accept / Request Changes
+* no edit/publish controls
+
+# 17. Verify Firmware Integration Package Uses the Published Profile
+
+Generate a Firmware Integration Package from the verification Development Profile.
+
+Confirm its generated files reflect the same published CIP mappings.
+
+Record this in the verification report.
+
+Do not include fake production mappings in the real/current profile.
+
+Use the isolated verification profile.
+
+# 18. Automated Tests
+
+Run all relevant existing automated tests.
+
+Add targeted tests if they already exist in the architecture or are necessary to verify this workflow.
+
+At minimum include test outcomes for:
+
+* role authorization
+* client read-only enforcement
+* Firmware Admin profile editing
+* review snapshot immutability
+* Client Sandbox isolation
+* review acceptance
+* Development publishing
+* Superadmin-only Production promotion
+* Device Profile versioning
+* Windows update detection
+* Windows profile application
+* no Windows rebuild on profile-only change
+* audit history
+
+Save output under:
+
+`test-output/`
+
+# 19. Verification Summary
+
+Create:
+
+`00-VERIFICATION-SUMMARY.md`
+
+This should be concise but complete.
+
+Include a table:
+
+| Verification Item                                | Result    | Evidence       |
+| ------------------------------------------------ | --------- | -------------- |
+| Firmware Admin can edit CIP mappings             | PASS/FAIL | file reference |
+| Client Reviewer cannot edit shared profile       | PASS/FAIL | file reference |
+| Client Reviewer can simulate review candidate    | PASS/FAIL | file reference |
+| Review snapshot immutable                        | PASS/FAIL | file reference |
+| Client Reviewer can Accept/Request Changes       | PASS/FAIL | file reference |
+| Firmware Admin can publish Development Profile   | PASS/FAIL | file reference |
+| Production promotion restricted to Superadmin    | PASS/FAIL | file reference |
+| Windows Console detects new profile              | PASS/FAIL | file reference |
+| Windows Console applies profile without rebuild  | PASS/FAIL | file reference |
+| New mapping used by Windows runtime              | PASS/FAIL | file reference |
+| Profile publishing does not rewrite ESP firmware | CONFIRMED | explanation    |
+| Audit history complete                           | PASS/FAIL | file reference |
+
+Also include:
+
+### Known Limitations
+
+List anything that remains incomplete.
+
+Do not hide limitations to make the verification look successful.
+
+# 20. Important Verification Rule
+
+Do not simply state that these features work.
+
+Actually exercise the workflows and include evidence.
+
+If a test cannot be performed, mark:
+
+**NOT VERIFIED**
+
+and explain why.
+
+Do not mark a feature PASS based solely on source-code inspection if runtime behavior can reasonably be tested.
+
+# 21. Security / Privacy
+
+Do not include in the verification ZIP:
+
+* passwords
+* authentication tokens
+* database credentials
+* signing keys
+* private keys
+* API secrets
+* personal client data
+
+Use test accounts or redact identities where appropriate.
+
+# Final Deliverable
+
+When verification is complete, provide the actual file:
+
+`LSN-Profile-Workflow-Verification.zip`
+
+Do not make unrelated application changes during this task.
+
+The ZIP will be given to an independent reviewer to confirm that the role model, client-review workflow, Device Profile publishing, and runtime propagation to the Windows Console have all been implemented correctly.

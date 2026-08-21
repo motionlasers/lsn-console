@@ -84,7 +84,7 @@ export default function Control() {
               </div>
 
               <Button
-                className={`w-full h-16 font-mono text-sm tracking-wider ${physicalControlActive ? 'bg-destructive hover:bg-destructive/90 text-white' : 'bg-primary hover:bg-primary/90 text-black'}`}
+                className={`h-16 w-full whitespace-normal break-words px-3 text-center font-mono text-sm leading-tight tracking-wider ${physicalControlActive ? 'bg-destructive hover:bg-destructive/90 text-white' : 'bg-primary hover:bg-primary/90 text-black'}`}
                 disabled={disabled}
                 onClick={() => toggleEnable(!physicalControlActive)}
               >
