@@ -47,6 +47,10 @@ preload/login/update/hardware boundaries, captures a login screenshot and JSON
 evidence, uninstalls it, then repeats the smoke test after a clean reinstall.
 The retained `LSN-Engineering-Console-Windows-Smoke-Evidence` workflow artifact
 is the Windows installation proof; Linux packaging is not equivalent evidence.
+The workflow can also download, checksum-verify, install, and launch an exact
+immutable release tag in a separate fresh-runner job. Recorded release URLs,
+hashes, acceptance results, and remaining manual updater steps are in
+`docs/WINDOWS_RELEASE_EVIDENCE.md`.
 
 The protected GitHub secrets `WINDOWS_CERTIFICATE_PFX_BASE64` and
 `WINDOWS_CERTIFICATE_PASSWORD` are optional but must be configured together.

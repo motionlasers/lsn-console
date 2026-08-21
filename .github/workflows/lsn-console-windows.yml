@@ -65,6 +65,16 @@ jobs:
             echo "Tag version ($TAG_VERSION) does not match package version ($PKG_VERSION)" >&2
             exit 1
           fi
+      - name: Refuse to replace an existing release
+        if: startsWith(github.ref, 'refs/tags/lsn-console-v')
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Release $GITHUB_REF_NAME already exists; publish a new version and tag." >&2
+            exit 1
+          fi
       - run: pnpm --filter @workspace/lsn-engineering-console run build
         env:
           PORT: 4173
@@ -218,9 +228,11 @@ jobs:
           $env:LSN_WINDOWS_SMOKE_LABEL = 'clean-reinstall'
           node artifacts/lsn-engineering-console/tests/windows/installed-smoke.mjs
       - uses: actions/upload-artifact@v4
+        if: always()
         with:
           name: LSN-Engineering-Console-Windows-Smoke-Evidence
           path: windows-smoke-evidence/**
+          if-no-files-found: warn
       - name: Write release notes for signing mode
         shell: bash
         run: |
@@ -247,6 +259,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: release-assets/*
+          overwrite_files: false
           name: LSN Engineering Console ${{ github.ref_name }} (Development Preview)
           body_path: windows-release-notes.md
       - name: Verify permanent release asset URLs
@@ -281,7 +294,7 @@ jobs:
           node-version: 24
           cache: pnpm
       - run: pnpm install --no-frozen-lockfile
-      - name: Download and verify immutable release assets
+      - name: Download and verify published release assets
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
@@ -294,11 +307,25 @@ jobs:
             --pattern 'LSN-Engineering-Console-Setup-*-dev.exe' \
             --pattern 'SHA256SUMS.txt' \
             --dir published-release
-          (
-            cd published-release
-            grep 'LSN-Engineering-Console-Setup-' SHA256SUMS.txt > INSTALLER-SHA256.txt
-            sha256sum --check INSTALLER-SHA256.txt
-          )
+          cd published-release
+          grep 'LSN-Engineering-Console-Setup-' SHA256SUMS.txt > INSTALLER-SHA256.txt
+          sha256sum --check INSTALLER-SHA256.txt
+
+          if [ "$RELEASE_TAG" = "lsn-console-v0.2.1" ]; then
+            EXPECTED_COMMIT="b0707fafa100d8df6a8b56f5a454e2a070955bda"
+            EXPECTED_INSTALLER="LSN-Engineering-Console-Setup-0.2.1-dev.exe"
+            EXPECTED_INSTALLER_SHA="8f683e27a138bfe3f0a9199a45cf424304e7ed96e477ff388bdb08eacf0f68fd"
+            EXPECTED_MANIFEST_SHA="91f245548d8fb155590a4dcf056ecb83e076f8198da17178a5894bc68bec66ec"
+
+            git -C "$GITHUB_WORKSPACE" fetch --force --no-tags origin \
+              "refs/tags/$RELEASE_TAG:refs/tags/$RELEASE_TAG"
+            ACTUAL_COMMIT=$(git -C "$GITHUB_WORKSPACE" rev-list -n 1 "$RELEASE_TAG")
+            test "$ACTUAL_COMMIT" = "$EXPECTED_COMMIT"
+            printf '%s *%s\n' "$EXPECTED_INSTALLER_SHA" "$EXPECTED_INSTALLER" |
+              sha256sum --check -
+            printf '%s *SHA256SUMS.txt\n' "$EXPECTED_MANIFEST_SHA" |
+              sha256sum --check -
+          fi
       - name: Install and smoke-test published release
         timeout-minutes: 5
         shell: pwsh
@@ -346,6 +373,8 @@ jobs:
           $env:LSN_WINDOWS_EXPECT_UPDATER = 'false'
           node artifacts/lsn-engineering-console/tests/windows/installed-smoke.mjs
       - uses: actions/upload-artifact@v4
+        if: always()
         with:
           name: LSN-Engineering-Console-Published-Release-Smoke-Evidence
           path: published-release-smoke-evidence/**
+          if-no-files-found: warn

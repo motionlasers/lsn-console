@@ -246,6 +246,12 @@ describe('Release drift guard', () => {
     expect(workflow).toContain('LSN-Engineering-Console-Windows-Smoke-Evidence');
     expect(workflow).toContain('smoke-published-release');
     expect(workflow).toContain('LSN-Engineering-Console-Published-Release-Smoke-Evidence');
+    expect(workflow).toContain('Refuse to replace an existing release');
+    expect(workflow).toContain('overwrite_files: false');
+    expect(workflow).toContain('b0707fafa100d8df6a8b56f5a454e2a070955bda');
+    expect(workflow).toContain(
+      '8f683e27a138bfe3f0a9199a45cf424304e7ed96e477ff388bdb08eacf0f68fd',
+    );
     expect(workflow).toContain('LSN-Engineering-Console-Portable-${VERSION}.zip');
     expect(workflow).toContain('lsn-console-v');
     expect(workflow).toContain(

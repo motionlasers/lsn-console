@@ -44,3 +44,17 @@ Three separate problems must all be solved for the Windows build to pass:
 3. **C11/C++17 compilation test timeout** — `profile.test.ts` calls `cc`/`c++` as child processes. Windows runners are slow enough that this hits vitest's default 5 s timeout (~11 s observed). Fix: pass `30_000` as the third argument to `it()` for that specific test.
 
 **Why:** All three are silent cross-platform hazards invisible from a Linux dev machine. The lockfile must be regenerated (`pnpm install --no-frozen-lockfile`) after any `package.json` or `.npmrc` change so the `packageExtensionsChecksum` stays current.
+
+## Squirrel installed-app smoke target
+
+Launch the versioned executable under Squirrel's `app-*` directory for
+Playwright/Electron smoke tests, not the same-named executable at the install
+root.
+
+**Why:** The root executable is a launcher stub. It spawns the versioned app and
+exits, so Playwright loses ownership of the launched process and times out even
+though the real app opens.
+
+**How to apply:** Target the executable inside the versioned Squirrel
+application directory, and close any installer-launched first-run instance
+before attaching automation.
