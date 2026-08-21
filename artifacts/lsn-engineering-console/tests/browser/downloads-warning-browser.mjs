@@ -6,6 +6,8 @@
  *    default profile (which ships with cipService: "TBD" on every field)
  *  - all four resolution steps in the ordered list are visible
  *  - clicking "Go to Profile →" navigates to /profile
+ *  - the warning disappears, including after reload, when every persisted
+ *    profile field has a concrete CIP service, class, instance, and attribute
  *
  * Run: node tests/browser/downloads-warning-browser.mjs  (from the artifact directory)
  */
@@ -242,7 +244,58 @@ async function downloadsWarningChecks(context) {
     `${label}: "Go to Profile →" navigates to /profile (got ${route})`,
   );
 
-  // ── 4. Packaged Windows default and mode-transition reset ─────────────────
+  // ── 4. Warning clears for a fully resolved persisted profile ───────────────
+  await page.evaluate(() => {
+    const storageKey = 'lsn-console-storage';
+    const persisted = JSON.parse(localStorage.getItem(storageKey) ?? '{}');
+    if (!persisted.state?.profile || !persisted.state?.activeProfileDocument?.fields) {
+      throw new Error('Expected the persisted LSN profile state to be available');
+    }
+
+    persisted.state.profile = persisted.state.profile.map((field, index) => ({
+      ...field,
+      cipService: field.access === 'WRITE' ? 'Set_Attribute_Single' : 'Get_Attribute_Single',
+      class: '4',
+      instance: '100',
+      attribute: String(index + 1),
+    }));
+    persisted.state.activeProfileDocument = {
+      ...persisted.state.activeProfileDocument,
+      fields: persisted.state.activeProfileDocument.fields.map((field, index) => ({
+        ...field,
+        cipService: field.access === 'WRITE' ? 'Set_Attribute_Single' : 'Get_Attribute_Single',
+        class: 4,
+        instance: 100,
+        attribute: index + 1,
+      })),
+    };
+    localStorage.setItem(storageKey, JSON.stringify(persisted));
+  });
+
+  await page.goto(BASE + '/downloads');
+  const tbdSummary = page.getByText('0 TBD', { exact: true });
+  await waitFor(
+    () => tbdSummary.isVisible().catch(() => false),
+    `${label}: fully resolved profile summary shows zero TBD mappings`,
+    20000,
+  );
+  check(
+    !(await warningHeading.isVisible().catch(() => false)),
+    `${label}: warning is absent for a profile with all concrete CIP mappings`,
+  );
+
+  await page.reload();
+  await waitFor(
+    () => tbdSummary.isVisible().catch(() => false),
+    `${label}: resolved profile remains loaded after reload`,
+    20000,
+  );
+  check(
+    !(await warningHeading.isVisible().catch(() => false)),
+    `${label}: warning remains absent after reloading the fully resolved profile`,
+  );
+
+  // ── 5. Packaged Windows default and mode-transition reset ─────────────────
   await page.goto(BASE + '/device');
   const hardwareModeButton = page.getByRole('button', { name: 'HARDWARE MODE' });
   await waitFor(
@@ -323,7 +376,7 @@ async function downloadsWarningChecks(context) {
     `${label}: physical session connected`,
   );
 
-  // ── 5. Desktop update progress and defer/review states ─────────────────────
+  // ── 6. Desktop update progress and defer/review states ─────────────────────
   await page.evaluate(() => {
     window.__lsnUpdateTest.publishUpdateState({
       status: 'downloading',
