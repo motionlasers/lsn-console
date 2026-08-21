@@ -29,7 +29,7 @@ Tag-triggered publication refuses to replace any existing release or asset.
 
 The 2026-08-21 Windows workflow run is retained at:
 
-<https://github.com/motionlasers/lsn-console/actions/runs/32466707746>
+<https://github.com/motionlasers/lsn-console/actions/runs/32467377408>
 
 Both independent Windows jobs passed:
 
