@@ -1,0 +1,4 @@
+
+> @workspace/lsn-engineering-console@0.2.1 typecheck /home/runner/workspace/artifacts/lsn-engineering-console
+> tsc -p tsconfig.json --noEmit
+

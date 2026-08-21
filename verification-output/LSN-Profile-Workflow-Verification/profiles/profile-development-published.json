@@ -1,0 +1,7 @@
+{
+  "verificationResult": "NOT VERIFIED",
+  "requestedStage": "Development publication",
+  "profileLabel": "VERIFICATION TEST PROFILE — NOT PRODUCTION",
+  "runtimeProfileCreated": false,
+  "reason": "The development database lacks the governed profile schema. This file is an explicit placeholder, not fabricated profile evidence."
+}

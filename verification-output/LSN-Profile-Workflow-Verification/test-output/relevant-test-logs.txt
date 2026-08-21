@@ -1,0 +1,19 @@
+RELEVANT TEST LOG INDEX
+=======================
+
+api-server-tests.txt
+  Runtime integration failure proving the schema blocker. Password hashes redacted.
+api-server-typecheck.txt
+  Initial direct leaf typecheck before shared declaration rebuild; failed due stale generated DB declarations.
+root-canonical-typecheck.txt
+  Canonical root verification; rebuilt shared declarations and passed all workspace typechecks.
+api-server-typecheck-after-libs.txt
+  API leaf typecheck passed after canonical shared-library build.
+console-tests.txt
+  Full Console unit suite: 320 passing.
+windows-profile-unit-tests.txt
+  Targeted profile update, mapping, hardware profile, and profile tests: 85 passing.
+development-schema-inspection.json
+  Read-only development schema inventory proving the missing role/profile tables.
+
+No secrets, tokens, cookies, database credentials, private keys, or personal client data are retained.

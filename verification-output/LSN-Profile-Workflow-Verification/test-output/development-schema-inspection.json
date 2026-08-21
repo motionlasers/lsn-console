@@ -1,0 +1,7 @@
+{
+  "environment": "development",
+  "operation": "read-only schema inspection",
+  "tables": "table_name\nusers\n",
+  "usersColumns": "column_name,data_type,is_nullable\nid,integer,NO\nusername,text,NO\npassword_hash,text,NO\nis_admin,boolean,NO\nforce_password_change,boolean,NO\ncreated_at,timestamp with time zone,NO\n",
+  "conclusion": "Blocking schema mismatch: users.role and governed profile tables are absent. No schema changes were made during verification."
+}

@@ -1,0 +1,20 @@
+AUTOMATED TEST SUMMARY
+======================
+
+API server test suite: FAIL
+- 3 files passed; 2 suites failed during setup
+- 17 tests passed; 42 lifecycle/admin tests skipped
+- Blocking errors: users.role missing (42703), profiles relation missing (42P01)
+
+Canonical workspace typecheck: PASS
+- pnpm run typecheck rebuilt shared declarations and all leaf typechecks passed
+
+Console lint: PASS
+Console typecheck: PASS
+Console full test suite: PASS (15 files, 320 tests)
+Targeted profile/Windows-compatible unit suite: PASS (4 files, 85 tests)
+
+Installed Windows propagation test: NOT RUN / NOT VERIFIED
+Role-specific browser lifecycle test: NOT RUN / BLOCKED BY DATABASE SCHEMA
+
+See individual logs in this directory. API test password hashes were redacted.

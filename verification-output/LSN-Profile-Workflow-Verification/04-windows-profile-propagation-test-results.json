@@ -1,0 +1,104 @@
+{
+  "overallResult": "NOT VERIFIED",
+  "environment": "Linux development workspace; no packaged Windows runner/session",
+  "windowsConsoleVersionBefore": "0.2.1 (source package version only)",
+  "windowsConsoleVersionAfter": "0.2.1 (source package version only)",
+  "applicationBuildHashBefore": null,
+  "applicationBuildHashAfter": null,
+  "deviceProfileBefore": null,
+  "deviceProfileAfter": null,
+  "windowsRebuildRequired": "NOT VERIFIED",
+  "windowsReinstallRequired": "NOT VERIFIED",
+  "installedBinaryUnchanged": "NOT VERIFIED",
+  "checks": [
+    {
+      "item": "Authenticated fixed-origin profile channel",
+      "result": "PASS",
+      "evidenceType": "unit test/source"
+    },
+    {
+      "item": "Schema, digest, version, compatibility validation",
+      "result": "PASS",
+      "evidenceType": "85 targeted Linux unit tests"
+    },
+    {
+      "item": "Check stages without activating",
+      "result": "PASS",
+      "evidenceType": "unit test"
+    },
+    {
+      "item": "Explicit apply and digest guard",
+      "result": "PASS",
+      "evidenceType": "unit test"
+    },
+    {
+      "item": "Persisted active/staged/last-known-good and rollback",
+      "result": "PASS",
+      "evidenceType": "unit test"
+    },
+    {
+      "item": "Packaged Windows detects server publication",
+      "result": "NOT VERIFIED",
+      "evidenceType": "no Windows runner"
+    },
+    {
+      "item": "NEW PROFILE AVAILABLE banner",
+      "result": "FAIL",
+      "evidenceType": "requested literal/UI absent"
+    },
+    {
+      "item": "VIEW CHANGES mapping diff",
+      "result": "FAIL",
+      "evidenceType": "renderer bridge exposes no diff"
+    },
+    {
+      "item": "APPLY PROFILE UPDATE in packaged Windows",
+      "result": "NOT VERIFIED",
+      "evidenceType": "no Windows runner"
+    },
+    {
+      "item": "Runtime protocol uses changed TimerState mapping",
+      "result": "NOT VERIFIED",
+      "evidenceType": "unit resolution only; no packaged session"
+    },
+    {
+      "item": "Profile publish does not trigger Windows CI",
+      "result": "NOT VERIFIED",
+      "evidenceType": "no successful runtime publish; source has no build invocation"
+    },
+    {
+      "item": "Windows profile-applied audit",
+      "result": "FAIL",
+      "evidenceType": "event not implemented"
+    }
+  ],
+  "dynamicFields": {
+    "documentDeliverySourceSupport": [
+      "CIP class",
+      "instance",
+      "attribute",
+      "assembly",
+      "byte/bit offsets",
+      "units",
+      "descriptions",
+      "update/RPI",
+      "communication timeout",
+      "expected behavior",
+      "test tolerances",
+      "capability flags",
+      "implementation status",
+      "protocol/profile version"
+    ],
+    "protocolCodecSourceSupport": [
+      "bool8",
+      "uint16",
+      "uint32",
+      "uint64",
+      "string",
+      "enum"
+    ],
+    "packagedWindowsRuntimeResult": "NOT VERIFIED"
+  },
+  "esp32FirmwareModified": false,
+  "note": "Dynamic profile consumption must not be interpreted as proof that ESP32 firmware implements the mapping."
+}

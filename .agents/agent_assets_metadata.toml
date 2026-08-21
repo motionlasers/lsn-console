@@ -7,6 +7,7 @@ uri = "file://lsn-console-final-review.zip"
 type = "unspecified"
 title = "LSN Console Final Review — Screenshot Set"
 description = "34 screenshots across all 31 requested scenarios at 1440×900. Includes connected/disconnected states, telemetry integrity states, firmware update flows, developer mode views, and future-capabilities panel."
+logical_id = "fddee6ec-1c5d-4c13-b842-7f000653403d"
 
 [[outputs]]
 id = "H8yJUaVa91GbgXVJuoGla"
@@ -14,6 +15,7 @@ uri = "file://lsn-console-final-final-review.zip"
 type = "unspecified"
 title = "LSN Console Final Review Screenshot Set"
 description = "Verified 35-image external-review set at 1440×1000, including capture notes and SHA-256 manifest. The ZIP passed archive integrity validation."
+logical_id = "934c1bf8-281f-4f6a-8f4e-e8f885306114"
 
 [[outputs]]
 id = "LOCOjug8gzlPC3tlgH0dr"
@@ -21,6 +23,7 @@ uri = "file://LSN-Firmware-Interface-v0.1.zip"
 type = "unspecified"
 title = "LSN Firmware Interface v0.1 — Corrected Final Package"
 description = "Regenerated package with canonical descriptions for all 15 active Phase 1 fields, independent Purpose/Behavior/Response content, disabled-future-capability guidance, and unchanged safe TBD protocol mappings."
+logical_id = "6e06fd42-bcc0-40b2-b61d-61e08a606dc9"
 
 [[outputs]]
 id = "UL8pnKrkH92WSaLrWT5wO"
@@ -28,6 +31,7 @@ uri = "file://exports/LSN_Firmware_Integration_Handoff.pdf"
 type = "pdf"
 title = "LSN Firmware Integration Handoff"
 description = "A polished four-page PDF for the firmware engineer explaining the current Hardware Mode status, requested ESP32 interface details, and the path to physical testing."
+logical_id = "f8cf2bac-594f-4625-af6b-18747e86a056"
 
 [[outputs]]
 id = "kiwJYeWmAbCsMxdm2W9_H"
@@ -35,3 +39,18 @@ uri = "file://exports/LSN_EtherNetIP_Discovery_and_Connection_Steps.pdf"
 type = "pdf"
 title = "LSN EtherNet/IP Discovery and Connection Steps"
 description = "Focused three-page firmware handoff covering ESP32 ListIdentity discovery, EtherNet/IP RegisterSession connection, expected responses, and acceptance checks."
+logical_id = "df8c2fca-81b5-41df-b38b-d7fc984fe832"
+
+[[outputs]]
+id = "P-NXajOO6PO0I3NaYORS7"
+uri = "file://verification-output/LSN-Profile-Workflow-Verification.zip"
+type = "unspecified"
+title = "LSN Profile Workflow Verification"
+description = "Verification-only evidence package with role matrix, API/lifecycle/Windows results, schema blocker evidence, redacted logs, requested fixture placeholders, screenshot evidence, checksums, and explicit PASS/FAIL/NOT VERIFIED conclusions."
+logical_id = "9f08e475-cdbf-4cd6-8cc0-85852cfddaa8"
+content_hash = "sha256:1af61d967f69eae8721838bee534f76982533f8681ce74bb1a770a26cf3f6afc"
+size = 45886
+mtime_ms = 1787354773690
+storage_uri = "gcs://replit-rams-assets-riker/rams/assets/repl:d540ce7c-4f47-47ea-89b2-ea532e7878c3/9f08e475-cdbf-4cd6-8cc0-85852cfddaa8/56ad56d3-01ee-4d81-ba1f-bf58ec3794c7"
+storage_version_token = "1787354795833100"
+content_type = "application/octet-stream"

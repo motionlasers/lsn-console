@@ -1,0 +1,2 @@
+root_canonical_typecheck=0
+api_server_typecheck_after_lib_build=0

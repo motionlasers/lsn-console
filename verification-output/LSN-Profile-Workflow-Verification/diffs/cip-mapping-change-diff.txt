@@ -1,0 +1,13 @@
+CIP MAPPING CHANGE DIFF
+=======================
+Result: NOT VERIFIED
+
+Requested artificial change:
+  Canonical field: TimerState
+  Class: TBD -> 0x70
+  Instance: TBD -> 1
+  Attribute: TBD -> 4
+
+No runtime before/after documents exist because the governed profile database schema is absent.
+The profile editor also lacks the required CIP Class/Instance/Attribute editing controls.
+This is not a fabricated diff and must not be treated as production mapping evidence.

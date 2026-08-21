@@ -1,0 +1,7 @@
+{
+  "verificationResult": "NOT VERIFIED",
+  "entries": [],
+  "reason": "No disposable governed profile could be created because the database schema is absent.",
+  "sourceGap": "Windows profile application is not emitted into server audit history, and no audit-history UI exists.",
+  "redaction": "No identities, credentials, tokens, keys, or personal data included."
+}

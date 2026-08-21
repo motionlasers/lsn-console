@@ -1,0 +1,9 @@
+
+ RUN  v4.1.10 /home/runner/workspace/artifacts/lsn-engineering-console
+
+
+ Test Files  4 passed (4)
+      Tests  85 passed (85)
+   Start at  23:22:46
+   Duration  789ms (transform 499ms, setup 0ms, import 740ms, tests 549ms, environment 0ms)
+

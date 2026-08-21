@@ -1,0 +1,66 @@
+{
+  "overallResult": "NOT VERIFIED",
+  "reason": "Direct API role tests could not create users or profiles because the merged database schema is absent.",
+  "runtimeEvidence": {
+    "apiTestExitCode": 1,
+    "databaseErrors": [
+      {
+        "code": "42703",
+        "message": "column role of relation users does not exist"
+      },
+      {
+        "code": "42P01",
+        "message": "relation profiles does not exist"
+      }
+    ],
+    "permissionUnitTests": {
+      "result": "PASS",
+      "note": "Pure permission-matrix unit tests passed within the API suite."
+    }
+  },
+  "attemptedProhibitedOperations": [
+    {
+      "actorRole": "CLIENT_REVIEWER",
+      "operation": "update CIP mapping/draft",
+      "expected": "403 DENIED",
+      "result": "NOT VERIFIED",
+      "reason": "fixture setup blocked"
+    },
+    {
+      "actorRole": "CLIENT_REVIEWER",
+      "operation": "publish Development Profile",
+      "expected": "403 DENIED",
+      "result": "NOT VERIFIED",
+      "reason": "fixture setup blocked"
+    },
+    {
+      "actorRole": "CLIENT_REVIEWER",
+      "operation": "promote Production Profile",
+      "expected": "403 DENIED",
+      "result": "NOT VERIFIED",
+      "reason": "fixture setup blocked"
+    },
+    {
+      "actorRole": "FIRMWARE_ADMIN",
+      "operation": "assign user role",
+      "expected": "403 DENIED",
+      "result": "NOT VERIFIED",
+      "reason": "fixture setup blocked"
+    },
+    {
+      "actorRole": "FIRMWARE_ADMIN",
+      "operation": "promote Production Profile",
+      "expected": "403 DENIED",
+      "result": "NOT VERIFIED",
+      "reason": "fixture setup blocked"
+    },
+    {
+      "actorRole": "SUPERADMIN",
+      "operation": "promote disposable hardware-verified profile",
+      "expected": "201 ALLOWED",
+      "result": "NOT VERIFIED",
+      "reason": "fixture setup blocked"
+    }
+  ],
+  "credentialsIncluded": false
+}

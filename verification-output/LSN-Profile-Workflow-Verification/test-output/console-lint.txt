@@ -1,0 +1,4 @@
+
+> @workspace/lsn-engineering-console@0.2.1 lint /home/runner/workspace/artifacts/lsn-engineering-console
+> eslint src tests vite.config.ts
+
