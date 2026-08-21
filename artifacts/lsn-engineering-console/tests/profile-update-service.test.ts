@@ -21,6 +21,10 @@ const svc = require('../electron/profile-update-service.cjs') as {
   parseSemver: (v: unknown) => number[] | null;
   compareSemverCore: (a: string, b: string) => number | null;
   isFirmwareSupported: (v: string, list: string[]) => boolean;
+  computeMappingDiff: (
+    current: Record<string, unknown>,
+    candidate: Record<string, unknown>,
+  ) => Array<Record<string, unknown>>;
 };
 
 const API_ORIGIN = 'https://lsn.saberindustrial.net';
@@ -208,6 +212,26 @@ describe('profile-update-service — pure verification', () => {
     expect(result.verified?.readReady).toBe(true);
   });
 
+  it('produces a renderer-safe scalar mapping diff', () => {
+    const current = baseDocument();
+    const candidate = baseDocument({
+      fields: (current.fields as Record<string, unknown>[]).map((field) =>
+        field.symbolicName === 'Ready'
+          ? { ...field, class: 150, instance: 7, attribute: 42 }
+          : field,
+      ),
+    });
+    expect(svc.computeMappingDiff(current, candidate)).toContainEqual({
+      symbolicName: 'Ready',
+      changeType: 'changed',
+      changes: [
+        { property: 'class', from: '100', to: '150' },
+        { property: 'instance', from: '1', to: '7' },
+        { property: 'attribute', from: '1', to: '42' },
+      ],
+    });
+  });
+
   it('rejects a digest mismatch', () => {
     const doc = baseDocument();
     const manifest = manifestFor(doc, { digest: 'f'.repeat(64) });
@@ -339,6 +363,7 @@ describe('profile-update-service — fetch/stage/activate/rollback lifecycle', (
     // Active is still bundled — no activation happened.
     expect(state.active?.source).toBe('bundled');
     expect(state.error).toBeNull();
+    expect(state.mappingDiff.length).toBeGreaterThan(0);
   });
 
   it('check() reports verification errors without staging', async () => {
@@ -392,6 +417,11 @@ describe('profile-update-service — fetch/stage/activate/rollback lifecycle', (
     // Persisted atomically on disk.
     expect(existsSync(join(dir, 'active.json'))).toBe(true);
     expect(existsSync(join(dir, 'staged.json'))).toBe(false);
+    expect(state.audit).toContainEqual(expect.objectContaining({
+      event: 'PROFILE_APPLIED',
+      profileVersion: '0.2.0',
+      digestPrefix: expect.stringMatching(/^[a-f0-9]{12}$/),
+    }));
   });
 
   it('activate() rejects a mismatched requested digest', async () => {
@@ -404,6 +434,28 @@ describe('profile-update-service — fetch/stage/activate/rollback lifecycle', (
     await service.initialize();
     await service.check();
     await expect(service.activate({ digest: 'f'.repeat(64) })).rejects.toThrow(/digest/i);
+  });
+
+  it('keeps the staged profile and restores active state when runtime repin fails', async () => {
+    const doc = baseDocument();
+    const service = makeService(
+      {
+        [`${API_ORIGIN}${svc.PROFILE_CHANNEL_PATH}`]: manifestFor(doc),
+        [`${API_ORIGIN}/api/desktop/profile-artifact/0.2.0`]: doc,
+      },
+      { onActivate: async () => { throw new Error('repin failed'); } },
+    );
+    await service.initialize();
+    await service.check();
+    await expect(service.activate()).rejects.toThrow('repin failed');
+    const state = service.getState();
+    expect(state.active?.source).toBe('bundled');
+    expect(state.staged?.profileVersion).toBe('0.2.0');
+    expect(state.audit.at(-1)).toMatchObject({
+      event: 'PROFILE_APPLIED',
+      profileVersion: '0.2.0',
+      result: 'failed',
+    });
   });
 
   it('activate() throws when nothing is staged', async () => {
@@ -447,6 +499,11 @@ describe('profile-update-service — fetch/stage/activate/rollback lifecycle', (
     state = await service.rollback();
     expect(state.active?.profileVersion).toBe('0.2.0');
     expect(state.lastKnownGood).toBeNull();
+    expect(state.audit.at(-1)).toMatchObject({
+      event: 'PROFILE_ROLLED_BACK',
+      profileVersion: '0.2.0',
+      target: 'last-known-good',
+    });
 
     // Rollback again -> bundled fallback (no LKG left).
     state = await service.rollback();
@@ -465,6 +522,31 @@ describe('profile-update-service — fetch/stage/activate/rollback lifecycle', (
     await service.activate();
     const state = await service.rollback({ toBundled: true });
     expect(state.active?.source).toBe('bundled');
+    expect(existsSync(join(dir, 'active.json'))).toBe(false);
+  });
+
+  it('preserves the current active profile when rollback runtime repin fails', async () => {
+    const v020 = baseDocument({ profileVersion: '0.2.0' });
+    const service = makeService({
+      [`${API_ORIGIN}${svc.PROFILE_CHANNEL_PATH}`]: manifestFor(v020),
+      [`${API_ORIGIN}/api/desktop/profile-artifact/0.2.0`]: v020,
+    });
+    await service.initialize();
+    await service.check();
+    await service.activate();
+    service._onActivate = async (document: Record<string, unknown>) => {
+      if (document.profileVersion === '0.1.0') throw new Error('rollback repin failed');
+    };
+    await expect(service.rollback({ toBundled: true })).rejects.toThrow(
+      'rollback repin failed',
+    );
+    const state = service.getState();
+    expect(state.active?.profileVersion).toBe('0.2.0');
+    expect(state.audit.at(-1)).toMatchObject({
+      event: 'PROFILE_ROLLED_BACK',
+      result: 'failed',
+      target: 'bundled',
+    });
   });
 
   it('reloads persisted active/staged/lkg across restart', async () => {
@@ -500,6 +582,38 @@ describe('profile-update-service — fetch/stage/activate/rollback lifecycle', (
     expect(repin.mock.calls[0][0]).toMatchObject({ profileVersion: '0.2.0' });
   });
 
+  it('retains valid audit history when the final JSONL record is truncated', async () => {
+    const doc = baseDocument();
+    const profilesDir = newDir();
+    const routes = {
+      [`${API_ORIGIN}${svc.PROFILE_CHANNEL_PATH}`]: manifestFor(doc),
+      [`${API_ORIGIN}/api/desktop/profile-artifact/0.2.0`]: doc,
+    };
+    const first = new svc.ProfileUpdateService({
+      apiOrigin: API_ORIGIN,
+      fetch: fakeFetch(routes),
+      profilesDir,
+      bundledProfilePath: bundledPath,
+    });
+    await first.initialize();
+    await first.check();
+    await first.activate();
+    const fs = require('node:fs');
+    fs.appendFileSync(join(profilesDir, 'profile-update-audit.jsonl'), '{"event":');
+
+    const second = new svc.ProfileUpdateService({
+      apiOrigin: API_ORIGIN,
+      fetch: fakeFetch(routes),
+      profilesDir,
+      bundledProfilePath: bundledPath,
+    });
+    const state = await second.initialize();
+    expect(state.audit).toContainEqual(expect.objectContaining({
+      event: 'PROFILE_APPLIED',
+      result: 'success',
+    }));
+  });
+
   it('drops a tampered on-disk active entry and falls back to bundled', async () => {
     const profilesDir = newDir();
     // Write a bogus active.json with a mismatched digest.
@@ -519,6 +633,66 @@ describe('profile-update-service — fetch/stage/activate/rollback lifecycle', (
     });
     const state = await service.initialize();
     expect(state.active?.source).toBe('bundled');
+    dir = profilesDir;
+  });
+
+  it('never trusts a persisted entry that claims to be the bundled profile', async () => {
+    const profilesDir = newDir();
+    const fs = require('node:fs');
+    fs.writeFileSync(
+      join(profilesDir, 'active.json'),
+      JSON.stringify({
+        meta: {
+          profileVersion: '9.9.9',
+          digest: 'attacker-controlled',
+          source: 'bundled',
+        },
+        document: baseDocument({ profileVersion: '9.9.9' }),
+      }),
+    );
+    const repin = vi.fn(async () => {});
+    const service = new svc.ProfileUpdateService({
+      apiOrigin: API_ORIGIN,
+      fetch: fakeFetch({}),
+      profilesDir,
+      bundledProfilePath: bundledPath,
+      onActivate: repin,
+    });
+    const state = await service.initialize();
+    expect(state.active?.source).toBe('bundled');
+    expect(state.active?.profileVersion).toBe('0.1.0');
+    expect(repin).not.toHaveBeenCalled();
+    expect(existsSync(join(profilesDir, 'active.json'))).toBe(false);
+    dir = profilesDir;
+  });
+
+  it('never trusts a valid-digest persisted entry with an unknown source', async () => {
+    const profilesDir = newDir();
+    const fs = require('node:fs');
+    const document = baseDocument({ profileVersion: '9.9.9' });
+    fs.writeFileSync(
+      join(profilesDir, 'active.json'),
+      JSON.stringify({
+        meta: {
+          profileVersion: document.profileVersion,
+          digest: svc.canonicalDigest(document),
+          source: 'local-import',
+        },
+        document,
+      }),
+    );
+    const repin = vi.fn(async () => {});
+    const service = new svc.ProfileUpdateService({
+      apiOrigin: API_ORIGIN,
+      fetch: fakeFetch({}),
+      profilesDir,
+      bundledProfilePath: bundledPath,
+      onActivate: repin,
+    });
+    const state = await service.initialize();
+    expect(state.active?.source).toBe('bundled');
+    expect(repin).not.toHaveBeenCalled();
+    expect(existsSync(join(profilesDir, 'active.json'))).toBe(false);
     dir = profilesDir;
   });
 

@@ -95,6 +95,17 @@ class HardwareService {
     return {
       profileDigest: this._profileDigest,
       ...this._readiness,
+      mappingEvidence: this._profile.fields
+        .filter((field) => field && typeof field.symbolicName === 'string')
+        .slice(0, 25)
+        .map((field) => ({
+          symbolicName: field.symbolicName,
+          cipService: field.cipService ?? null,
+          class: field.class ?? null,
+          instance: field.instance ?? null,
+          attribute: field.attribute ?? null,
+          assembly: field.assembly ?? null,
+        })),
     };
   }
 

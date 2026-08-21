@@ -227,6 +227,33 @@ jobs:
           $env:LSN_WINDOWS_EXECUTABLE = $appExe.FullName
           $env:LSN_WINDOWS_SMOKE_LABEL = 'clean-reinstall'
           node artifacts/lsn-engineering-console/tests/windows/installed-smoke.mjs
+
+          $certificateDir = Join-Path $env:RUNNER_TEMP 'lsn-profile-smoke-cert'
+          New-Item -ItemType Directory -Path $certificateDir -Force | Out-Null
+          $certificate = Join-Path $certificateDir 'localhost-cert.pem'
+          $privateKey = Join-Path $certificateDir 'localhost-key.pem'
+          & openssl req -x509 -newkey rsa:2048 -sha256 -nodes `
+            -keyout $privateKey -out $certificate -days 1 `
+            -subj '/CN=LSN Windows Profile Smoke' `
+            -addext 'subjectAltName=DNS:localhost'
+          if ($LASTEXITCODE -ne 0) {
+            throw 'Unable to generate profile smoke HTTPS certificate.'
+          }
+          & certutil -addstore -user Root $certificate
+          if ($LASTEXITCODE -ne 0) {
+            throw 'Unable to trust profile smoke HTTPS certificate.'
+          }
+          try {
+            $env:LSN_WINDOWS_SMOKE_CERT = $certificate
+            $env:LSN_WINDOWS_SMOKE_KEY = $privateKey
+            node artifacts/lsn-engineering-console/tests/windows/profile-update-smoke.mjs
+            if ($LASTEXITCODE -ne 0) {
+              throw 'Installed profile-only publication smoke failed.'
+            }
+          } finally {
+            & certutil -delstore -user Root 'LSN Windows Profile Smoke'
+            Remove-Item -LiteralPath $certificateDir -Recurse -Force
+          }
       - uses: actions/upload-artifact@v4
         if: always()
         with:

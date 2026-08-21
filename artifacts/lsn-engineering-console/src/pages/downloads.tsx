@@ -34,6 +34,7 @@ export default function Downloads() {
   const [selectedVersionId, setSelectedVersionId] = useState<number | null>(null);
   const [notesExpanded, setNotesExpanded] = useState(true);
   const [previousExpanded, setPreviousExpanded] = useState(false);
+  const [profileChangesExpanded, setProfileChangesExpanded] = useState(false);
   
   const [isGeneratingItem, setIsGeneratingItem] = useState<string | null>(null);
   const [itemError, setItemError] = useState<string | null>(null);
@@ -233,16 +234,66 @@ export default function Downloads() {
             <div className="flex justify-between gap-3"><span>Windows active</span><strong>{profileChannel?.active?.profileVersion ?? "DESKTOP ONLY"}</strong></div>
             <div className="flex justify-between gap-3 mt-2"><span>Staged update</span><strong>{profileChannel?.staged?.profileVersion ?? "NONE"}</strong></div>
             {profileChannel?.staged && profileChannel.active && (
-              <div className="mt-2 border-t border-border pt-2">
-                Version {profileChannel.active.profileVersion} → {profileChannel.staged.profileVersion}<br/>
-                Digest {profileChannel.active.digest.slice(0, 10)} → {profileChannel.staged.digest.slice(0, 10)}
+              <div className="mt-3 border border-primary/40 bg-primary/5 p-3" data-testid="new-profile-available">
+                <div className="text-primary font-bold tracking-widest">NEW PROFILE AVAILABLE</div>
+                <div className="mt-2">Profile version {profileChannel.staged.profileVersion}</div>
+                <div className="mt-1">
+                  Digest {profileChannel.active.digest.slice(0, 10)} → {profileChannel.staged.digest.slice(0, 10)}
+                </div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="mt-3"
+                  onClick={() => setProfileChangesExpanded((expanded) => !expanded)}
+                  data-testid="button-view-profile-changes"
+                >
+                  VIEW CHANGES
+                </Button>
+                {profileChangesExpanded && (
+                  <div className="mt-3 border-t border-border pt-3" data-testid="profile-mapping-diff">
+                    <div className="mb-2 font-bold text-foreground">MAPPING DIFF</div>
+                    {profileChannel.mappingDiff.length === 0 ? (
+                      <div className="text-muted-foreground">No scalar mapping changes.</div>
+                    ) : (
+                      <div className="space-y-3">
+                        {profileChannel.mappingDiff.map((field) => (
+                          <div key={field.symbolicName} className="border-l-2 border-primary/40 pl-2">
+                            <div className="font-bold">{field.symbolicName} · {field.changeType.toUpperCase()}</div>
+                            {field.changes.map((change) => (
+                              <div key={change.property} className="mt-1 text-muted-foreground">
+                                {change.property}: <span className="text-foreground">{change.from}</span> → <span className="text-primary">{change.to}</span>
+                              </div>
+                            ))}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             )}
             <div className="mt-3 flex gap-2">
               <Button size="sm" variant="outline" onClick={() => profileChannelMutation.mutate('check')} data-testid="button-check-profile-update">CHECK</Button>
-              <Button size="sm" disabled={!profileChannel?.staged} onClick={() => profileChannelMutation.mutate('activate')} data-testid="button-apply-profile-update">APPLY</Button>
-              <Button size="sm" variant="outline" disabled={!profileChannel?.lastKnownGood} onClick={() => profileChannelMutation.mutate('rollback')} data-testid="button-rollback-profile-update">ROLL BACK</Button>
+              <Button size="sm" disabled={!profileChannel?.staged} onClick={() => profileChannelMutation.mutate('activate')} data-testid="button-apply-profile-update">APPLY PROFILE UPDATE</Button>
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={!profileChannel?.active || profileChannel.active.source === 'bundled'}
+                onClick={() => profileChannelMutation.mutate('rollback')}
+                data-testid="button-rollback-profile-update"
+              >
+                ROLL BACK
+              </Button>
             </div>
+            {profileChannel?.audit?.length ? (
+              <div className="mt-3 border-t border-border pt-2" data-testid="profile-update-audit">
+                {profileChannel.audit.slice(-2).map((event) => (
+                  <div key={`${event.timestamp}-${event.event}`} className="mt-1 text-muted-foreground">
+                    {event.event} · v{event.profileVersion} · {event.digestPrefix ?? "NO DIGEST"} · {event.result}
+                  </div>
+                ))}
+              </div>
+            ) : null}
             {profileChannelMutation.error && <div className="mt-2 text-warning">{profileChannelMutation.error.message}</div>}
           </div>
         </CardContent>

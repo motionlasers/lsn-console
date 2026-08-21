@@ -49,7 +49,8 @@ contextBridge.exposeInMainWorld('lsnDesktop', Object.freeze({
   // origin, independently verifies (digest/schema/protocol/identity/firmware/
   // mapping readiness/version policy), stages, and — only on an explicit action —
   // activates or rolls back. The renderer never supplies a URL, path, profile
-  // document, or CIP mapping; it only observes SANITIZED metadata and triggers
+  // document, raw bytes, or encoded paths; it observes SANITIZED metadata and
+  // a reviewable scalar mapping diff, and triggers
   // explicit transitions. It can never activate a physical mapping directly.
   getProfileChannelState: () => ipcRenderer.invoke('desktop:profile-get-state'),
   checkForProfileUpdate: () => ipcRenderer.invoke('desktop:profile-check'),

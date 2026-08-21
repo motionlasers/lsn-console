@@ -90,6 +90,14 @@ export interface DesktopProfileReadiness {
   enable: DesktopWorkflowReadiness;
   controlReady: boolean;
   readReady: boolean;
+  mappingEvidence: Array<{
+    symbolicName: string;
+    cipService: string | null;
+    class: number | null;
+    instance: number | null;
+    attribute: number | null;
+    assembly: number | null;
+  }>;
 }
 
 /** A decoded, typed symbolic field read. */
@@ -157,8 +165,8 @@ export interface DesktopUpdateState {
 
 /**
  * Sanitized metadata for a single profile slot (active, staged, last-known-good,
- * or bundled). The renderer NEVER receives CIP mappings, EPATHs, wire encodings,
- * raw bytes, or a full profile document — only this governance metadata.
+ * or bundled). The renderer receives only reviewable scalar mapping changes,
+ * never encoded EPATHs, raw bytes, or a full profile document.
  */
 export interface DesktopProfileEntry {
   profileVersion: string;
@@ -181,6 +189,25 @@ export interface DesktopProfileIssue {
   message: string;
 }
 
+export interface DesktopProfileMappingChange {
+  symbolicName: string;
+  changeType: 'added' | 'removed' | 'changed';
+  changes: Array<{
+    property: string;
+    from: string;
+    to: string;
+  }>;
+}
+
+export interface DesktopProfileAuditEvent {
+  event: 'PROFILE_APPLIED' | 'PROFILE_ROLLED_BACK';
+  timestamp: string;
+  profileVersion: string | null;
+  digestPrefix: string | null;
+  result: string;
+  target: string | null;
+}
+
 /**
  * Sanitized Development Profile channel state reported by Electron main. The
  * renderer observes which immutable version is active/staged/last-known-good
@@ -195,6 +222,8 @@ export interface DesktopProfileChannelState {
   bundled: DesktopProfileEntry | null;
   checking: boolean;
   error: { code: string; issues: DesktopProfileIssue[] } | null;
+  mappingDiff: DesktopProfileMappingChange[];
+  audit: DesktopProfileAuditEvent[];
 }
 
 export interface LsnDesktopBridge {

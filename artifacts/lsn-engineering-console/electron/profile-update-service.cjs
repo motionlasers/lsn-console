@@ -444,6 +444,86 @@ function sanitizeEntry(entry) {
   };
 }
 
+const MAPPING_PROPERTIES = [
+  'cipService',
+  'class',
+  'instance',
+  'attribute',
+  'assembly',
+  'wireType',
+];
+
+function displayMappingValue(value) {
+  if (value === null || value === undefined || value === '') return 'UNRESOLVED';
+  return String(value);
+}
+
+/**
+ * Renderer-safe mapping change summary. This intentionally exposes only the
+ * reviewable symbolic field and scalar mapping coordinates, never a complete
+ * profile document, raw bytes, or an encoded EPATH.
+ */
+function computeMappingDiff(currentDocument, candidateDocument) {
+  const currentFields = new Map(
+    (Array.isArray(currentDocument?.fields) ? currentDocument.fields : [])
+      .filter((field) => isPlainObject(field) && typeof field.symbolicName === 'string')
+      .map((field) => [field.symbolicName, field]),
+  );
+  const candidateFields = new Map(
+    (Array.isArray(candidateDocument?.fields) ? candidateDocument.fields : [])
+      .filter((field) => isPlainObject(field) && typeof field.symbolicName === 'string')
+      .map((field) => [field.symbolicName, field]),
+  );
+  const names = [...new Set([...currentFields.keys(), ...candidateFields.keys()])].sort();
+
+  return names.flatMap((symbolicName) => {
+    const before = currentFields.get(symbolicName);
+    const after = candidateFields.get(symbolicName);
+    if (!before) {
+      return [{
+        symbolicName,
+        changeType: 'added',
+        changes: MAPPING_PROPERTIES.map((property) => ({
+          property,
+          from: 'NOT PRESENT',
+          to: displayMappingValue(after[property]),
+        })),
+      }];
+    }
+    if (!after) {
+      return [{
+        symbolicName,
+        changeType: 'removed',
+        changes: MAPPING_PROPERTIES.map((property) => ({
+          property,
+          from: displayMappingValue(before[property]),
+          to: 'REMOVED',
+        })),
+      }];
+    }
+    const changes = MAPPING_PROPERTIES.flatMap((property) => {
+      const from = displayMappingValue(before[property]);
+      const to = displayMappingValue(after[property]);
+      return from === to ? [] : [{ property, from, to }];
+    });
+    return changes.length > 0
+      ? [{ symbolicName, changeType: 'changed', changes }]
+      : [];
+  });
+}
+
+function sanitizeAuditEvent(event) {
+  return {
+    event: event.event,
+    timestamp: event.timestamp,
+    profileVersion: event.profileVersion,
+    digestPrefix:
+      typeof event.digest === 'string' ? event.digest.slice(0, 12) : null,
+    result: event.result,
+    target: event.target,
+  };
+}
+
 // --- Storage layout ---------------------------------------------------------
 //
 //   <profilesDir>/active.json        -> { meta, document }
@@ -478,6 +558,7 @@ class ProfileUpdateService {
     this._activePath = path.join(profilesDir, 'active.json');
     this._lkgPath = path.join(profilesDir, 'last-known-good.json');
     this._stagedPath = path.join(profilesDir, 'staged.json');
+    this._auditPath = path.join(profilesDir, 'profile-update-audit.jsonl');
 
     this._bundled = this._loadBundled();
     this._active = null; // { meta, document }
@@ -485,6 +566,7 @@ class ProfileUpdateService {
     this._staged = null;
     this._lastError = null;
     this._checking = false;
+    this._auditEvents = [];
   }
 
   _loadBundled() {
@@ -519,6 +601,7 @@ class ProfileUpdateService {
     const restoredPersistedActive = Boolean(this._active);
     this._lastKnownGood = await this._readEntry(this._lkgPath);
     this._staged = await this._readEntry(this._stagedPath);
+    this._auditEvents = await this._readAuditEvents();
     // Fall back to the bundled profile as the active profile when nothing is
     // persisted (first run, or corrupted store already cleared by _readEntry).
     if (!this._active) {
@@ -542,40 +625,43 @@ class ProfileUpdateService {
       ) {
         throw new Error('Malformed stored profile entry');
       }
+      // Only independently verified channel profiles are ever persisted. The
+      // packaged bundled fallback is loaded from immutable application files,
+      // and unknown source labels must never bypass channel verification.
+      if (parsed.meta.source !== 'channel') {
+        throw new Error('Persisted profile source is not trusted');
+      }
       // Re-verify the stored document digest so a tampered on-disk file is
       // never trusted; corrupted entries are dropped and treated as absent.
       const recomputed = canonicalDigest(parsed.document);
       const raw2 = sha256Hex(Buffer.from(JSON.stringify(parsed.document), 'utf8'));
       if (
         parsed.meta.digest !== recomputed &&
-        parsed.meta.digest !== raw2 &&
-        parsed.meta.source !== 'bundled'
+        parsed.meta.digest !== raw2
       ) {
         throw new Error('Stored profile digest mismatch');
       }
-      if (parsed.meta.source === 'channel') {
-        const artifactRaw = JSON.stringify(parsed.document);
-        const verification = verifyCandidate({
-          manifest: {
-            profileVersion: parsed.meta.profileVersion,
-            digest: parsed.meta.digest,
-            firmwareVersion: parsed.meta.firmwareVersion,
-            releaseName: parsed.meta.releaseName,
-          },
-          document: parsed.document,
-          artifactRaw,
-          currentIdentity: this._bundled.meta,
-          verifySignature: this._verifySignature,
-        });
-        if (!verification.ok) {
-          throw new Error(`Stored channel profile failed verification: ${verification.code}`);
-        }
-        parsed.meta = {
-          ...parsed.meta,
-          ...verification.verified,
-          source: 'channel',
-        };
+      const artifactRaw = JSON.stringify(parsed.document);
+      const verification = verifyCandidate({
+        manifest: {
+          profileVersion: parsed.meta.profileVersion,
+          digest: parsed.meta.digest,
+          firmwareVersion: parsed.meta.firmwareVersion,
+          releaseName: parsed.meta.releaseName,
+        },
+        document: parsed.document,
+        artifactRaw,
+        currentIdentity: this._bundled.meta,
+        verifySignature: this._verifySignature,
+      });
+      if (!verification.ok) {
+        throw new Error(`Stored channel profile failed verification: ${verification.code}`);
       }
+      parsed.meta = {
+        ...parsed.meta,
+        ...verification.verified,
+        source: 'channel',
+      };
       return { meta: parsed.meta, document: parsed.document };
     } catch {
       await fs.rm(filePath, { force: true }).catch(() => {});
@@ -600,9 +686,49 @@ class ProfileUpdateService {
     await fs.rm(filePath, { force: true }).catch(() => {});
   }
 
+  async _readAuditEvents() {
+    try {
+      const raw = await fs.readFile(this._auditPath, 'utf8');
+      return raw
+        .split(/\r?\n/)
+        .filter(Boolean)
+        .flatMap((line) => {
+          try {
+            return [JSON.parse(line)];
+          } catch {
+            return [];
+          }
+        })
+        .filter(isPlainObject)
+        .slice(-50);
+    } catch {
+      return [];
+    }
+  }
+
+  async _recordAudit(event) {
+    const record = {
+      event: event.event,
+      timestamp: this._now(),
+      profileVersion: event.profileVersion ?? null,
+      digest: event.digest ?? null,
+      result: event.result ?? 'success',
+      target: event.target ?? null,
+    };
+    const handle = await fs.open(this._auditPath, 'a', 0o600);
+    try {
+      await handle.writeFile(`${JSON.stringify(record)}\n`, 'utf8');
+      await handle.sync();
+    } finally {
+      await handle.close().catch(() => {});
+    }
+    this._auditEvents = [...this._auditEvents, record].slice(-50);
+  }
+
   // --- Public sanitized state ----------------------------------------------
 
   getState() {
+    const activeDocument = this._active?.document ?? this._bundled.document;
     return {
       active: sanitizeEntry(this._active?.meta),
       lastKnownGood: sanitizeEntry(this._lastKnownGood?.meta),
@@ -610,6 +736,10 @@ class ProfileUpdateService {
       bundled: sanitizeEntry(this._bundled.meta),
       checking: this._checking,
       error: this._lastError,
+      mappingDiff: this._staged
+        ? computeMappingDiff(activeDocument, this._staged.document)
+        : [],
+      audit: this._auditEvents.map(sanitizeAuditEvent),
     };
   }
 
@@ -802,22 +932,51 @@ class ProfileUpdateService {
       document: this._staged.document,
     };
 
-    // 1. Demote the previous active to last-known-good (only if it was a real,
-    //    verified channel profile; the bundled fallback is always recoverable
-    //    independently and need not be stored as LKG).
+    // 1. Persist the candidate before repinning. If the hardware service rejects
+    //    it, restore both disk and runtime to the previous active profile.
+    if (activeEntry.meta.source === 'bundled') {
+      await this._removeEntry(this._activePath);
+    } else {
+      await this._writeEntryAtomic(this._activePath, activeEntry);
+    }
+    this._active = activeEntry;
+    try {
+      await this._applyActive(activeEntry);
+    } catch (error) {
+      this._active = previousActive;
+      if (previousActive?.meta.source === 'channel') {
+        await this._writeEntryAtomic(this._activePath, previousActive);
+      } else {
+        await this._removeEntry(this._activePath);
+      }
+      if (previousActive) {
+        await this._applyActive(previousActive).catch(() => {});
+      }
+      await this._recordAudit({
+        event: 'PROFILE_APPLIED',
+        profileVersion: activeEntry.meta.profileVersion,
+        digest: activeEntry.meta.digest,
+        result: 'failed',
+        target: 'channel',
+      });
+      throw error;
+    }
+
+    // 2. Demote the previous active to last-known-good only after runtime repin.
     if (previousActive && previousActive.meta.source === 'channel') {
       await this._writeEntryAtomic(this._lkgPath, previousActive);
       this._lastKnownGood = previousActive;
     }
 
-    // 2. Promote staged -> active atomically, then clear the staged slot.
-    await this._writeEntryAtomic(this._activePath, activeEntry);
-    this._active = activeEntry;
+    // 3. Activation succeeded; consume the staged slot.
     await this._removeEntry(this._stagedPath);
     this._staged = null;
-
-    // 3. Force hardware disconnect + identity revalidation with the new pin.
-    await this._applyActive(activeEntry);
+    await this._recordAudit({
+      event: 'PROFILE_APPLIED',
+      profileVersion: activeEntry.meta.profileVersion,
+      digest: activeEntry.meta.digest,
+      target: 'channel',
+    });
 
     this._lastError = null;
     this._broadcast();
@@ -825,16 +984,7 @@ class ProfileUpdateService {
   }
 
   async _applyActive(entry) {
-    try {
-      await this._onActivate(entry.document, entry.meta);
-    } catch (error) {
-      // Applying the profile to the hardware service must not corrupt storage;
-      // surface as an error but keep the stored active profile authoritative.
-      this._lastError = {
-        code: 'activation_apply_failed',
-        issues: [{ code: 'activation_apply_failed', message: String(error?.message ?? error) }],
-      };
-    }
+    await this._onActivate(entry.document, entry.meta);
   }
 
   // --- Rollback -------------------------------------------------------------
@@ -845,6 +995,7 @@ class ProfileUpdateService {
    * bundled profile. Always forces disconnect + identity revalidation.
    */
   async rollback({ toBundled = false } = {}) {
+    const previousActive = this._active;
     const target =
       !toBundled && this._lastKnownGood
         ? this._lastKnownGood
@@ -855,17 +1006,46 @@ class ProfileUpdateService {
       meta: { ...target.meta, activatedAt: now },
       document: target.document,
     };
-    await this._writeEntryAtomic(this._activePath, activeEntry);
+    if (activeEntry.meta.source === 'bundled') {
+      await this._removeEntry(this._activePath);
+    } else {
+      await this._writeEntryAtomic(this._activePath, activeEntry);
+    }
     this._active = activeEntry;
 
-    // Consuming the last-known-good clears that slot so a second rollback goes
-    // to the bundled fallback rather than re-applying the same profile.
+    try {
+      await this._applyActive(activeEntry);
+    } catch (error) {
+      this._active = previousActive;
+      if (previousActive?.meta.source === 'channel') {
+        await this._writeEntryAtomic(this._activePath, previousActive);
+      } else {
+        await this._removeEntry(this._activePath);
+      }
+      if (previousActive) {
+        await this._applyActive(previousActive).catch(() => {});
+      }
+      await this._recordAudit({
+        event: 'PROFILE_ROLLED_BACK',
+        profileVersion: activeEntry.meta.profileVersion,
+        digest: activeEntry.meta.digest,
+        result: 'failed',
+        target: activeEntry.meta.source === 'channel' ? 'last-known-good' : 'bundled',
+      });
+      throw error;
+    }
+
+    // Consuming the last-known-good clears that slot only after runtime repin.
     if (!toBundled && this._lastKnownGood) {
       await this._removeEntry(this._lkgPath);
       this._lastKnownGood = null;
     }
-
-    await this._applyActive(activeEntry);
+    await this._recordAudit({
+      event: 'PROFILE_ROLLED_BACK',
+      profileVersion: activeEntry.meta.profileVersion,
+      digest: activeEntry.meta.digest,
+      target: activeEntry.meta.source === 'channel' ? 'last-known-good' : 'bundled',
+    });
     this._lastError = null;
     this._broadcast();
     return this.getState();
@@ -896,6 +1076,7 @@ module.exports = {
   canonicalDigest,
   parseSemver,
   compareSemverCore,
+  computeMappingDiff,
   isFirmwareSupported,
   sanitizeEntry,
   MAX_ARTIFACT_BYTES,
