@@ -139,6 +139,7 @@ jobs:
           fi
           (cd "$DIST" && sha256sum * > SHA256SUMS.txt && cat SHA256SUMS.txt)
       - name: Install and smoke-test Windows application
+        timeout-minutes: 8
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
@@ -168,6 +169,7 @@ jobs:
               $appExe = Get-ChildItem -Path $installRoot `
                 -Filter 'LSN-Engineering-Console.exe' -Recurse `
                 -ErrorAction SilentlyContinue |
+                Where-Object { $_.Directory.Name -like 'app-*' } |
                 Sort-Object LastWriteTime -Descending |
                 Select-Object -First 1
               if (-not $appExe) { Start-Sleep -Seconds 2 }
