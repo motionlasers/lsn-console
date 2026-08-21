@@ -1,0 +1,671 @@
+Please update the LSN Engineering Console user roles and Device Profile workflow to support three distinct permission levels:
+
+# Roles
+
+Use these role names:
+
+* **Superadmin**
+* **Firmware Admin**
+* **Client Reviewer**
+
+Replace any existing `Client Admin` terminology with:
+
+**Client Reviewer**
+
+The purpose is to let the firmware engineer iterate quickly, let the client review and emulate proposed changes before implementation is locked, and keep final governance with the Superadmin.
+
+## 1. Superadmin Role
+
+The Superadmin has full control over the system.
+
+Capabilities should include:
+
+* View all Device Profiles
+* Run Simulation Mode
+* View protocol/CIP details
+* View version history and diffs
+* Edit working Device Profiles
+* Create draft profiles
+* Enter/change CIP mappings
+* Change implementation status
+* Submit profiles for client review
+* Comment on review candidates
+* Mark client review accepted if necessary
+* Publish development profiles
+* Roll back development profiles
+* Promote a validated profile to Production / Frozen
+* Manage user accounts
+* Assign roles
+* Change security/settings
+* View audit history
+* Manage releases
+* Access all downloadable engineering resources
+
+The Superadmin should retain final authority to promote a profile into a production/frozen state.
+
+## 2. Firmware Admin Role
+
+The Firmware Admin should be able to perform the normal firmware-development workflow without waiting on the Superadmin.
+
+Capabilities:
+
+* View current and historical Device Profiles
+* Run Simulation Mode
+* View full protocol/CIP details
+* View profile diffs/history
+* Create and edit working/draft Device Profiles
+* Enter/update CIP mappings
+* Change firmware implementation status
+* Change simulation/test status where appropriate
+* Update connection model
+* Update RPI/update-rate values
+* Update communication timeout values
+* Update test expectations
+* Generate/download Firmware Integration Packages
+* Download the Windows LSN Engineering Console
+* Submit a profile for Client Review
+* Comment on review candidates
+* Publish an approved profile as a **Development Profile**
+* Roll back to a previous Development Profile
+* Use the Windows Console to test physical hardware
+* Record hardware validation results
+
+Firmware Admin must NOT be able to:
+
+* Manage users
+* Change user roles
+* Change global security settings
+* Promote a profile to final Production/Frozen state
+* Delete permanent audit history
+* Delete production releases
+* Change Superadmin permissions
+
+The Firmware Admin should own day-to-day firmware iteration.
+
+## 3. Client Reviewer Role
+
+The Client Reviewer is intended for the client's software/engineering team.
+
+They need enough access to review the proposed EtherNet/IP interface before it is locked, but they must not be able to modify or publish the real shared implementation.
+
+Client Reviewer capabilities:
+
+* View the current review candidate
+* View Device Profile details
+* View object/tag map
+* View connection model
+* View update rate / RPI
+* View communication-loss behavior
+* View expected command/status behavior
+* View protocol/CIP details intended for client integration
+* Run the web Simulation Mode
+* Run tests/emulations against the review candidate
+* View expected vs actual simulated behavior
+* View version history relevant to their review
+* View differences between the previous accepted version and the current review candidate
+* Add review comments
+* Mark the review as:
+
+  * ACCEPTED
+  * CHANGES REQUESTED
+* Download client-facing interface documentation
+* Download the Firmware Integration Package if appropriate for their engineering review
+
+Client Reviewer must NOT be able to:
+
+* Edit the shared Device Profile
+* Change CIP mappings
+* Change implementation status
+* Change test definitions
+* Change connection settings
+* Publish a profile
+* Roll back a published profile
+* Promote to production
+* Manage users
+* Change roles
+* Change security settings
+* Modify firmware implementation records
+
+## 4. Client Sandbox
+
+Allow the Client Reviewer to experiment without altering the real shared profile.
+
+Provide a private:
+
+**Client Sandbox**
+
+The Client Sandbox may allow the reviewer to temporarily change simulated values such as:
+
+* update rate
+* communication timeout
+* command state
+* selected test conditions
+* supported simulator controls
+
+These sandbox changes must:
+
+* remain isolated from the shared Device Profile
+* never alter firmware-facing mappings
+* never publish automatically
+* never affect the Windows Console
+* never affect another user's session
+* be clearly labeled:
+
+**CLIENT SANDBOX — NOT PUBLISHED**
+
+The reviewer should be able to reset the sandbox back to the current review candidate at any time.
+
+## 5. Profile Lifecycle
+
+Add an explicit profile-state workflow.
+
+Use these states:
+
+### DRAFT
+
+Editable by Firmware Admin and Superadmin.
+
+Not available to Client Reviewer as an official review candidate unless specifically submitted.
+
+### CLIENT REVIEW
+
+Profile has been submitted for client review.
+
+The Client Reviewer can:
+
+* inspect the profile
+* run simulation
+* compare changes
+* comment
+* accept
+* request changes
+
+Firmware Admin may continue to view it but should not silently overwrite the submitted review snapshot.
+
+If changes are required, create/update a new draft or revision.
+
+### CLIENT REVIEW ACCEPTED
+
+The Client Reviewer has accepted the proposed interface.
+
+This is an approval of the interface for the next implementation/testing stage.
+
+It is NOT the same as physical hardware verification or production release.
+
+### DEVELOPMENT PUBLISHED
+
+Firmware Admin or Superadmin can publish a client-accepted profile as the current Development Profile.
+
+This profile becomes available automatically to compatible Windows LSN Engineering Console installations.
+
+### HARDWARE VERIFIED
+
+The profile has passed required physical WT32-ETH01 testing in the Windows Engineering Console.
+
+This state may be set by Firmware Admin or Superadmin based on recorded validation results.
+
+### PRODUCTION / FROZEN
+
+Final controlled release state.
+
+Only Superadmin can promote to this state.
+
+A Production/Frozen profile should not be editable in place.
+
+Any future change creates a new version.
+
+## 6. Do Not Make Superadmin a Development Bottleneck
+
+The workflow should intentionally allow the Firmware Admin to handle this loop independently:
+
+```text id="z4mgxm"
+Firmware Admin
+    ↓
+Edit Draft
+    ↓
+Run Simulation
+    ↓
+Submit for Client Review
+    ↓
+Client Reviewer
+    ↓
+Review + Emulate
+    ↓
+Accept / Request Changes
+    ↓
+Firmware Admin
+    ↓
+Publish Development Profile
+    ↓
+Windows Console detects profile update
+    ↓
+Physical WT32-ETH01 testing
+    ↓
+Hardware Verified
+```
+
+Superadmin does not need to participate in routine iterations unless desired.
+
+Superadmin is required only for:
+
+* governance
+* user/security management
+* exceptional override
+* final Production/Frozen promotion
+
+## 7. Profile Versioning
+
+Device Profile releases must be versioned independently from the Console application.
+
+Example:
+
+```text id="g88bi6"
+Console
+v0.2.0
+
+LSN Protocol
+v0.1
+
+Working Device Profile
+v0.1.4-draft
+
+Client Review Candidate
+v0.1.4-rc1
+
+Development Published Profile
+v0.1.3
+
+Production / Frozen Profile
+none yet
+```
+
+Use a clear versioning model that distinguishes:
+
+* Draft
+* Review Candidate
+* Development Published
+* Production/Frozen
+
+Do not silently overwrite previously published profile versions.
+
+## 8. Review Snapshot
+
+When Firmware Admin clicks:
+
+**SUBMIT FOR CLIENT REVIEW**
+
+create an immutable review snapshot.
+
+The review snapshot should include:
+
+* profile version
+* object/tag map
+* field types
+* CIP mappings
+* connection model
+* RPI/update rate
+* communication timeout
+* expected behavior
+* test definitions relevant to client review
+* protocol version
+* change summary
+* diff against previous accepted/reviewed profile
+
+Client comments and review status should attach to that specific snapshot.
+
+If Firmware Admin later edits the working draft, those edits must not silently change the snapshot already being reviewed.
+
+## 9. Client Review Screen
+
+Create a clean Client Reviewer experience.
+
+The page should focus on the items the client specifically requested to review:
+
+### Interface / Object Map
+
+Show:
+
+* field name
+* direction
+* data type
+* access
+* CIP mapping
+* description
+
+### Connection Model
+
+Show:
+
+* connection type
+* ownership model
+* cyclic/explicit model
+* connection behavior
+
+### Update Rate
+
+Show:
+
+* proposed RPI/update rate
+* command/status timing
+* timing notes
+
+### Communication Loss
+
+Show:
+
+* timeout value
+* expected LSN behavior
+* emission-permit behavior
+* timer behavior
+* reconnect behavior
+
+### Control Semantics
+
+Clearly distinguish:
+
+**Commanded State**
+
+from:
+
+**LSN Emission-Permit / Control-Output State**
+
+Include the clarification:
+
+> LSN controls the interlock/emission-permit path and does not directly measure optical laser output.
+
+### Runtime
+
+Show:
+
+* TimerState
+* LifetimeEmissionTimeMs
+* EnableCount
+* persistence behavior
+* reset policy
+
+## 10. Client Review Actions
+
+Provide:
+
+**ACCEPT REVIEW**
+
+and:
+
+**REQUEST CHANGES**
+
+If requesting changes, require or encourage a comment.
+
+Example:
+
+```text id="m0vewb"
+Review Status:
+CHANGES REQUESTED
+
+Comment:
+"We would prefer the update rate to be 50 ms instead of 100 ms."
+```
+
+The Firmware Admin should see this clearly in their dashboard.
+
+## 11. Development Publish Workflow
+
+After Client Review is accepted, Firmware Admin may click:
+
+**PUBLISH DEVELOPMENT PROFILE**
+
+Before publishing, show:
+
+* profile version
+* review status
+* changes
+* simulator validation status
+* number of mapped CIP fields
+* number of TBD mappings
+* known limitations
+
+Allow publishing with remaining TBD fields only if the current workflow intentionally supports partial bring-up.
+
+If so, clearly mark:
+
+**PARTIAL DEVELOPMENT PROFILE**
+
+Do not allow incomplete profiles to be mistaken for Production/Frozen profiles.
+
+## 12. Windows Console Profile Updates
+
+The Windows Console must consume published Device Profiles dynamically.
+
+Routine Device Profile changes such as:
+
+* CIP Class
+* Instance
+* Attribute
+* Assembly
+* offsets
+* types
+* RPI/update rate
+* timeout
+* expected behavior
+* test tolerances
+* implementation status
+
+must NOT require rebuilding the Windows application.
+
+When a new Development Profile is published:
+
+```text id="mga88h"
+Installed Profile
+v0.1.3
+
+New Development Profile
+v0.1.4
+
+[VIEW CHANGES]
+[APPLY PROFILE UPDATE]
+```
+
+The firmware engineer can apply the profile and immediately test the physical LSN.
+
+Only actual Windows application-code changes should require a new Windows app build.
+
+## 13. Profile Change Diff
+
+Before publishing or applying a new profile, show a clear diff.
+
+Example:
+
+```text id="k4sxew"
+TimerState
+
+Class
+TBD → 0x70
+
+Instance
+TBD → 1
+
+Attribute
+TBD → 4
+
+
+Communication Timeout
+
+TBD → 500 ms
+```
+
+Classify changes where practical:
+
+* Added
+* Changed
+* Removed
+* Mapping Change
+* Timing Change
+* Behavior Change
+
+## 14. Audit History
+
+Record important actions such as:
+
+* Draft created
+* Field changed
+* CIP mapping changed
+* Review submitted
+* Client comment added
+* Client accepted
+* Client requested changes
+* Development Profile published
+* Development rollback
+* Hardware validation completed
+* Production/Frozen promotion
+
+Record:
+
+* timestamp
+* user
+* role
+* action
+* profile version
+* optional comment
+
+Example:
+
+```text id="8a0d1m"
+Aug 21, 2026 16:41
+
+Profile v0.1.4-rc1 submitted for Client Review
+
+By:
+Firmware Admin
+```
+
+## 15. Role-Based Navigation
+
+Do not simply hide buttons visually.
+
+Enforce permissions server-side/API-side as well as in the UI.
+
+### Superadmin sees:
+
+* full application
+* user management
+* profile management
+* release management
+* audit history
+* production promotion controls
+
+### Firmware Admin sees:
+
+* engineering tools
+* Device Profile editing
+* simulation
+* implementation status
+* Downloads
+* firmware package tools
+* client review submission
+* Development publish
+* hardware-validation workflow
+
+### Client Reviewer sees:
+
+* review candidate
+* Simulation Mode
+* client-facing interface view
+* change diff
+* comments
+* accept/request changes
+* approved downloads
+* client sandbox
+
+Hide unrelated firmware-internal or administrative controls where they would create confusion.
+
+## 16. Notifications / Status
+
+Within the application, surface workflow status.
+
+Examples for Firmware Admin:
+
+**CLIENT REVIEW PENDING**
+
+**CHANGES REQUESTED**
+
+**CLIENT REVIEW ACCEPTED**
+
+Examples for Client Reviewer:
+
+**NEW REVIEW CANDIDATE AVAILABLE**
+
+**REVIEW UPDATED**
+
+No external email notification system is required unless already easy to support.
+
+## 17. Changelog / Release Integration
+
+Profile publishing should integrate with the existing changelog/version system.
+
+A Development Profile release should record:
+
+* Device Profile version
+* LSN Protocol version
+* release date
+* changes
+* Client Review status
+* firmware implementation status
+* hardware validation status
+
+Do not confuse Device Profile release history with Console software release history.
+
+## 18. Important Permission Boundary
+
+The intended governance model is:
+
+**Superadmin**
+Owns the system and final release authority.
+
+**Firmware Admin**
+Owns firmware implementation iteration and Development Profile publishing.
+
+**Client Reviewer**
+Reviews and emulates proposed interfaces before they are locked, but cannot modify or publish the shared implementation.
+
+The design should minimize routine Superadmin involvement while preserving final governance and auditability.
+
+## 19. Preserve Existing Architecture
+
+Do not break or replace:
+
+* shared web/Windows React application architecture
+* Simulation Mode
+* Device Profile source-of-truth model
+* Firmware Integration Package generation
+* Windows runtime profile loading
+* protocol inspector
+* automated validation
+* stress testing
+* Downloads area
+* Firmware Developer Mode
+* changelog/version system
+
+This is an extension of the current system, not a redesign.
+
+## 20. Validation Before Completion
+
+Before completing this task, verify:
+
+1. `Client Admin` has been fully renamed to `Client Reviewer`.
+2. Superadmin permissions work as defined.
+3. Firmware Admin can edit/publish Development Profiles without Superadmin intervention.
+4. Firmware Admin cannot manage users or promote Production/Frozen profiles.
+5. Client Reviewer cannot modify the shared Device Profile.
+6. Client Reviewer can run Simulation Mode against the review candidate.
+7. Client Sandbox changes remain isolated.
+8. Review snapshots are immutable.
+9. Client Reviewer can Accept or Request Changes.
+10. Firmware Admin can see Client Review status/comments.
+11. Only accepted review candidates can follow the normal Development publish path.
+12. Published Development Profiles are dynamically available to Windows Console.
+13. Profile-only changes do not require a new Windows application build.
+14. Profile diffs work.
+15. Audit history records workflow changes.
+16. Production/Frozen promotion remains Superadmin-only.
+17. Existing Console functionality does not regress.
+
+Please implement this role and profile-review workflow so the firmware engineer can handle normal development iterations directly with the client reviewer, while the Superadmin remains out of the routine technical loop unless final governance is required.
