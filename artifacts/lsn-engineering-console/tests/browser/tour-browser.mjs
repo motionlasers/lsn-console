@@ -102,6 +102,8 @@ async function overlayState(page) {
     if (!overlay) return null;
     const card = document.querySelector('[data-testid="dialog-firmware-tour"]');
     const highlight = document.querySelector('[data-testid="tour-target-highlight"]');
+    const sidebar = document.querySelector('aside[data-collapsed]');
+    const sidebarNav = document.querySelector('[data-tour="sidebar-nav"]');
     const live = document.querySelector('[data-testid="tour-live-announcement"]');
     const phaseLabel = document.querySelector('[data-testid="tour-phase-label"]');
     const fallback = overlay.querySelector('[role="status"]');
@@ -115,6 +117,9 @@ async function overlayState(page) {
       ariaModal: card?.getAttribute('aria-modal'),
       highlight: highlight ? toRect(highlight) : null,
       highlightClass: highlight?.className ?? '',
+      sidebar: sidebar ? toRect(sidebar) : null,
+      sidebarCollapsed: sidebar?.getAttribute('data-collapsed') === 'true',
+      sidebarNav: sidebarNav ? toRect(sidebarNav) : null,
       live: live?.textContent ?? '',
       phaseLabel: phaseLabel?.textContent ?? '',
       fallback: fallback?.textContent ?? null,
@@ -132,13 +137,51 @@ async function waitForStep(page, step, label) {
   }, `${label}: step "${step.id}" announced on ${step.route}`);
 }
 
-async function freshTourPage(context, reducedMotion) {
+async function freshTourPage(context, reducedMotion, { collapseNavigation = false } = {}) {
   const page = await context.newPage();
   await page.emulateMedia({ reducedMotion: reducedMotion ? 'reduce' : 'no-preference' });
   await page.goto(BASE + '/');
+  if (collapseNavigation) {
+    await page.click('[data-testid="button-toggle-navigation"]');
+    await waitFor(
+      () => page.locator('aside[data-collapsed="true"]').count(),
+      'navigation to collapse before the narrow tour',
+    );
+  }
   // Tour auto-starts on first launch (hasSeenTour=false) after ~500ms.
   await waitFor(async () => overlayState(page), 'tour auto-start');
   return page;
+}
+
+function assertNarrowSidebarNav(state, step, label) {
+  if (state.viewport.width > 420 || step.id !== 'sidebar-nav') return;
+
+  const { card, highlight, sidebar, sidebarNav, viewport } = state;
+  check(state.sidebarCollapsed, `${label} ${step.id}: navigation is collapsed at ${viewport.width}px`);
+  check(
+    !!sidebar && Math.abs(sidebar.width - 64) <= 1,
+    `${label} ${step.id}: collapsed sidebar is approximately 64px wide (got ${sidebar?.width ?? 'missing'})`,
+  );
+  check(!!sidebarNav, `${label} ${step.id}: collapsed nav target rendered`);
+  if (sidebar && sidebarNav) {
+    check(
+      sidebarNav.left >= sidebar.left && sidebarNav.right <= sidebar.right,
+      `${label} ${step.id}: nav target stays inside collapsed sidebar (${JSON.stringify(sidebarNav)} vs ${JSON.stringify(sidebar)})`,
+    );
+  }
+  if (highlight) {
+    check(
+      highlight.left >= 0 && highlight.top >= 0 &&
+        highlight.right <= viewport.width && highlight.bottom <= viewport.height,
+      `${label} ${step.id}: collapsed-nav highlight is fully within the narrow viewport (${JSON.stringify(highlight)})`,
+    );
+  }
+  if (highlight && card) {
+    check(
+      !rectsOverlap(highlight, card),
+      `${label} ${step.id}: collapsed-nav highlight does not overlap coachmark (${JSON.stringify(highlight)} vs ${JSON.stringify(card)})`,
+    );
+  }
 }
 
 async function assertStepInvariants(state, step, label, reducedMotion) {
@@ -219,6 +262,7 @@ async function assertStepInvariants(state, step, label, reducedMotion) {
   } else {
     check(!!state.fallback && state.fallback.includes('TARGET UNAVAILABLE'), `${label} ${step.id}: missing target shows conditional fallback notice`);
   }
+  assertNarrowSidebarNav(state, step, label);
 }
 
 async function assertOverviewCoverage(page, label) {
@@ -436,7 +480,7 @@ async function main() {
       // Desktop, normal motion: full traversal.
       freshTourPage(desktop, false).then((page) => traverse(page, 'desktop', false)),
       // Narrow, reduced motion: full traversal.
-      freshTourPage(narrow, true).then((page) => traverse(page, 'narrow', true)),
+      freshTourPage(narrow, true, { collapseNavigation: true }).then((page) => traverse(page, 'narrow', true)),
       // Keyboard, focus, and persistence checks.
       keyboardAndPersistenceChecks(kb),
       // Overview sequence, coverage, and phase-label checks.

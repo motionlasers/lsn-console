@@ -329,6 +329,8 @@ export function TourOverlay() {
   })();
 
   const announcement = buildAnnouncement(pageProgress, stepData, targetMissing);
+  const isNarrowSidebarTarget =
+    window.innerWidth <= 420 && stepData.target === "sidebar-nav";
 
   return (
     <div className="fixed inset-0 z-[100] pointer-events-auto" data-testid="tour-overlay">
@@ -371,7 +373,10 @@ export function TourOverlay() {
         data-testid="dialog-firmware-tour"
         data-placement={position.placement}
         className={cn(
-          "fixed z-[102] w-[min(440px,calc(100vw-1.5rem))] max-h-[calc(100vh-1.5rem)] shadow-[0_0_40px_hsl(var(--tour-accent)/0.15)] border-tour-accent/40 bg-[#081217] text-foreground ring-1 ring-tour-accent/20 flex flex-col pointer-events-auto",
+          "fixed z-[102] max-h-[calc(100vh-1.5rem)] shadow-[0_0_40px_hsl(var(--tour-accent)/0.15)] border-tour-accent/40 bg-[#081217] text-foreground ring-1 ring-tour-accent/20 flex flex-col pointer-events-auto",
+          isNarrowSidebarTarget
+            ? "w-[calc(100vw-6rem)]"
+            : "w-[min(440px,calc(100vw-1.5rem))]",
           !reducedMotion && "transition-[left,top] duration-200",
         )}
         style={{ left: position.x, top: position.y }}
