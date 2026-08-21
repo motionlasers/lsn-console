@@ -5,3 +5,4 @@
 - [Browser validation checks](browser-validation-checks.md) — headless-browser checks must own their server, kill its process group, and force-exit, or the validation time budget kills a passing run.
 - [Tour preference isolation](tour-preference-isolation.md) — page-scoped guides must never change the persisted full-tour dismissal preference.
 - [Windows CI native bins](windows-ci-native-bins.md) — three separate fixes needed: npm temp-dir copy for platform bins, onlyBuiltDependencies for electron-winstaller, 30s test timeout for C compiler test.
+- [Non-interactive Drizzle reconciliation](noninteractive-drizzle-reconciliation.md) — do not trust push exit status alone; populated-table prompts can fail without a TTY yet report success.
