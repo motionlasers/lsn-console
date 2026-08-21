@@ -244,6 +244,8 @@ describe('Release drift guard', () => {
     expect(workflow).toContain('Install and smoke-test Windows application');
     expect(workflow).toContain('tests/windows/installed-smoke.mjs');
     expect(workflow).toContain('LSN-Engineering-Console-Windows-Smoke-Evidence');
+    expect(workflow).toContain('smoke-published-release');
+    expect(workflow).toContain('LSN-Engineering-Console-Published-Release-Smoke-Evidence');
     expect(workflow).toContain('LSN-Engineering-Console-Portable-${VERSION}.zip');
     expect(workflow).toContain('lsn-console-v');
     expect(workflow).toContain(

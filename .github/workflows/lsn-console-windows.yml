@@ -2,6 +2,11 @@ name: LSN Console Windows
 
 on:
   workflow_dispatch:
+    inputs:
+      published_release_tag:
+        description: Immutable release tag to download and smoke-test
+        required: false
+        default: lsn-console-v0.2.1
   push:
     tags:
       - 'lsn-console-v*'
@@ -260,3 +265,86 @@ jobs:
             curl --fail --silent --show-error --location --head \
               --retry 5 --retry-delay 3 --retry-all-errors "${URL}" >/dev/null
           done
+
+  smoke-published-release:
+    if: github.event_name == 'workflow_dispatch' && inputs.published_release_tag != ''
+    runs-on: windows-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --no-frozen-lockfile
+      - name: Download and verify immutable release assets
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.published_release_tag }}
+        run: |
+          set -euo pipefail
+          mkdir -p published-release
+          gh release download "$RELEASE_TAG" \
+            --repo "$GITHUB_REPOSITORY" \
+            --pattern 'LSN-Engineering-Console-Setup-*-dev.exe' \
+            --pattern 'SHA256SUMS.txt' \
+            --dir published-release
+          (
+            cd published-release
+            grep 'LSN-Engineering-Console-Setup-' SHA256SUMS.txt > INSTALLER-SHA256.txt
+            sha256sum --check INSTALLER-SHA256.txt
+          )
+      - name: Install and smoke-test published release
+        timeout-minutes: 5
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $installer = Get-ChildItem -Path 'published-release' `
+            -Filter 'LSN-Engineering-Console-Setup-*-dev.exe' |
+            Select-Object -First 1
+          if (-not $installer) {
+            throw 'Published installer was not downloaded.'
+          }
+
+          $process = Start-Process -FilePath $installer.FullName `
+            -ArgumentList '--silent' -PassThru
+          if (-not $process.WaitForExit(120000)) {
+            Stop-Process -Id $process.Id -Force
+            throw 'Published Squirrel installer timed out.'
+          }
+          if ($process.ExitCode -ne 0) {
+            throw "Published Squirrel installer exited $($process.ExitCode)."
+          }
+
+          $installRoot = Join-Path $env:LOCALAPPDATA 'LSN_Engineering_Console'
+          $deadline = (Get-Date).AddSeconds(60)
+          do {
+            $appExe = Get-ChildItem -Path $installRoot `
+              -Filter 'LSN-Engineering-Console.exe' -Recurse `
+              -ErrorAction SilentlyContinue |
+              Where-Object { $_.Directory.Name -like 'app-*' } |
+              Sort-Object LastWriteTime -Descending |
+              Select-Object -First 1
+            if (-not $appExe) { Start-Sleep -Seconds 2 }
+          } while (-not $appExe -and (Get-Date) -lt $deadline)
+          if (-not $appExe) {
+            throw 'Published Console executable was not found after installation.'
+          }
+
+          Get-Process -Name 'LSN-Engineering-Console' -ErrorAction SilentlyContinue |
+            Stop-Process -Force
+          $env:LSN_WINDOWS_EXECUTABLE = $appExe.FullName
+          $env:LSN_WINDOWS_SMOKE_EVIDENCE = Join-Path `
+            $env:GITHUB_WORKSPACE 'published-release-smoke-evidence'
+          $env:LSN_WINDOWS_SMOKE_LABEL = 'published-release'
+          $env:LSN_WINDOWS_EXPECT_PHYSICAL_TRANSPORT = 'false'
+          node artifacts/lsn-engineering-console/tests/windows/installed-smoke.mjs
+      - uses: actions/upload-artifact@v4
+        with:
+          name: LSN-Engineering-Console-Published-Release-Smoke-Evidence
+          path: published-release-smoke-evidence/**

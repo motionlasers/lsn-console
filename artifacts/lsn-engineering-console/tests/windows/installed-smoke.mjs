@@ -7,6 +7,8 @@ import { _electron as electron } from 'playwright-core';
 const executablePath = process.env.LSN_WINDOWS_EXECUTABLE;
 const evidenceDir = process.env.LSN_WINDOWS_SMOKE_EVIDENCE;
 const runLabel = process.env.LSN_WINDOWS_SMOKE_LABEL || 'installed';
+const expectPhysicalTransport =
+  process.env.LSN_WINDOWS_EXPECT_PHYSICAL_TRANSPORT !== 'false';
 
 async function main() {
   if (process.platform !== 'win32') {
@@ -49,12 +51,20 @@ async function main() {
     const hardware = await window.evaluate(() =>
       window.lsnDesktop.getHardwareCapabilities(),
     );
+    const hardwareState = {
+      discoveryTransport: hardware.discoveryTransport === true,
+      sessionTransport: hardware.sessionTransport === true,
+      profileControl: hardware.profileControl === true,
+      profileRead: hardware.profileRead === true,
+      maintenanceTransport: hardware.maintenanceTransport,
+    };
     if (
-      hardware.discoveryTransport !== true ||
-      hardware.sessionTransport !== true ||
-      hardware.profileControl !== false ||
-      hardware.profileRead !== false ||
-      hardware.maintenanceTransport !== 'MAINTENANCE ENDPOINT NOT YET IMPLEMENTED'
+      hardwareState.discoveryTransport !== expectPhysicalTransport ||
+      hardwareState.sessionTransport !== expectPhysicalTransport ||
+      hardwareState.profileControl !== false ||
+      hardwareState.profileRead !== false ||
+      hardwareState.maintenanceTransport !==
+        'MAINTENANCE ENDPOINT NOT YET IMPLEMENTED'
     ) {
       throw new Error(`Unexpected hardware boundaries: ${JSON.stringify(hardware)}`);
     }
@@ -71,13 +81,8 @@ async function main() {
       executablePath,
       title,
       runtime,
-      hardware: {
-        discoveryTransport: hardware.discoveryTransport,
-        sessionTransport: hardware.sessionTransport,
-        profileControl: hardware.profileControl,
-        profileRead: hardware.profileRead,
-        maintenanceTransport: hardware.maintenanceTransport,
-      },
+      hardware: hardwareState,
+      expectedPhysicalTransport: expectPhysicalTransport,
       updates: {
         status: updates.status,
         currentVersion: updates.currentVersion,
