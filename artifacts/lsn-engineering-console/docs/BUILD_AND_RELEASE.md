@@ -41,6 +41,13 @@ so a newer GitHub release cannot break links in an older deployed web build.
 (ending in `/releases/download`); it must not contain a release tag. Legacy
 tagged and `latest/download` values are normalized to that stable root.
 
+Every Windows workflow build now installs the generated Squirrel package,
+launches the installed executable through Playwright, verifies the packaged
+preload/login/update/hardware boundaries, captures a login screenshot and JSON
+evidence, uninstalls it, then repeats the smoke test after a clean reinstall.
+The retained `LSN-Engineering-Console-Windows-Smoke-Evidence` workflow artifact
+is the Windows installation proof; Linux packaging is not equivalent evidence.
+
 The protected GitHub secrets `WINDOWS_CERTIFICATE_PFX_BASE64` and
 `WINDOWS_CERTIFICATE_PASSWORD` are optional but must be configured together.
 When present, CI signs the installer and verifies the Saber Industrial

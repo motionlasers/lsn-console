@@ -241,6 +241,9 @@ describe('Release drift guard', () => {
     expect(read('src/lib/exports.ts')).toContain('LSN Interface Specification (v0.1)');
     const workflow = readFileSync(resolve(root, '../../.github/workflows/lsn-console-windows.yml'), 'utf8');
     expect(workflow).toContain('LSN-Engineering-Console-Setup-${VERSION}-dev.exe');
+    expect(workflow).toContain('Install and smoke-test Windows application');
+    expect(workflow).toContain('tests/windows/installed-smoke.mjs');
+    expect(workflow).toContain('LSN-Engineering-Console-Windows-Smoke-Evidence');
     expect(workflow).toContain('LSN-Engineering-Console-Portable-${VERSION}.zip');
     expect(workflow).toContain('lsn-console-v');
     expect(workflow).toContain(

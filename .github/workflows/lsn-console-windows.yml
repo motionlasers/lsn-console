@@ -138,6 +138,78 @@ jobs:
             exit 1
           fi
           (cd "$DIST" && sha256sum * > SHA256SUMS.txt && cat SHA256SUMS.txt)
+      - name: Install and smoke-test Windows application
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $version = node -p "require('./artifacts/lsn-engineering-console/package.json').version"
+          $installer = Get-ChildItem -Path "release-assets" `
+            -Filter "LSN-Engineering-Console-Setup-$version-dev.exe" |
+            Select-Object -First 1
+          if (-not $installer) {
+            throw "Expected installer was not collected."
+          }
+
+          function Install-Console {
+            param([string]$Label)
+            $process = Start-Process -FilePath $installer.FullName `
+              -ArgumentList '--silent' -PassThru
+            if (-not $process.WaitForExit(120000)) {
+              Stop-Process -Id $process.Id -Force
+              throw "Squirrel installer timed out during $Label."
+            }
+            if ($process.ExitCode -ne 0) {
+              throw "Squirrel installer exited $($process.ExitCode) during $Label."
+            }
+
+            $deadline = (Get-Date).AddSeconds(60)
+            do {
+              $appExe = Get-ChildItem -Path $env:LOCALAPPDATA `
+                -Filter 'LSN-Engineering-Console.exe' -Recurse `
+                -ErrorAction SilentlyContinue |
+                Where-Object { $_.FullName -match 'LSN_Engineering_Console' } |
+                Sort-Object LastWriteTime -Descending |
+                Select-Object -First 1
+              if (-not $appExe) { Start-Sleep -Seconds 2 }
+            } while (-not $appExe -and (Get-Date) -lt $deadline)
+            if (-not $appExe) {
+              throw "Installed Console executable was not found after $Label."
+            }
+            return $appExe
+          }
+
+          $evidenceDir = Join-Path $env:GITHUB_WORKSPACE 'windows-smoke-evidence'
+          $appExe = Install-Console -Label 'first install'
+          $env:LSN_WINDOWS_EXECUTABLE = $appExe.FullName
+          $env:LSN_WINDOWS_SMOKE_EVIDENCE = $evidenceDir
+          $env:LSN_WINDOWS_SMOKE_LABEL = 'first-install'
+          node artifacts/lsn-engineering-console/tests/windows/installed-smoke.mjs
+
+          $updateExe = Get-ChildItem -Path $appExe.Directory.Parent.FullName `
+            -Filter 'Update.exe' -Recurse -ErrorAction SilentlyContinue |
+            Select-Object -First 1
+          if (-not $updateExe) {
+            throw "Squirrel Update.exe was not found for uninstall validation."
+          }
+          $uninstall = Start-Process -FilePath $updateExe.FullName `
+            -ArgumentList '--uninstall', '-s' -PassThru
+          if (-not $uninstall.WaitForExit(120000)) {
+            Stop-Process -Id $uninstall.Id -Force
+            throw 'Squirrel uninstall timed out.'
+          }
+          if ($uninstall.ExitCode -ne 0) {
+            throw "Squirrel uninstall exited $($uninstall.ExitCode)."
+          }
+          Start-Sleep -Seconds 5
+
+          $appExe = Install-Console -Label 'clean reinstall'
+          $env:LSN_WINDOWS_EXECUTABLE = $appExe.FullName
+          $env:LSN_WINDOWS_SMOKE_LABEL = 'clean-reinstall'
+          node artifacts/lsn-engineering-console/tests/windows/installed-smoke.mjs
+      - uses: actions/upload-artifact@v4
+        with:
+          name: LSN-Engineering-Console-Windows-Smoke-Evidence
+          path: windows-smoke-evidence/**
       - name: Write release notes for signing mode
         shell: bash
         run: |
@@ -150,7 +222,7 @@ jobs:
           Development Preview build of the LSN Engineering Console.
 
           - ${SECURITY_NOTE}
-          - Hardware Mode truthfully reports that real WT32-ETH01 discovery, EtherNet/IP (CIP) communication, physical validation, and firmware upload are not yet implemented.
+          - Packaged Windows Hardware Mode includes guarded EtherNet/IP discovery/session support; unresolved profile identity and mappings keep telemetry/control fail-closed, physical validation is still required, and firmware upload is not yet implemented.
           - LSN Protocol, Device Profile, and the LSN-Firmware-Interface-v0.1 package are unchanged (v0.1).
 
           See artifacts/lsn-engineering-console/CHANGELOG.md for the full release entry.
