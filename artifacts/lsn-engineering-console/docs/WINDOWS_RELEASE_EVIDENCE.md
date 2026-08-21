@@ -25,6 +25,12 @@ manifest SHA-256
 `91f245548d8fb155590a4dcf056ecb83e076f8198da17178a5894bc68bec66ec`.
 Tag-triggered publication refuses to replace any existing release or asset.
 
+GitHub repository ruleset
+[Immutable LSN Console release tags](https://github.com/motionlasers/lsn-console/rules/21137442)
+is active for `refs/tags/lsn-console-v*`. It blocks tag updates and deletion
+with no bypass actors, while the workflow's pinned commit and hashes provide an
+independent integrity check.
+
 ## Windows runner acceptance
 
 The 2026-08-21 Windows workflow run is retained at:
