@@ -5,6 +5,7 @@ import { eq } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 import { setSession, clearSession } from "../lib/auth-session.js";
 import { requireAuth } from "../middleware/require-auth.js";
+import { normalizeRole, permissionsForRole } from "../lib/permissions.js";
 
 const router: IRouter = Router();
 
@@ -38,10 +39,14 @@ router.post("/login", async (req, res) => {
   // Store only the user ID in the cookie; all other state is resolved from DB
   setSession(res, user.id, user.isAdmin);
 
+  const role = normalizeRole(user.role, user.isAdmin);
   res.json({
     userId: user.id,
     username: user.username,
-    isAdmin: user.isAdmin,
+    role,
+    permissions: permissionsForRole(role),
+    // Legacy compatibility field retained for existing clients.
+    isAdmin: role === "SUPERADMIN",
     forcePasswordChange: user.forcePasswordChange,
   });
 });
@@ -55,7 +60,11 @@ router.post("/logout", requireAuth, (_req, res) => {
 // GET /api/auth/session — returns authoritative DB state including forcePasswordChange
 router.get("/session", requireAuth, (req, res) => {
   // req.sessionUser is populated from DB by requireAuth
-  res.json(req.sessionUser);
+  const su = req.sessionUser!;
+  res.json({
+    ...su,
+    permissions: permissionsForRole(su.role),
+  });
 });
 
 // POST /api/auth/change-password — requireAuth only; forcePasswordChange users ARE allowed here

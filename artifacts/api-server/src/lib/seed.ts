@@ -28,6 +28,7 @@ export async function seedAdminIfEmpty(): Promise<void> {
       username: "admin",
       passwordHash,
       isAdmin: true,
+      role: "SUPERADMIN",
       forcePasswordChange: true,
     });
 

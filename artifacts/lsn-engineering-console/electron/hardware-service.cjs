@@ -98,6 +98,38 @@ class HardwareService {
     };
   }
 
+  /**
+   * Atomically repin the active device profile. Called ONLY by the main-process
+   * profile update service after it has independently fetched, verified, staged,
+   * and explicitly activated an immutable profile (or a rollback target). The
+   * renderer can never reach this path — a renderer-saved or imported profile
+   * document never becomes the physical hardware profile directly.
+   *
+   * Repinning forces a hardware disconnect and clears any identity binding and
+   * arm token so the next connect must re-run ListIdentity against the NEW
+   * pinned profile before any symbolic control is permitted.
+   *
+   * @param {object} profile A validated, deep-frozen-safe profile document.
+   * @param {string} [digest] The verified digest of that profile document.
+   */
+  async setActiveProfile(profile, digest) {
+    if (!profile || typeof profile !== 'object' || !Array.isArray(profile.fields)) {
+      throw new Error('setActiveProfile requires a validated profile document');
+    }
+    // Force disconnect so no session survives the profile swap. This clears the
+    // identity binding and arm token via the disconnect path.
+    await this.disconnect();
+    this._profile = profile;
+    this._profileDigest =
+      typeof digest === 'string' && digest.length > 0 ? digest : this._profileDigest;
+    this._readiness = computeReadiness(profile);
+    // Belt-and-suspenders: ensure no stale freshness survives a repin.
+    this._clearArm();
+    this._clearIdentityBinding();
+    this._broadcast();
+    return this.getProfileReadiness();
+  }
+
   _broadcast() {
     const state = this.getState();
     // Deduplicate: never emit the same sanitized state twice in a row, so a

@@ -13,7 +13,7 @@ import { downloadFile } from "@/lib/exports";
 import { useRef, useState, type FormEvent } from "react";
 import { useTourStore } from "@/hooks/use-tour";
 import { useAuth } from "@/contexts/AuthContext";
-import { authApi, adminApi, type AdminUser } from "@/lib/auth-api";
+import { authApi, adminApi, type AdminUser, type CanonicalRole } from "@/lib/auth-api";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
 // ─── Change Password Card ─────────────────────────────────────────────────────
@@ -158,7 +158,7 @@ function AdminUsersCard() {
   const qc = useQueryClient();
   const [newUsername, setNewUsername] = useState("");
   const [newPassword, setNewPassword] = useState("");
-  const [newIsAdmin, setNewIsAdmin] = useState(false);
+  const [newRole, setNewRole] = useState<CanonicalRole>("CLIENT_REVIEWER");
   const [createError, setCreateError] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editPassword, setEditPassword] = useState("");
@@ -173,15 +173,24 @@ function AdminUsersCard() {
     },
   });
 
+  const toggleCanonicalRoleMutation = useMutation({
+    mutationFn: async (args: { userId: number; role: CanonicalRole }) => {
+      const res = await adminApi.updateUser(args.userId, { role: args.role });
+      if (!res.ok) throw new Error(res.error);
+      return res.data;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["admin-users"] })
+  });
+
   const createMutation = useMutation({
-    mutationFn: (args: { username: string; password: string; isAdmin: boolean }) =>
-      adminApi.createUser(args.username, args.password, args.isAdmin),
+    mutationFn: (args: { username: string; password: string; role: CanonicalRole }) =>
+      adminApi.createUser(args.username, args.password, args.role),
     onSuccess: (result) => {
       if (!result.ok) { setCreateError(result.error); return; }
       setCreateError(null);
       setNewUsername("");
       setNewPassword("");
-      setNewIsAdmin(false);
+      setNewRole("CLIENT_REVIEWER");
       void qc.invalidateQueries({ queryKey: ["admin-users"] });
     },
     onError: (err) => setCreateError(String(err)),
@@ -216,7 +225,7 @@ function AdminUsersCard() {
     setCreateError(null);
     if (newUsername.trim().length < 2) { setCreateError("Username must be at least 2 characters."); return; }
     if (newPassword.length < 8) { setCreateError("Password must be at least 8 characters."); return; }
-    createMutation.mutate({ username: newUsername.trim(), password: newPassword, isAdmin: newIsAdmin });
+    createMutation.mutate({ username: newUsername.trim(), password: newPassword, role: newRole });
   };
 
   const handleEditPassword = (e: FormEvent) => {
@@ -248,11 +257,9 @@ function AdminUsersCard() {
               <div className="flex items-center justify-between gap-2">
                 <div className="flex items-center gap-2 min-w-0">
                   <span className="text-sm font-mono text-foreground truncate">{u.username}</span>
-                  {u.isAdmin && (
-                    <span className="text-[9px] font-mono text-amber-500 border border-amber-500/30 px-1.5 py-0.5 uppercase tracking-widest">
-                      ADMIN
-                    </span>
-                  )}
+                  <span className="text-[9px] font-mono text-primary border border-primary/30 px-1.5 py-0.5 uppercase tracking-widest">
+                    {u.role.replaceAll("_", " ")}
+                  </span>
                   {u.forcePasswordChange && (
                     <span className="text-[9px] font-mono text-warning border border-warning/30 px-1.5 py-0.5 uppercase tracking-widest">
                       PWD RESET
@@ -260,14 +267,42 @@ function AdminUsersCard() {
                   )}
                 </div>
                 <div className="flex items-center gap-1 shrink-0">
-                  {/* Toggle admin (not self) */}
+                  {/* Canonical Roles Toggles */}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className={`font-mono text-[9px] h-7 px-2 border ${
+                      u.role === 'FIRMWARE_ADMIN'
+                        ? 'border-primary text-primary' 
+                        : 'border-border/50 text-muted-foreground hover:text-primary'
+                    }`}
+                    onClick={() => toggleCanonicalRoleMutation.mutate({ userId: u.id, role: 'FIRMWARE_ADMIN' })}
+                    title="Set Firmware Admin Role"
+                  >
+                    FW ADMIN
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className={`font-mono text-[9px] h-7 px-2 border mr-2 ${
+                      u.role === 'CLIENT_REVIEWER'
+                        ? 'border-primary text-primary' 
+                        : 'border-border/50 text-muted-foreground hover:text-primary'
+                    }`}
+                    onClick={() => toggleCanonicalRoleMutation.mutate({ userId: u.id, role: 'CLIENT_REVIEWER' })}
+                    title="Set Client Reviewer Role"
+                  >
+                    REVIEWER
+                  </Button>
+
+                  {/* Superadmin assignment (not self) */}
                   {u.id !== selfUser?.userId && (
                     <Button
                       variant="ghost"
                       size="sm"
                       className={`font-mono text-[10px] h-7 px-2 ${u.isAdmin ? 'text-amber-500 hover:text-muted-foreground' : 'text-muted-foreground hover:text-amber-500'}`}
                       onClick={() => toggleAdminMutation.mutate({ id: u.id, isAdmin: !u.isAdmin })}
-                      title={u.isAdmin ? "Remove admin" : "Make admin"}
+                      title={u.isAdmin ? "Move to Client Reviewer" : "Set Superadmin"}
                     >
                       <ShieldCheck className="w-3 h-3" />
                     </Button>
@@ -363,14 +398,18 @@ function AdminUsersCard() {
               </div>
             </div>
             <div className="flex items-center justify-between">
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={newIsAdmin}
-                  onChange={(e) => setNewIsAdmin(e.target.checked)}
-                  className="accent-amber-500"
-                />
-                <span className="text-[11px] font-mono text-muted-foreground">Admin privileges</span>
+              <label className="flex items-center gap-2">
+                <span className="text-[10px] font-mono text-muted-foreground uppercase tracking-widest">Role</span>
+                <select
+                  value={newRole}
+                  onChange={(e) => setNewRole(e.target.value as CanonicalRole)}
+                  className="bg-black/40 border border-border text-foreground font-mono text-xs px-2 py-1.5"
+                  data-testid="select-new-user-role"
+                >
+                  <option value="CLIENT_REVIEWER">Client Reviewer</option>
+                  <option value="FIRMWARE_ADMIN">Firmware Admin</option>
+                  <option value="SUPERADMIN">Superadmin</option>
+                </select>
               </label>
               <Button
                 type="submit"

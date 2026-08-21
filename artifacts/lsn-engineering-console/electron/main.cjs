@@ -13,6 +13,7 @@ const {
   isPhysicalHardwareRuntime,
   assertPhysicalHardwareRuntime,
 } = require('./hardware-runtime.cjs');
+const { ProfileUpdateService } = require('./profile-update-service.cjs');
 
 const isDev = !app.isPackaged;
 let hardwareService = null;
@@ -21,6 +22,8 @@ const EXPECTED_UPDATE_PUBLISHER = 'Saber Industrial Applications';
 const execFileAsync = promisify(execFile);
 let updateService = null;
 let updateReadyPromise = Promise.resolve();
+let profileUpdateService = null;
+let profileReadyPromise = Promise.resolve();
 const allowedChannels = new Set([
   'desktop:get-platform',
   'desktop:select-firmware',
@@ -34,6 +37,11 @@ const allowedChannels = new Set([
   'desktop:hw-read-field',
   'desktop:hw-arm-control',
   'desktop:hw-write-enable',
+  'desktop:profile-get-state',
+  'desktop:profile-check',
+  'desktop:profile-activate',
+  'desktop:profile-rollback',
+  'desktop:profile-discard-staged',
 ]);
 
 const authRoutes = [
@@ -43,6 +51,26 @@ const authRoutes = [
   { pattern: /^\/api\/auth\/change-password$/, methods: new Set(['POST']) },
   { pattern: /^\/api\/admin\/users$/, methods: new Set(['GET', 'POST']) },
   { pattern: /^\/api\/admin\/users\/\d+$/, methods: new Set(['PUT', 'DELETE']) },
+  { pattern: /^\/api\/profiles$/, methods: new Set(['GET', 'POST']) },
+  { pattern: /^\/api\/profiles\/\d+$/, methods: new Set(['GET']) },
+  { pattern: /^\/api\/profiles\/\d+\/draft$/, methods: new Set(['GET', 'PUT']) },
+  { pattern: /^\/api\/profiles\/\d+\/submit$/, methods: new Set(['POST']) },
+  { pattern: /^\/api\/profiles\/\d+\/reviews$/, methods: new Set(['GET']) },
+  { pattern: /^\/api\/profiles\/\d+\/versions$/, methods: new Set(['GET']) },
+  { pattern: /^\/api\/profiles\/\d+\/publications$/, methods: new Set(['GET']) },
+  { pattern: /^\/api\/profiles\/\d+\/audit$/, methods: new Set(['GET']) },
+  { pattern: /^\/api\/profiles\/\d+\/rollback$/, methods: new Set(['POST']) },
+  { pattern: /^\/api\/profiles\/\d+\/sandbox$/, methods: new Set(['GET', 'PUT', 'DELETE']) },
+  { pattern: /^\/api\/profiles\/reviews\/\d+$/, methods: new Set(['GET']) },
+  { pattern: /^\/api\/profiles\/reviews\/\d+\/comments$/, methods: new Set(['POST']) },
+  { pattern: /^\/api\/profiles\/reviews\/\d+\/decision$/, methods: new Set(['POST']) },
+  { pattern: /^\/api\/profiles\/versions\/\d+$/, methods: new Set(['GET']) },
+  { pattern: /^\/api\/profiles\/versions\/\d+\/validations$/, methods: new Set(['GET']) },
+  { pattern: /^\/api\/profiles\/versions\/\d+\/simulation$/, methods: new Set(['POST']) },
+  { pattern: /^\/api\/profiles\/versions\/\d+\/publish$/, methods: new Set(['POST']) },
+  { pattern: /^\/api\/profiles\/versions\/\d+\/verify-hardware$/, methods: new Set(['POST']) },
+  { pattern: /^\/api\/profiles\/versions\/\d+\/promote$/, methods: new Set(['POST']) },
+  { pattern: /^\/api\/profiles\/diff\?from=\d+&to=\d+$/, methods: new Set(['GET']) },
 ];
 
 function getApiOrigin() {
@@ -167,6 +195,45 @@ function configureWindowsUpdates() {
   });
 }
 
+function broadcastProfileState(state) {
+  for (const window of BrowserWindow.getAllWindows()) {
+    if (!window.isDestroyed()) {
+      window.webContents.send('desktop:profile-state', state);
+    }
+  }
+}
+
+// Apply a newly-activated (or rolled-back) profile to the authoritative
+// hardware service. The renderer never reaches this path; only the main-process
+// profile update service invokes it after independent verification. Repinning
+// forces a hardware disconnect and identity revalidation. Outside the packaged
+// Windows hardware runtime there is no transport to repin, so this is a no-op.
+async function applyActiveProfileToHardware(document, meta) {
+  if (
+    !isPhysicalHardwareRuntime({
+      isPackaged: app.isPackaged,
+      platform: process.platform,
+    })
+  ) {
+    return;
+  }
+  await getHardwareService().setActiveProfile(document, meta?.digest);
+}
+
+function configureProfileUpdates() {
+  profileUpdateService = new ProfileUpdateService({
+    apiOrigin: getApiOrigin(),
+    // Network I/O stays in main and flows through the default persistent
+    // session (net.fetch) so authenticated cookies are attached; the renderer
+    // never chooses an origin, path, or supplies a profile document.
+    fetch: (url, options) => net.fetch(url, { ...options, credentials: 'include' }),
+    profilesDir: path.join(app.getPath('userData'), 'profiles'),
+    onStateChange: broadcastProfileState,
+    onActivate: applyActiveProfileToHardware,
+  });
+  profileReadyPromise = profileUpdateService.initialize();
+}
+
 ipcMain.handle('desktop:get-platform', () => ({
   platform: process.platform,
   packaged: app.isPackaged,
@@ -196,6 +263,55 @@ ipcMain.handle('desktop:updates-defer', async () => {
 ipcMain.handle('desktop:updates-install', async () => {
   await updateReadyPromise;
   return updateService?.install();
+});
+
+// --- Development Profile update channel ------------------------------------
+// All fetch/verify/stage/activate/rollback runs in main via the profile update
+// service. The renderer only observes sanitized metadata and triggers explicit
+// actions; it can never supply a URL, path, profile document, or CIP mapping.
+
+ipcMain.handle('desktop:profile-get-state', async () => {
+  await profileReadyPromise;
+  return profileUpdateService?.getState() ?? null;
+});
+
+ipcMain.handle('desktop:profile-check', async () => {
+  await profileReadyPromise;
+  return profileUpdateService?.check() ?? null;
+});
+
+ipcMain.handle('desktop:profile-activate', async (_event, request) => {
+  await profileReadyPromise;
+  if (!profileUpdateService) return null;
+  const digest = request?.digest;
+  if (digest !== undefined && typeof digest !== 'string') {
+    throw new Error('Invalid activation digest');
+  }
+  try {
+    return await profileUpdateService.activate({ digest });
+  } catch (error) {
+    return {
+      ...profileUpdateService.getState(),
+      error: {
+        code: error?.code ?? 'activation_failed',
+        issues: error?.issues ?? [
+          { code: error?.code ?? 'activation_failed', message: String(error?.message ?? error) },
+        ],
+      },
+    };
+  }
+});
+
+ipcMain.handle('desktop:profile-rollback', async (_event, request) => {
+  await profileReadyPromise;
+  if (!profileUpdateService) return null;
+  const toBundled = request?.toBundled === true;
+  return profileUpdateService.rollback({ toBundled });
+});
+
+ipcMain.handle('desktop:profile-discard-staged', async () => {
+  await profileReadyPromise;
+  return profileUpdateService?.discardStaged() ?? null;
 });
 
 ipcMain.handle('desktop:auth-request', async (event, request) => {
@@ -383,6 +499,7 @@ ipcMain.on('desktop:invoke', (event, channel) => {
 
 app.whenReady().then(() => {
   configureWindowsUpdates();
+  configureProfileUpdates();
   createWindow();
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();

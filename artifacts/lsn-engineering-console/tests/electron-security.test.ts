@@ -199,6 +199,73 @@ describe('Electron security boundary', () => {
     expect(transport).not.toMatch(/enableEmission|sendEnable|forwardOpen/i);
   });
 
+  it('keeps Development Profile fetch/verify/stage/activate/rollback in main', () => {
+    // The profile update trust boundary lives in main and its own module.
+    expect(main).toContain("require('./profile-update-service.cjs')");
+    expect(main).toContain('ProfileUpdateService');
+    expect(main).toContain('configureProfileUpdates');
+    // Main fetches from the fixed authenticated origin via net.fetch with
+    // credentials; the renderer never supplies an origin or path.
+    expect(main).toContain('apiOrigin: getApiOrigin()');
+    expect(main).toContain("credentials: 'include'");
+    // Activation applies to the hardware service (forced disconnect + identity
+    // revalidation) only inside the packaged Windows hardware runtime.
+    expect(main).toContain('applyActiveProfileToHardware');
+    expect(main).toContain('setActiveProfile');
+    expect(main).toContain('isPhysicalHardwareRuntime');
+    // The main-process activation IPC is explicit and digest-scoped.
+    expect(main).toContain("ipcMain.handle('desktop:profile-check'");
+    expect(main).toContain("ipcMain.handle('desktop:profile-activate'");
+    expect(main).toContain("ipcMain.handle('desktop:profile-rollback'");
+    expect(main).toContain("/^\\/api\\/profiles\\/\\d+\\/draft$/");
+    expect(main).toContain("/^\\/api\\/profiles\\/reviews\\/\\d+\\/decision$/");
+    expect(main).toContain("/^\\/api\\/profiles\\/versions\\/\\d+\\/verify-hardware$/");
+    expect(main).toContain("/^\\/api\\/profiles\\/diff\\?from=\\d+&to=\\d+$/");
+  });
+
+  it('exposes only sanitized profile-channel operations to the renderer', () => {
+    // Preload exposes explicit, argument-narrow transitions and observation.
+    expect(preload).toContain('getProfileChannelState');
+    expect(preload).toContain('checkForProfileUpdate');
+    expect(preload).toContain('activateProfileUpdate');
+    expect(preload).toContain('rollbackProfile');
+    expect(preload).toContain('onProfileChannelState');
+    expect(preload).toContain("ipcRenderer.invoke('desktop:profile-check'");
+    expect(preload).toContain("ipcRenderer.invoke('desktop:profile-activate'");
+    // The renderer can never supply a profile document, path, URL, or CIP
+    // mapping through the profile channel — only an optional activation digest.
+    expect(preload).not.toContain('artifactUrl');
+    expect(preload).not.toContain('artifactPath');
+    expect(preload).not.toMatch(/checkForProfileUpdate:\s*\([^)]*\w+[^)]*\)\s*=>/);
+    // Activation carries only a narrow digest string, never a document.
+    expect(preload).toContain('activateProfileUpdate: (digest) =>');
+  });
+
+  it('never lets a renderer-supplied profile document reach the update service', () => {
+    const updateService = readFileSync(
+      resolve(import.meta.dirname, '../electron/profile-update-service.cjs'),
+      'utf8',
+    );
+    // The service verifies digest, schema, protocol, identity, firmware,
+    // mapping readiness, and version policy in main.
+    expect(updateService).toContain('validateProfileSchema');
+    expect(updateService).toContain("createHash('sha256')");
+    expect(updateService).toContain('version_downgrade_blocked');
+    expect(updateService).toContain('hardware_family_mismatch');
+    expect(updateService).toContain('protocol_incompatible');
+    expect(updateService).toContain('firmware_incompatible');
+    expect(updateService).toContain('origin_violation');
+    // Atomic active + last-known-good storage with forced disconnect on apply.
+    expect(updateService).toContain('_writeEntryAtomic');
+    expect(updateService).toContain('last-known-good');
+    expect(updateService).toContain('rollback');
+    // Only sanitized metadata is exposed — never a raw document with mappings.
+    expect(updateService).toContain('sanitizeEntry');
+    // The renderer never provides the fetch, origin, or profile path.
+    expect(preload).not.toContain('profile-update-service');
+    expect(preload).not.toContain('profile-artifact');
+  });
+
   it('does not let the renderer choose an update URL, file path, or process command', () => {
     expect(preload).toContain('checkForUpdates: () =>');
     expect(preload).toContain('deferUpdate: () =>');

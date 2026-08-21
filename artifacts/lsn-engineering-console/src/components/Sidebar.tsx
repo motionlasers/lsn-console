@@ -3,7 +3,8 @@ import { useStore } from "@/lib/store";
 import { Link, useLocation } from "wouter";
 import { 
   Activity, ActivityIcon, Cable, Cpu, Download, FileJson, Info, LayoutDashboard, 
-  ListTree, Network, PanelLeftClose, PanelLeftOpen, PlaySquare, Settings, ShieldAlert, Terminal, TestTube
+  ListTree, Network, PanelLeftClose, PanelLeftOpen, PlaySquare, Settings, ShieldAlert, Terminal, TestTube,
+  CheckSquare
 } from "lucide-react";
 import saberLogo from "@assets/Saber-Industrial-Applications-Logo_1786661980178.png";
 import blsLogo from "@assets/Beyond-Laser-Systems-Logo-white.png";
@@ -13,25 +14,7 @@ import { TOUR_STEPS } from "@/lib/tour-data";
 import { LiveTelemetryBadge } from "@/components/TelemetryState";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-
-const NAV_ITEMS = [
-  { path: "/", label: "Dashboard", icon: LayoutDashboard },
-  { path: "/device", label: "Device & Cap", icon: Cpu },
-  { path: "/control", label: "Control", icon: PlaySquare },
-  { path: "/status", label: "Status", icon: Activity },
-  { path: "/runtime", label: "Runtime", icon: ActivityIcon },
-  { path: "/diagnostics", label: "Diagnostics", icon: ShieldAlert },
-  { path: "/protocol", label: "Protocol", icon: Network },
-  { path: "/tests", label: "Tests", icon: TestTube },
-  { path: "/stress", label: "Stress", icon: Cable },
-  { path: "/firmware", label: "Firmware", icon: ListTree },
-  { path: "/profile", label: "Profile", icon: FileJson },
-  { path: "/modules", label: "Modules", icon: Settings },
-  { path: "/logs", label: "Logs", icon: Terminal },
-  { path: "/help", label: "Help", icon: Info },
-  { path: "/downloads", label: "Downloads", icon: Download },
-  { path: "/settings", label: "Settings", icon: Settings },
-];
+import { useRoles } from "@/hooks/use-roles";
 
 /**
  * Overview group definitions for the tour opening phase.
@@ -41,7 +24,7 @@ const OVERVIEW_GROUPS: Array<{ tourId: string; paths: string[] }> = [
   { tourId: "overview-nav-session",    paths: ["/", "/device"] },
   { tourId: "overview-nav-monitoring", paths: ["/control", "/status", "/runtime"] },
   { tourId: "overview-nav-analysis",   paths: ["/diagnostics", "/protocol", "/tests", "/stress"] },
-  { tourId: "overview-nav-management", paths: ["/firmware", "/profile", "/modules"] },
+  { tourId: "overview-nav-management", paths: ["/firmware", "/profile", "/profile-review", "/modules"] },
   { tourId: "overview-nav-support",    paths: ["/logs", "/help", "/downloads", "/settings"] },
 ];
 
@@ -53,6 +36,27 @@ export function Sidebar() {
   const [location] = useLocation();
   const { mode, connectionState, settings, updateSettings } = useStore();
   const { isTourActive, currentStep } = useTourStore();
+  const { isFirmwareAdmin, isClientReviewer } = useRoles();
+  
+  const NAV_ITEMS = [
+    { path: "/", label: "Dashboard", icon: LayoutDashboard },
+    { path: "/device", label: "Device & Cap", icon: Cpu },
+    { path: "/control", label: "Control", icon: PlaySquare },
+    { path: "/status", label: "Status", icon: Activity },
+    { path: "/runtime", label: "Runtime", icon: ActivityIcon },
+    { path: "/diagnostics", label: "Diagnostics", icon: ShieldAlert },
+    { path: "/protocol", label: "Protocol", icon: Network },
+    { path: "/tests", label: "Tests", icon: TestTube },
+    { path: "/stress", label: "Stress", icon: Cable },
+    { path: "/firmware", label: "Firmware", icon: ListTree },
+    ...(isFirmwareAdmin ? [{ path: "/profile", label: "Profile", icon: FileJson }] : []),
+    ...(isClientReviewer ? [{ path: "/profile-review", label: "Review", icon: CheckSquare }] : []),
+    { path: "/modules", label: "Modules", icon: Settings },
+    { path: "/logs", label: "Logs", icon: Terminal },
+    { path: "/help", label: "Help", icon: Info },
+    { path: "/downloads", label: "Downloads", icon: Download },
+    { path: "/settings", label: "Settings", icon: Settings },
+  ];
   const tourRoute = isTourActive ? TOUR_STEPS[currentStep]?.route : undefined;
   const tourTarget = isTourActive ? TOUR_STEPS[currentStep]?.target : undefined;
   const selectedBrandLogo = settings.brandLogo ?? 'sia';

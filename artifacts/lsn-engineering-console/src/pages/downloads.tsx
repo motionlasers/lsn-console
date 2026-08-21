@@ -19,9 +19,19 @@ import {
   releaseAssetUrl,
 } from '@/lib/release';
 import { History } from 'lucide-react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { governanceApi, type ImmutableProfileVersion } from '@/lib/profile-governance-api';
+import {
+  activateProfileUpdate,
+  checkForProfileUpdate,
+  getProfileChannelState,
+  rollbackProfile,
+} from '@/lib/desktop';
 
 export default function Downloads() {
   const { activeProfileDocument, capabilities } = useStore();
+  const queryClient = useQueryClient();
+  const [selectedVersionId, setSelectedVersionId] = useState<number | null>(null);
   const [notesExpanded, setNotesExpanded] = useState(true);
   const [previousExpanded, setPreviousExpanded] = useState(false);
   
@@ -32,17 +42,63 @@ export default function Downloads() {
   const [zipHash, setZipHash] = useState<string | null>(null);
   const [zipError, setZipError] = useState<string | null>(null);
 
+  const { data: primaryProfileId } = useQuery({
+    queryKey: ['download-profile-id'],
+    queryFn: async () => {
+      const res = await governanceApi.listProfiles();
+      if (!res.ok) throw new Error(res.error);
+      return res.data[0]?.id ?? null;
+    },
+  });
+  const { data: versions = [] } = useQuery({
+    queryKey: ['download-profile-versions', primaryProfileId],
+    queryFn: async () => {
+      const res = await governanceApi.listVersions(primaryProfileId!);
+      if (!res.ok) throw new Error(res.error);
+      return res.data;
+    },
+    enabled: primaryProfileId !== null && primaryProfileId !== undefined,
+  });
+  const selectedVersion = versions.find((version: ImmutableProfileVersion) => version.id === selectedVersionId)
+    ?? versions.find((version: ImmutableProfileVersion) => ['DEVELOPMENT_PUBLISHED', 'HARDWARE_VERIFIED', 'PRODUCTION_FROZEN'].includes(version.state))
+    ?? versions[0];
+  const packageDocument = selectedVersion?.document ?? activeProfileDocument;
+  const packageCapabilities = useMemo(() => ({
+    interlock: packageDocument.capabilities?.interlock?.enabled ?? capabilities.interlock,
+    remoteStop: packageDocument.capabilities?.remoteStop?.enabled ?? capabilities.remoteStop,
+    sensors: packageDocument.capabilities?.sensors?.enabled ?? capabilities.sensors,
+  }), [packageDocument, capabilities]);
   const packageSummary = useMemo(
-    () => summarizeFirmwarePackage(activeProfileDocument, capabilities),
-    [activeProfileDocument, capabilities]
+    () => summarizeFirmwarePackage(packageDocument, packageCapabilities),
+    [packageDocument, packageCapabilities]
   );
+
+  const { data: profileChannel } = useQuery({
+    queryKey: ['desktop-profile-channel'],
+    queryFn: () => getProfileChannelState(),
+  });
+  const profileChannelMutation = useMutation({
+    mutationFn: async (action: 'check' | 'activate' | 'rollback') => {
+      const state = action === 'check'
+        ? await checkForProfileUpdate()
+        : action === 'activate'
+          ? await activateProfileUpdate(profileChannel?.staged?.digest)
+          : await rollbackProfile(false);
+      if (!state) throw new Error("Profile updates are only available in the packaged Windows Console");
+      return state;
+    },
+    onSuccess: (state) => queryClient.setQueryData(['desktop-profile-channel'], state),
+  });
 
   const handleZipDownload = async () => {
     setZipState('generating');
     setZipError(null);
     setZipHash(null);
     try {
-      const result = await createFirmwareIntegrationPackage(activeProfileDocument, capabilities);
+      if (!selectedVersion) {
+        throw new Error("Select an immutable governed profile version before generating a package.");
+      }
+      const result = await createFirmwareIntegrationPackage(packageDocument, packageCapabilities);
       downloadBlob(result.blob, result.filename);
       
       try {
@@ -69,7 +125,10 @@ export default function Downloads() {
     setIsGeneratingItem(filename);
     setItemError(null);
     try {
-      const result = await createFirmwareIntegrationPackage(activeProfileDocument, capabilities);
+      if (!selectedVersion) {
+        throw new Error("Select an immutable governed profile version before generating a file.");
+      }
+      const result = await createFirmwareIntegrationPackage(packageDocument, packageCapabilities);
       const content = result.files[filename];
       if (content) {
         downloadFile(content, filename, mimeType);
@@ -135,10 +194,10 @@ export default function Downloads() {
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 font-mono text-xs">
         {[
           ["Console", CURRENT_RELEASE.label],
-          ["Protocol", activeProfileDocument.protocolVersion],
-          ["Device Profile", `lsn-v${activeProfileDocument.profileVersion}`],
+          ["Protocol", packageDocument.protocolVersion],
+          ["Device Profile", `lsn-v${packageDocument.profileVersion}`],
           ["Firmware Interface", VERSION_TRACKS.firmwareInterface.label],
-          ["Target Platform", `${activeProfileDocument.hardwareFamily} / ESP32`],
+          ["Target Platform", `${packageDocument.hardwareFamily} / ESP32`],
         ].map(([label, value]) => (
           <div key={label} className="border border-border bg-card/50 p-3 rounded-sm">
             <div className="text-[9px] text-muted-foreground uppercase tracking-widest">{label}</div>
@@ -146,6 +205,48 @@ export default function Downloads() {
           </div>
         ))}
       </div>
+
+      <Card className="border-border bg-card/50">
+        <CardHeader className="border-b border-border/50 bg-black/20 pb-4">
+          <CardTitle className="text-sm font-mono tracking-widest text-primary">Immutable Device Profile Release</CardTitle>
+        </CardHeader>
+        <CardContent className="pt-5 grid gap-4 lg:grid-cols-2">
+          <div>
+            <label className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">Package source</label>
+            <select
+              value={selectedVersion?.id ?? ''}
+              onChange={(event) => setSelectedVersionId(Number(event.target.value))}
+              className="mt-2 w-full bg-black/40 border border-border px-3 py-2 text-xs font-mono"
+              data-testid="select-immutable-profile-version"
+            >
+              {versions.map((version: ImmutableProfileVersion) => (
+                <option key={version.id} value={version.id}>
+                  v{version.versionNumber} · {version.state} · {version.digest.slice(0, 12)}
+                </option>
+              ))}
+            </select>
+            <p className="mt-2 text-[10px] font-mono text-muted-foreground">
+              Firmware packages and client downloads use this immutable version, never unsaved browser state.
+            </p>
+          </div>
+          <div className="border border-border p-3 font-mono text-[10px]" data-testid="desktop-profile-update-state">
+            <div className="flex justify-between gap-3"><span>Windows active</span><strong>{profileChannel?.active?.profileVersion ?? "DESKTOP ONLY"}</strong></div>
+            <div className="flex justify-between gap-3 mt-2"><span>Staged update</span><strong>{profileChannel?.staged?.profileVersion ?? "NONE"}</strong></div>
+            {profileChannel?.staged && profileChannel.active && (
+              <div className="mt-2 border-t border-border pt-2">
+                Version {profileChannel.active.profileVersion} → {profileChannel.staged.profileVersion}<br/>
+                Digest {profileChannel.active.digest.slice(0, 10)} → {profileChannel.staged.digest.slice(0, 10)}
+              </div>
+            )}
+            <div className="mt-3 flex gap-2">
+              <Button size="sm" variant="outline" onClick={() => profileChannelMutation.mutate('check')} data-testid="button-check-profile-update">CHECK</Button>
+              <Button size="sm" disabled={!profileChannel?.staged} onClick={() => profileChannelMutation.mutate('activate')} data-testid="button-apply-profile-update">APPLY</Button>
+              <Button size="sm" variant="outline" disabled={!profileChannel?.lastKnownGood} onClick={() => profileChannelMutation.mutate('rollback')} data-testid="button-rollback-profile-update">ROLL BACK</Button>
+            </div>
+            {profileChannelMutation.error && <div className="mt-2 text-warning">{profileChannelMutation.error.message}</div>}
+          </div>
+        </CardContent>
+      </Card>
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
         
@@ -367,7 +468,7 @@ export default function Downloads() {
                   <div className="pt-2" aria-live="polite" aria-atomic="true">
                     <Button 
                       onClick={handleZipDownload}
-                      disabled={zipState === 'generating'}
+                      disabled={zipState === 'generating' || !selectedVersion}
                       className={`w-full font-mono text-xs tracking-wider h-12 transition-colors ${
                         zipState === 'ready' ? 'border-success text-success hover:bg-success/10 bg-success/10' :
                         zipState === 'error' ? 'border-destructive text-destructive hover:bg-destructive/10 bg-destructive/5' :
@@ -409,7 +510,7 @@ export default function Downloads() {
                   <Button 
                     variant="outline" 
                     size="sm" 
-                    disabled={isGeneratingItem !== null}
+                    disabled={isGeneratingItem !== null || !selectedVersion}
                     onClick={() => handleIndividualDownload('lsn_protocol.h', 'text/plain')}
                     className="justify-start font-mono text-[10px] h-8 bg-black/30 border-border/50 text-foreground hover:border-primary/50 transition-colors"
                   >
@@ -420,7 +521,7 @@ export default function Downloads() {
                   <Button 
                     variant="outline" 
                     size="sm" 
-                    disabled={isGeneratingItem !== null}
+                    disabled={isGeneratingItem !== null || !selectedVersion}
                     onClick={() => handleIndividualDownload('lsn_protocol_types.h', 'text/plain')}
                     className="justify-start font-mono text-[10px] h-8 bg-black/30 border-border/50 text-foreground hover:border-primary/50 transition-colors"
                   >
@@ -431,7 +532,7 @@ export default function Downloads() {
                   <Button 
                     variant="outline" 
                     size="sm" 
-                    disabled={isGeneratingItem !== null}
+                    disabled={isGeneratingItem !== null || !selectedVersion}
                     onClick={() => handleIndividualDownload('lsn_protocol_profile.json', 'application/json')}
                     className="justify-start font-mono text-[10px] h-8 bg-black/30 border-border/50 text-foreground hover:border-primary/50 transition-colors"
                   >
@@ -442,7 +543,7 @@ export default function Downloads() {
                   <Button 
                     variant="outline" 
                     size="sm" 
-                    disabled={isGeneratingItem !== null}
+                    disabled={isGeneratingItem !== null || !selectedVersion}
                     onClick={() => handleIndividualDownload('lsn_interface.md', 'text/markdown')}
                     className="justify-start font-mono text-[10px] h-8 bg-black/30 border-border/50 text-foreground hover:border-primary/50 transition-colors"
                   >
@@ -453,7 +554,7 @@ export default function Downloads() {
                   <Button 
                     variant="outline" 
                     size="sm" 
-                    disabled={isGeneratingItem !== null}
+                    disabled={isGeneratingItem !== null || !selectedVersion}
                     onClick={() => handleIndividualDownload('lsn_interface.csv', 'text/csv')}
                     className="justify-start font-mono text-[10px] h-8 bg-black/30 border-border/50 text-foreground hover:border-primary/50 transition-colors"
                   >

@@ -244,7 +244,7 @@ async function downloadsWarningChecks(context) {
     `${label}: "Go to Profile →" navigates to /profile (got ${route})`,
   );
 
-  // ── 4. Warning clears for a fully resolved persisted profile ───────────────
+  // ── 4. Local browser edits never replace the immutable package source ─────
   await page.evaluate(() => {
     const storageKey = 'lsn-console-storage';
     const persisted = JSON.parse(localStorage.getItem(storageKey) ?? '{}');
@@ -273,27 +273,43 @@ async function downloadsWarningChecks(context) {
   });
 
   await page.goto(BASE + '/downloads');
-  const tbdSummary = page.getByText('0 TBD', { exact: true });
+  const immutableSource = page.getByTestId('select-immutable-profile-version');
   await waitFor(
-    () => tbdSummary.isVisible().catch(() => false),
-    `${label}: fully resolved profile summary shows zero TBD mappings`,
+    () => immutableSource.isVisible().catch(() => false),
+    `${label}: immutable profile version selector is visible`,
     20000,
   );
-  check(
-    !(await warningHeading.isVisible().catch(() => false)),
-    `${label}: warning is absent for a profile with all concrete CIP mappings`,
-  );
+  const immutableVersionCount = await immutableSource.locator('option').count();
+  const packageButton = page.getByRole('button', { name: 'GENERATE & DOWNLOAD PACKAGE' });
+  if (immutableVersionCount > 0) {
+    check(
+      await warningHeading.isVisible().catch(() => false),
+      `${label}: local browser mapping edits do not replace the governed immutable package source`,
+    );
+  } else {
+    check(
+      await packageButton.isDisabled(),
+      `${label}: package generation stays disabled until an immutable governed version exists`,
+    );
+  }
 
   await page.reload();
   await waitFor(
-    () => tbdSummary.isVisible().catch(() => false),
-    `${label}: resolved profile remains loaded after reload`,
+    () => immutableSource.isVisible().catch(() => false),
+    `${label}: immutable profile selector remains loaded after reload`,
     20000,
   );
-  check(
-    !(await warningHeading.isVisible().catch(() => false)),
-    `${label}: warning remains absent after reloading the fully resolved profile`,
-  );
+  if (immutableVersionCount > 0) {
+    check(
+      await warningHeading.isVisible().catch(() => false),
+      `${label}: immutable package source remains isolated from local browser state after reload`,
+    );
+  } else {
+    check(
+      await packageButton.isDisabled(),
+      `${label}: immutable package requirement remains enforced after reload`,
+    );
+  }
 
   // ── 5. Packaged Windows default and mode-transition reset ─────────────────
   await page.goto(BASE + '/device');

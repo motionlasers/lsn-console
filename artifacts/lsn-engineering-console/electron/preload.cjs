@@ -45,4 +45,23 @@ contextBridge.exposeInMainWorld('lsnDesktop', Object.freeze({
     ipcRenderer.on('desktop:updates-state', handler);
     return () => ipcRenderer.removeListener('desktop:updates-state', handler);
   },
+  // Development Profile update channel. Main fetches from the fixed authenticated
+  // origin, independently verifies (digest/schema/protocol/identity/firmware/
+  // mapping readiness/version policy), stages, and — only on an explicit action —
+  // activates or rolls back. The renderer never supplies a URL, path, profile
+  // document, or CIP mapping; it only observes SANITIZED metadata and triggers
+  // explicit transitions. It can never activate a physical mapping directly.
+  getProfileChannelState: () => ipcRenderer.invoke('desktop:profile-get-state'),
+  checkForProfileUpdate: () => ipcRenderer.invoke('desktop:profile-check'),
+  activateProfileUpdate: (digest) =>
+    ipcRenderer.invoke('desktop:profile-activate', { digest }),
+  rollbackProfile: (toBundled) =>
+    ipcRenderer.invoke('desktop:profile-rollback', { toBundled: toBundled === true }),
+  discardStagedProfile: () => ipcRenderer.invoke('desktop:profile-discard-staged'),
+  onProfileChannelState: (listener) => {
+    if (typeof listener !== 'function') return () => {};
+    const handler = (_event, state) => listener(state);
+    ipcRenderer.on('desktop:profile-state', handler);
+    return () => ipcRenderer.removeListener('desktop:profile-state', handler);
+  },
 }));

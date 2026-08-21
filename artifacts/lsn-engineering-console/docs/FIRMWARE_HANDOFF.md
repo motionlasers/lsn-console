@@ -16,7 +16,7 @@ Use the in-app **Firmware Interface** generated from the active Device Profile a
 
 ## Firmware Integration Package
 
-Use **Device Profile → EXPORT FIRMWARE INTEGRATION PACKAGE** to create the current firmware handoff ZIP. Review the pre-export summary, then download the package even when mappings remain unresolved; those entries are intentionally marked `TBD`.
+Use **Downloads → Immutable Device Profile Release** to select the exact governed profile version, then generate the firmware handoff ZIP. Review the pre-export summary before downloading. Packages may still contain unresolved mappings, which remain explicitly marked `TBD`.
 
 The package contains:
 
@@ -25,9 +25,15 @@ The package contains:
 - CSV and Markdown implementation checklists for the currently enabled interface.
 - A practical README with versions, target platform, regeneration steps, and implementation boundaries.
 
-Regenerate the package whenever the Device Profile changes. Do not manually maintain a second interface definition. Missing CIP values, enum values, string sizes/encodings, byte/bit packing, endianness, and identity values must be selected by the firmware engineer and entered back into the Device Profile before another export.
+Submit a new immutable review snapshot and regenerate the package whenever the Device Profile changes. Previously submitted or published versions are never overwritten. Do not manually maintain a second interface definition. Missing CIP values, enum values, string sizes/encodings, byte/bit packing, endianness, and identity values must be selected by the firmware engineer and entered back into a new draft before another review and export.
 
 The package defines the external LSN interface only. It does not modify firmware source, assign daughterboard GPIOs, dictate the internal state-machine architecture, or treat simulation evidence as firmware or physical validation.
+
+## Governed Development Profile channel
+
+After a Client Reviewer accepts an immutable review snapshot, a Firmware Admin may publish that exact digest to the Development channel. Packaged Windows Consoles check the authenticated fixed-origin HTTPS channel from Electron main, independently verify schema, digest, protocol, hardware identity, firmware compatibility, mapping readiness, and version policy, and stage the artifact without activating it.
+
+Activation always requires an explicit operator **Apply** action. Electron main stores the active and last-known-good artifacts atomically, disconnects hardware, clears identity binding, and requires fresh identity validation before reconnect. A renderer-saved or locally imported profile can never become the physical hardware profile directly. Rollback restores a verified last-known-good artifact or the bundled fallback.
 
 ## Physical transport the firmware must answer to
 

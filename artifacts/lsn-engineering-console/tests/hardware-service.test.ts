@@ -511,6 +511,34 @@ describe('HardwareService — hardening', () => {
     await expect(service.connect('999.1.1.1')).rejects.toThrow(/IPv4/i);
   });
 
+  it('setActiveProfile repins, forces disconnect, and requires identity revalidation', async () => {
+    const session = fakeResolvedSession({ [ATTR.Ready]: 1 });
+    const service = new HardwareService({
+      sessionFactory: () => session,
+      profileLoader: resolvedProfileFixture,
+      confirmArm: async () => true,
+    });
+    await service.connect('192.168.1.10');
+    await service.armControl();
+    expect(service.getState().connected).toBe(true);
+
+    // Repin a new (still-TBD) profile document. This must tear down the session
+    // and clear identity/arm freshness so no stale control survives the swap.
+    const { profile: newProfile } = resolvedProfileFixture();
+    (newProfile as Record<string, unknown>).profileVersion = '9.9.10-repin';
+    const readiness = await service.setActiveProfile(newProfile, 'new-digest');
+    expect(readiness.profileDigest).toBe('new-digest');
+    expect(session.disconnect).toHaveBeenCalled();
+    expect(service.getState().connected).toBe(false);
+    expect(service.getState().identityVerified).toBe(false);
+  });
+
+  it('setActiveProfile rejects a malformed profile document', async () => {
+    const service = new HardwareService({ profileLoader: resolvedProfileFixture });
+    await expect(service.setActiveProfile({}, 'd')).rejects.toThrow(/validated profile/i);
+    await expect(service.setActiveProfile(null, 'd')).rejects.toThrow(/validated profile/i);
+  });
+
   it('closes cleanly on shutdown', async () => {
     const session = fakeResolvedSession({});
     const service = new HardwareService({

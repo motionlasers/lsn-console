@@ -33,6 +33,7 @@ import Tests from '@/pages/tests';
 import StressTesting from '@/pages/stress';
 import Firmware from '@/pages/firmware';
 import Profile from '@/pages/profile';
+import ProfileReview from '@/pages/profile-review';
 import Modules from '@/pages/modules';
 import Logs from '@/pages/logs';
 import Help from '@/pages/help';
@@ -57,6 +58,7 @@ function Router() {
           <Route path="/stress" component={StressTesting} />
           <Route path="/firmware" component={Firmware} />
           <Route path="/profile" component={Profile} />
+          <Route path="/profile-review" component={ProfileReview} />
           <Route path="/modules" component={Modules} />
           <Route path="/logs" component={Logs} />
           <Route path="/help" component={Help} />

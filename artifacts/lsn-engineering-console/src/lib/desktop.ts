@@ -155,6 +155,48 @@ export interface DesktopUpdateState {
   installerTrust?: 'trusted-publisher' | 'unsigned';
 }
 
+/**
+ * Sanitized metadata for a single profile slot (active, staged, last-known-good,
+ * or bundled). The renderer NEVER receives CIP mappings, EPATHs, wire encodings,
+ * raw bytes, or a full profile document — only this governance metadata.
+ */
+export interface DesktopProfileEntry {
+  profileVersion: string;
+  protocolVersion: string;
+  hardwareFamily: string;
+  digest: string;
+  releaseName: string;
+  signatureState: 'bundled' | 'unsigned' | 'verified' | 'invalid';
+  controlReady: boolean;
+  readReady: boolean;
+  identityResolved: boolean;
+  source: 'bundled' | 'channel';
+  stagedAt?: string | null;
+  activatedAt?: string | null;
+}
+
+/** A single blocking verification issue from the main-process trust boundary. */
+export interface DesktopProfileIssue {
+  code: string;
+  message: string;
+}
+
+/**
+ * Sanitized Development Profile channel state reported by Electron main. The
+ * renderer observes which immutable version is active/staged/last-known-good
+ * and any verification errors, but never fetches, verifies, or activates a
+ * profile itself, and can never turn a local/imported profile into the physical
+ * hardware profile.
+ */
+export interface DesktopProfileChannelState {
+  active: DesktopProfileEntry | null;
+  lastKnownGood: DesktopProfileEntry | null;
+  staged: DesktopProfileEntry | null;
+  bundled: DesktopProfileEntry | null;
+  checking: boolean;
+  error: { code: string; issues: DesktopProfileIssue[] } | null;
+}
+
 export interface LsnDesktopBridge {
   getPlatform: () => Promise<DesktopPlatformInfo>;
   authRequest: (
@@ -184,6 +226,16 @@ export interface LsnDesktopBridge {
   installUpdate: () => Promise<DesktopUpdateState>;
   onUpdateState: (
     listener: (state: DesktopUpdateState) => void,
+  ) => () => void;
+  getProfileChannelState: () => Promise<DesktopProfileChannelState>;
+  checkForProfileUpdate: () => Promise<DesktopProfileChannelState>;
+  activateProfileUpdate: (
+    digest?: string,
+  ) => Promise<DesktopProfileChannelState>;
+  rollbackProfile: (toBundled?: boolean) => Promise<DesktopProfileChannelState>;
+  discardStagedProfile: () => Promise<DesktopProfileChannelState>;
+  onProfileChannelState: (
+    listener: (state: DesktopProfileChannelState) => void,
   ) => () => void;
 }
 
@@ -249,4 +301,48 @@ export function disconnectedHardwareState(): DesktopHardwareState {
     address: null,
     sessionHandle: null,
   };
+}
+
+/**
+ * Read the sanitized Development Profile channel state from the desktop bridge.
+ * In the browser (no bridge) there is no profile channel, so this resolves to
+ * null — profile activation is a packaged-desktop, main-process-only concern.
+ */
+export async function getProfileChannelState(): Promise<DesktopProfileChannelState | null> {
+  const bridge = getDesktopBridge();
+  if (!bridge) return null;
+  return bridge.getProfileChannelState();
+}
+
+/**
+ * Trigger a fixed-origin authenticated Development Profile update check in main.
+ * The renderer never chooses an origin or path and never receives a profile
+ * document — only sanitized channel state. Returns null in the browser.
+ */
+export async function checkForProfileUpdate(): Promise<DesktopProfileChannelState | null> {
+  const bridge = getDesktopBridge();
+  if (!bridge) return null;
+  return bridge.checkForProfileUpdate();
+}
+
+/**
+ * Explicitly activate a staged, main-verified profile by its digest. This never
+ * bypasses main's verification — the digest only identifies which staged profile
+ * to promote. A renderer-saved or imported profile can never be activated here.
+ */
+export async function activateProfileUpdate(
+  digest?: string,
+): Promise<DesktopProfileChannelState | null> {
+  const bridge = getDesktopBridge();
+  if (!bridge) return null;
+  return bridge.activateProfileUpdate(digest);
+}
+
+/** Explicitly roll back to the last-known-good profile or the bundled fallback. */
+export async function rollbackProfile(
+  toBundled = false,
+): Promise<DesktopProfileChannelState | null> {
+  const bridge = getDesktopBridge();
+  if (!bridge) return null;
+  return bridge.rollbackProfile(toBundled);
 }

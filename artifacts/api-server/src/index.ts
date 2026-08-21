@@ -1,6 +1,7 @@
 import app from "./app.js";
 import { logger } from "./lib/logger.js";
 import { seedAdminIfEmpty } from "./lib/seed.js";
+import { migrateRolesIfNeeded } from "./lib/role-migrate.js";
 
 const rawPort = process.env["PORT"];
 
@@ -23,5 +24,6 @@ app.listen(port, async (err) => {
   }
 
   logger.info({ port }, "Server listening");
+  await migrateRolesIfNeeded();
   await seedAdminIfEmpty();
 });

@@ -3,9 +3,13 @@
 
 import { getDesktopBridge } from "./desktop";
 
+export type CanonicalRole = "SUPERADMIN" | "FIRMWARE_ADMIN" | "CLIENT_REVIEWER";
+
 export interface SessionUser {
   userId: number;
   username: string;
+  role: CanonicalRole;
+  permissions: string[];
   isAdmin: boolean;
   /** True when the server requires this user to set a new password before proceeding */
   forcePasswordChange: boolean;
@@ -14,6 +18,7 @@ export interface SessionUser {
 export interface AdminUser {
   id: number;
   username: string;
+  role: CanonicalRole;
   isAdmin: boolean;
   forcePasswordChange: boolean;
   createdAt: string;
@@ -76,13 +81,13 @@ export const authApi = {
 export const adminApi = {
   listUsers: () => apiFetch<AdminUser[]>("/api/admin/users"),
 
-  createUser: (username: string, password: string, isAdmin: boolean) =>
+  createUser: (username: string, password: string, role: CanonicalRole) =>
     apiFetch<AdminUser>("/api/admin/users", {
       method: "POST",
-      body: JSON.stringify({ username, password, isAdmin }),
+      body: JSON.stringify({ username, password, role }),
     }),
 
-  updateUser: (id: number, updates: { password?: string; isAdmin?: boolean }) =>
+  updateUser: (id: number, updates: { password?: string; isAdmin?: boolean; role?: CanonicalRole }) =>
     apiFetch<AdminUser>(`/api/admin/users/${id}`, {
       method: "PUT",
       body: JSON.stringify(updates),
