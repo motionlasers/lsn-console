@@ -162,12 +162,12 @@ jobs:
               throw "Squirrel installer exited $($process.ExitCode) during $Label."
             }
 
+            $installRoot = Join-Path $env:LOCALAPPDATA 'LSN_Engineering_Console'
             $deadline = (Get-Date).AddSeconds(60)
             do {
-              $appExe = Get-ChildItem -Path $env:LOCALAPPDATA `
+              $appExe = Get-ChildItem -Path $installRoot `
                 -Filter 'LSN-Engineering-Console.exe' -Recurse `
                 -ErrorAction SilentlyContinue |
-                Where-Object { $_.FullName -match 'LSN_Engineering_Console' } |
                 Sort-Object LastWriteTime -Descending |
                 Select-Object -First 1
               if (-not $appExe) { Start-Sleep -Seconds 2 }
@@ -180,6 +180,8 @@ jobs:
 
           $evidenceDir = Join-Path $env:GITHUB_WORKSPACE 'windows-smoke-evidence'
           $appExe = Install-Console -Label 'first install'
+          Get-Process -Name 'LSN-Engineering-Console' -ErrorAction SilentlyContinue |
+            Stop-Process -Force
           $env:LSN_WINDOWS_EXECUTABLE = $appExe.FullName
           $env:LSN_WINDOWS_SMOKE_EVIDENCE = $evidenceDir
           $env:LSN_WINDOWS_SMOKE_LABEL = 'first-install'
@@ -203,6 +205,8 @@ jobs:
           Start-Sleep -Seconds 5
 
           $appExe = Install-Console -Label 'clean reinstall'
+          Get-Process -Name 'LSN-Engineering-Console' -ErrorAction SilentlyContinue |
+            Stop-Process -Force
           $env:LSN_WINDOWS_EXECUTABLE = $appExe.FullName
           $env:LSN_WINDOWS_SMOKE_LABEL = 'clean-reinstall'
           node artifacts/lsn-engineering-console/tests/windows/installed-smoke.mjs
