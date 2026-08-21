@@ -137,6 +137,19 @@ async function downloadsWarningChecks(context) {
         physicalValidation: 'HARDWARE VALIDATION REQUIRED',
         canTransmit: false,
       }),
+      hardwareDiscover: async (addr) => ({
+         candidates: [{
+            sourceAddress: addr || '192.168.1.55', socketAddress: '', socketPort: 0, vendorId: 1, deviceType: 2, productCode: 3, revision: '1.0', status: 0, serialNumber: 555, productName: 'BrowserMockDevice', state: 0, encapProtocolVersion: 1
+         }]
+      }),
+      hardwareConnect: async (addr) => ({ state: 'connected', connected: true, address: addr, sessionHandle: 1 }),
+      hardwareDisconnect: async () => ({ state: 'disconnected', connected: false, address: null, sessionHandle: null }),
+      getHardwareState: async () => ({ state: 'disconnected', connected: false, address: null, sessionHandle: null }),
+      hardwareGetProfileReadiness: async () => ({ readReady: false }),
+      hardwareReadField: async (name) => ({ value: false, symbolicName: name }),
+      hardwareArmControl: async () => ({ armed: true }),
+      hardwareWriteEnable: async (enable) => ({ requested: enable, outputActive: enable }),
+      onHardwareState: () => { return () => {}; },
       selectFirmwarePackage: async () => null,
       saveFile: async () => ({ saved: false }),
       getUpdateState: async () => updateState,
@@ -281,6 +294,33 @@ async function downloadsWarningChecks(context) {
   check(
     await page.locator('#main-workspace').getByText('DISCONNECTED', { exact: true }).isVisible(),
     `${label}: switching modes resets the active connection`,
+  );
+
+  // ── Hardware Mode Discovery / Session check ───────────────────────────────
+  const hardwareDiscoverBtn = page.getByRole('button', { name: 'DISCOVER' });
+  await hardwareDiscoverBtn.click();
+  await waitFor(
+    async () => !(await hardwareDiscoverBtn.isVisible().catch(() => false)),
+    `${label}: hardware device discovery completes`,
+  );
+  check(
+    !(await page.getByText('AWAITING DEVICE DISCOVERY').isVisible().catch(() => false)),
+    `${label}: hardware identity is visible after discovery`,
+  );
+  check(
+    await page.getByText('BrowserMockDevice').isVisible(),
+    `${label}: physical ListIdentity values are displayed`,
+  );
+
+  const connectBtn = page.getByRole('button', { name: 'CONNECT', exact: true });
+  await connectBtn.click();
+  await waitFor(
+    () => page.locator('#main-workspace').getByText('CONNECTED', { exact: true }).isVisible(),
+    `${label}: hardware mode connects`,
+  );
+  check(
+    await page.locator('#main-workspace').getByText('CONNECTED', { exact: true }).isVisible(),
+    `${label}: physical session connected`,
   );
 
   // ── 5. Desktop update progress and defer/review states ─────────────────────

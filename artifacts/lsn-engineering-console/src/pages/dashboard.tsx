@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Power, PowerOff, Cpu, Network, Clock, Zap, Radar } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { TelemetryNotice, TelemetryValue, useTelemetryState } from "@/components/TelemetryState";
+import { getDesktopBridge } from "@/lib/desktop";
 
 function StatusIndicator({ label, active, color = "success", live }: { label: string, active: boolean, color?: "success" | "primary" | "destructive", live: boolean }) {
   const colorMap = {
@@ -28,18 +29,31 @@ function StatusIndicator({ label, active, color = "success", live }: { label: st
 }
 
 export default function Dashboard() {
-  const { device, connectionState, logicalState, mode, connect, disconnect, discover, discovered, toggleEnable, setInterlock, setRemoteStop, settings, capabilities, setCapability } = useStore();
+  const { device, connectionState, logicalState, mode, connect, disconnect, discover, discovered, toggleEnable, setInterlock, setRemoteStop, settings, capabilities, setCapability, profileReadiness } = useStore();
   const telemetry = useTelemetryState();
 
   const handleDiscovery = () => discover();
 
-  const isReady = (!capabilities?.interlock || logicalState.interlockOK) && 
-                  (!capabilities?.remoteStop || logicalState.remoteStopOK) && 
+  const hasBridge = !!getDesktopBridge();
+  const isReady = (!capabilities?.interlock || logicalState.interlockOK) &&
+                  (!capabilities?.remoteStop || logicalState.remoteStopOK) &&
                   !logicalState.faulted;
+  const physicalControlActive = logicalState.requestedEnable || logicalState.emissionControlOutputActive;
+  const hardwareProfileReady = profileReadiness?.enable?.ready === true;
+  const hardwareCanEnable =
+    connectionState === 'connected' &&
+    hardwareProfileReady &&
+    telemetry.isLive;
+  const hardwareCanDisable =
+    connectionState === 'connected' &&
+    hardwareProfileReady;
+  const primaryControlDisabled = mode === 'hardware'
+    ? physicalControlActive ? !hardwareCanDisable : !hardwareCanEnable
+    : connectionState !== 'connected';
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-6 animate-in fade-in duration-300">
-      
+
       {/* Device Identity Panel */}
       <Card data-tour="dashboard-identity" className="col-span-1 md:col-span-2 border-border bg-card/50 backdrop-blur">
         <CardHeader className="border-b border-border/50 bg-black/20 pb-4">
@@ -79,7 +93,7 @@ export default function Dashboard() {
           ) : (
             <div className="flex flex-col items-center justify-center h-32 gap-4">
               <span className="text-xs font-mono text-muted-foreground uppercase">AWAITING DEVICE DISCOVERY</span>
-              <Button variant="outline" className="font-mono text-xs border-primary text-primary hover:bg-primary/20" onClick={handleDiscovery} disabled={mode === 'hardware'}>
+              <Button variant="outline" className="font-mono text-xs border-primary text-primary hover:bg-primary/20" onClick={handleDiscovery} disabled={mode === 'hardware' && !hasBridge}>
                 <Radar className="w-4 h-4 mr-2" /> DISCOVER
               </Button>
             </div>
@@ -100,7 +114,7 @@ export default function Dashboard() {
             <span className="text-xs font-mono text-muted-foreground">STATE</span>
             <span className={cn(
               "text-xs font-bold font-mono tracking-wider",
-              connectionState === 'connected' ? "text-success" : 
+              connectionState === 'connected' ? "text-success" :
               connectionState === 'faulted' ? "text-destructive" :
               "text-warning"
             )}>
@@ -109,17 +123,17 @@ export default function Dashboard() {
           </div>
 
           <div className="grid grid-cols-2 gap-2 mt-auto">
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               className="font-mono text-xs border-primary text-primary hover:bg-primary/20 h-10 disabled:opacity-30 disabled:border-muted disabled:text-muted-foreground"
-              onClick={connect}
-              disabled={mode === 'hardware' || connectionState === 'connected' || connectionState === 'connecting' || (!discovered && connectionState === 'disconnected')}
+              onClick={() => connect()}
+              disabled={(mode === 'hardware' && !hasBridge) || connectionState === 'connected' || connectionState === 'connecting' || (!discovered && connectionState === 'disconnected')}
             >
               <Power className="w-3 h-3 mr-2" />
               CONNECT
             </Button>
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               className="font-mono text-xs border-border text-foreground hover:bg-white/10 h-10 disabled:opacity-30"
               onClick={disconnect}
               disabled={connectionState === 'disconnected'}
@@ -152,32 +166,39 @@ export default function Dashboard() {
         </CardContent>
       </Card>
 
-      {/* Manual Overrides (Simulation) */}
+      {/* Primary control action */}
       <Card className="col-span-1 md:col-span-2 border-border bg-card/50 backdrop-blur">
         <CardHeader data-tour="dashboard-controls" className="border-b border-border/50 bg-black/20 pb-4 flex flex-row items-center justify-between">
           <CardTitle className="text-sm font-mono tracking-widest text-primary flex items-center gap-2">
             <Clock className="w-4 h-4" />
             Primary Controls
           </CardTitle>
-          <div className={cn("text-[10px] font-mono px-2 py-1 rounded", mode === 'hardware' ? 'bg-destructive/20 text-destructive border border-destructive/50' : 'bg-black/30 text-muted-foreground')}>
-            {mode === 'hardware' ? 'HARDWARE TRANSPORT LOCKED' : 'SIMULATION ACTIVE'}
+          <div className={cn("text-[10px] font-mono px-2 py-1 rounded", mode === 'hardware' ? 'bg-warning/20 text-warning border border-warning/50' : 'bg-black/30 text-muted-foreground')}>
+            {mode === 'hardware'
+              ? hardwareProfileReady ? 'GUARDED PHYSICAL CONTROL' : 'PROFILE MAPPING LOCKED'
+              : 'SIMULATION ACTIVE'}
           </div>
         </CardHeader>
         <CardContent className="pt-6">
           <div className="grid grid-cols-3 gap-4">
             <div className="col-span-1 flex flex-col gap-2">
-              <Button 
+              <Button
                 className={cn(
                   "h-16 font-mono text-sm tracking-wider w-full rounded-sm",
-                  logicalState.requestedEnable 
-                    ? "bg-destructive hover:bg-destructive/90 text-destructive-foreground" 
+                  physicalControlActive
+                    ? "bg-destructive hover:bg-destructive/90 text-destructive-foreground"
                     : "bg-primary hover:bg-primary/90 text-primary-foreground"
                 )}
-                disabled={mode === 'hardware' || connectionState !== 'connected'}
-                onClick={() => toggleEnable(!logicalState.requestedEnable)}
+                disabled={primaryControlDisabled}
+                onClick={() => toggleEnable(!physicalControlActive)}
               >
-                {logicalState.requestedEnable ? "CANCEL ENABLE REQ" : "EMISSION ENABLE REQ"}
+                {physicalControlActive ? "REQUEST PHYSICAL DISABLE" : "EMISSION ENABLE REQ"}
               </Button>
+              {mode === 'hardware' && (
+                <div className="text-[10px] text-muted-foreground font-mono text-center">
+                  Enable opens native confirmation and runs fresh preflight reads. Disable does not require re-arming.
+                </div>
+              )}
               <div className="text-[10px] text-muted-foreground font-mono text-center">
                  Last Reported Stop: {logicalState.lastDisableReason || 'N/A'}
               </div>
@@ -234,15 +255,15 @@ export default function Dashboard() {
             </CardTitle>
           </CardHeader>
           <CardContent className="pt-4 flex gap-4">
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               size="sm"
               onClick={() => setCapability?.('interlock', !capabilities?.interlock)}
               className={cn("font-mono text-xs h-8 border", capabilities?.interlock ? "border-primary text-primary" : "border-muted text-muted-foreground")}
             >
               Interlock {capabilities?.interlock ? 'ON' : 'OFF'}
             </Button>
-            <Button 
+            <Button
               variant="outline"
               size="sm"
               onClick={() => setCapability?.('remoteStop', !capabilities?.remoteStop)}

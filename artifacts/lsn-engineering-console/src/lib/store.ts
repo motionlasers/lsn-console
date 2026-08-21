@@ -3,6 +3,7 @@ import { persist } from 'zustand/middleware';
 import { v4 as uuidv4 } from 'uuid';
 import profileJson from '../../profiles/lsn-v0.1.json';
 import { validateDeviceProfile, type DeviceProfileDocument, type DeviceProfileField } from './profile-validation';
+import { getDesktopBridge, discoverHardware, connectHardware, type DesktopHardwareIdentity, type DesktopProfileReadiness, type DesktopHardwareState } from './desktop';
 
 export type ConnectionState = 'disconnected' | 'connecting' | 'connected' | 'faulted';
 export type HardwareMode = 'simulation' | 'hardware';
@@ -463,14 +464,26 @@ interface LSNStore {
   // interruption. Volatile: NOT persisted.
   timerOutputInterruptions: number;
 
+  // Hardware mode state
+  hardwareCandidates: DesktopHardwareIdentity[];
+  selectedCandidate: DesktopHardwareIdentity | null;
+  discoveryStatus: 'idle' | 'scanning' | 'error' | 'done';
+  discoveryError: string | null;
+  manualProbeIp: string;
+  profileReadiness: DesktopProfileReadiness | null;
+
   // Actions
   setMode: (mode: HardwareMode) => void;
   setHardwareUnlocked: (unlocked: boolean) => void;
   setCapability: (capability: CapabilityKey, enabled: boolean) => void;
-  discover: () => Promise<void>;
-  connect: () => Promise<void>;
+  discover: (address?: string) => Promise<void>;
+  connect: (address?: string) => Promise<void>;
   disconnect: () => void;
   toggleEnable: (enable: boolean) => void;
+  selectCandidate: (candidate: DesktopHardwareIdentity | null) => void;
+  setManualProbeIp: (ip: string) => void;
+  readHardwareTelemetry: () => Promise<void>;
+  initializeHardwareSubscriptions: () => () => void;
   // Internal: latch a timer-run output interruption (increments the durable counter
   // only while a guided timer test is running). Idempotent-safe to call.
   latchTimerInterruption: (reason: string) => void;
@@ -821,6 +834,14 @@ export const useStore = create<LSNStore>()(
       persistenceTest: INITIAL_PERSISTENCE_TEST,
       stressTestState: INITIAL_STRESS_STATE,
       timerOutputInterruptions: 0,
+
+      hardwareCandidates: [],
+      selectedCandidate: null,
+      discoveryStatus: 'idle',
+      discoveryError: null,
+      manualProbeIp: '',
+      profileReadiness: null,
+
       settings: {
         devMode: false,
         simulatorTiming: 100,
@@ -830,29 +851,63 @@ export const useStore = create<LSNStore>()(
         navCollapsed: false,
       },
 
-      setMode: (mode) => set(state => {
-        const capabilities = mode === 'hardware' ? state.baseCapabilities : state.capabilities;
-        return {
-          mode,
-          connectionState: 'disconnected',
-          discovered: false,
-          lastValidTelemetryAt: null,
-          responseAttempt: 0,
-          hardwareUnlocked: false,
-          capabilities,
-          activeProfileDocument: documentWithProfileItems(
-            state.activeProfileDocument,
-            state.profile,
+      setMode: (mode) => {
+        if (get().mode === 'hardware' && mode !== 'hardware') {
+          const bridge = getDesktopBridge();
+          if (bridge) bridge.hardwareDisconnect().catch(() => {});
+        }
+        set(state => {
+          const capabilities = mode === 'hardware' ? state.baseCapabilities : state.capabilities;
+          return {
+            mode,
+            connectionState: 'disconnected',
+            discovered: false,
+            lastValidTelemetryAt: null,
+            responseAttempt: 0,
+            hardwareUnlocked: false,
             capabilities,
-          ),
-          logicalState: mode === 'hardware' ? {
-            ...state.logicalState,
-            interlockOK: true,
-            remoteStopOK: true,
-            modulesEnabled: false,
-          } : state.logicalState,
-        };
-      }),
+            hardwareCandidates: [],
+            selectedCandidate: null,
+            discoveryStatus: 'idle',
+            discoveryError: null,
+            profileReadiness: null,
+            activeProfileDocument: documentWithProfileItems(
+              state.activeProfileDocument,
+              state.profile,
+              capabilities,
+            ),
+            logicalState: mode === 'hardware' ? {
+              ...state.logicalState,
+              interlockOK: true,
+              remoteStopOK: true,
+              modulesEnabled: false,
+            } : state.logicalState,
+          };
+        });
+        if (mode === 'hardware') {
+          const bridge = getDesktopBridge();
+          if (!bridge) {
+            set({
+              discoveryError:
+                'Physical EtherNet/IP requires the packaged Windows desktop app. Browser builds are Simulation-only.',
+            });
+          } else {
+            void bridge.hardwareGetProfileReadiness()
+              .then(profileReadiness => {
+                if (get().mode === 'hardware') set({ profileReadiness });
+              })
+              .catch(error => {
+                if (get().mode === 'hardware') {
+                  set({
+                    discoveryError: error instanceof Error
+                      ? error.message
+                      : 'Unable to read the pinned hardware profile.',
+                  });
+                }
+              });
+          }
+        }
+      },
       setHardwareUnlocked: (unlocked) => set({ hardwareUnlocked: unlocked }),
       setCapability: (capability, enabled) => {
         if (get().mode !== 'simulation' || !get().settings.devMode) return;
@@ -877,8 +932,60 @@ export const useStore = create<LSNStore>()(
         }));
       },
 
-      discover: async () => {
-        if (get().mode === 'hardware') return;
+      discover: async (address?: string) => {
+        if (get().mode === 'hardware') {
+          const startedAt = monotonicNowMs();
+          set({ discoveryStatus: 'scanning', discoveryError: null, hardwareCandidates: [] });
+          try {
+            const bridge = getDesktopBridge();
+            if (!bridge) {
+              throw new Error(
+                'Physical EtherNet/IP requires the packaged Windows desktop app. Browser builds are Simulation-only.',
+              );
+            }
+            const result = await discoverHardware(address);
+
+            set({
+              hardwareCandidates: result.candidates,
+              discoveryStatus: 'done',
+              selectedCandidate: result.candidates[0] || null,
+              discovered: result.candidates.length > 0
+            });
+
+            if (result.candidates.length > 0) {
+              const c = result.candidates[0];
+              set(state => ({
+                device: {
+                  ...state.device,
+                  ip: c.sourceAddress || address || 'Unknown',
+                  product: c.productName || 'Unknown',
+                  vendor: c.vendorId.toString(),
+                  serial: c.serialNumber.toString(),
+                  hardwareRevision: c.revision,
+                  firmware: 'Unverified',
+                  platform: 'ESP32 (Unverified)'
+                }
+              }));
+              get().addTransaction({
+                direction: 'bidirectional', operation: 'DISCOVER', command: 'ListIdentity', service: '0x0063', mapping: null,
+                requestPayload: '{}', responsePayload: JSON.stringify(c),
+                requestHex: '', responseHex: '', requestDecoded: 'Physical ListIdentity Request', responseDecoded: `Physical ListIdentity Response: ${c.productName}`,
+                status: 'ok', latency: Math.round(monotonicNowMs() - startedAt), relatedAction: 'discover', expectedResult: 'Identity response', actualResult: 'Received Identity', pass: true
+              });
+            }
+          } catch (error: unknown) {
+            const message = error instanceof Error ? error.message : String(error);
+            set({ discoveryStatus: 'error', discoveryError: message, discovered: false });
+            get().addTransaction({
+              direction: 'bidirectional', operation: 'DISCOVER', command: 'ListIdentity', service: '0x0063', mapping: null,
+              requestPayload: address ? JSON.stringify({ address }) : '{}', responsePayload: message,
+              requestHex: '', responseHex: '', requestDecoded: 'Physical ListIdentity Request', responseDecoded: 'Discovery failed',
+              status: 'error', latency: Math.round(monotonicNowMs() - startedAt), relatedAction: 'discover', expectedResult: 'Identity response', actualResult: message, pass: false
+            });
+          }
+          return;
+        }
+
         set({ discovered: false });
         await new Promise(r => setTimeout(r, get().settings.simulatorTiming));
         set({ discovered: true });
@@ -890,15 +997,52 @@ export const useStore = create<LSNStore>()(
         });
       },
 
-      connect: async () => {
-        const { mode, settings } = get();
+      connect: async (address?: string) => {
+        const { mode, settings, selectedCandidate, manualProbeIp } = get();
         if (mode === 'hardware') {
-          set({ connectionState: 'faulted' });
-          get().addTransaction({
-            direction: 'tx', operation: 'CONNECT', command: 'INIT', service: 'TBD', mapping: null,
-            requestPayload: '', responsePayload: '', requestHex: '', responseHex: '', requestDecoded: 'Hardware transmit blocked', responseDecoded: '',
-            status: 'error', latency: 0, relatedAction: 'connect', expectedResult: 'Connected', actualResult: 'Hardware validation required', pass: false
-          });
+          const target = address || selectedCandidate?.sourceAddress || selectedCandidate?.socketAddress || manualProbeIp;
+          if (!target) return;
+
+          const startedAt = monotonicNowMs();
+          set({ connectionState: 'connecting' });
+          try {
+             const state = await connectHardware(target);
+             if (!state || !state.connected) {
+                set({ connectionState: 'faulted' });
+                get().addTransaction({
+                  direction: 'tx', operation: 'CONNECT', command: 'RegisterSession', service: '0x65', mapping: null,
+                  requestPayload: '', responsePayload: '', requestHex: '', responseHex: '', requestDecoded: 'Physical RegisterSession', responseDecoded: 'Connection Refused',
+                   status: 'error', latency: Math.round(monotonicNowMs() - startedAt), relatedAction: 'connect', expectedResult: 'Connected', actualResult: 'Failed to connect', pass: false
+                });
+                return;
+             }
+             set({ connectionState: 'connected' }); // DO NOT set lastValidTelemetryAt here
+
+             get().addTransaction({
+               direction: 'tx', operation: 'CONNECT', command: 'RegisterSession', service: '0x65', mapping: null,
+               requestPayload: '', responsePayload: `Handle: ${state.sessionHandle}`, requestHex: '', responseHex: '', requestDecoded: 'Physical RegisterSession Request', responseDecoded: 'Physical RegisterSession OK',
+               status: 'ok', latency: Math.round(monotonicNowMs() - startedAt), relatedAction: 'connect', expectedResult: 'Session Registered', actualResult: 'Session Registered', pass: true
+             });
+
+             const bridge = getDesktopBridge();
+             if (bridge) {
+                const ready = await bridge.hardwareGetProfileReadiness();
+                set({ profileReadiness: ready });
+
+                // If profile is ready, do initial fresh read
+                if (ready.readReady) {
+                   await get().readHardwareTelemetry();
+                }
+             }
+           } catch (error: unknown) {
+              const message = error instanceof Error ? error.message : String(error);
+             set({ connectionState: 'faulted' });
+             get().addTransaction({
+                direction: 'tx', operation: 'CONNECT', command: 'RegisterSession', service: '0x65', mapping: null,
+                 requestPayload: '', responsePayload: message, requestHex: '', responseHex: '', requestDecoded: 'Physical RegisterSession', responseDecoded: 'Error',
+                 status: 'error', latency: Math.round(monotonicNowMs() - startedAt), relatedAction: 'connect', expectedResult: 'Connected', actualResult: message, pass: false
+             });
+          }
           return;
         }
 
@@ -915,7 +1059,7 @@ export const useStore = create<LSNStore>()(
         set({ connectionState: 'connecting' });
         await new Promise(r => setTimeout(r, settings.simulatorTiming * 2));
         set({ connectionState: 'connected', lastValidTelemetryAt: Date.now() });
-        
+
         get().addTransaction({
           direction: 'tx', operation: 'CONNECT', command: 'INIT', service: 'TBD', mapping: null,
           requestPayload: '{}', responsePayload: '{}', requestHex: 'SIM 01 00', responseHex: 'SIM 81 00', requestDecoded: 'Simulated session request; CIP service TBD', responseDecoded: 'Simulated session accepted',
@@ -926,12 +1070,125 @@ export const useStore = create<LSNStore>()(
       disconnect: () => {
         // Disconnecting breaks the LIVE-telemetry continuity a timer run depends on.
         get().latchTimerInterruption('disconnect broke live session');
+
+        if (get().mode === 'hardware') {
+           const bridge = getDesktopBridge();
+           if (bridge) {
+              bridge.hardwareDisconnect().catch(() => {});
+           }
+           set({ connectionState: 'disconnected', discovered: false, hardwareCandidates: [], selectedCandidate: null, profileReadiness: null, lastValidTelemetryAt: null });
+           get().addTransaction({
+             direction: 'tx', operation: 'DISCONNECT', command: 'UnRegisterSession', service: '0x66', mapping: null,
+             requestPayload: '{}', responsePayload: '{}', requestHex: '', responseHex: '', requestDecoded: 'Physical UnRegisterSession', responseDecoded: 'Physical session closed',
+             status: 'ok', latency: 0, relatedAction: 'disconnect', expectedResult: 'ACK', actualResult: 'ACK', pass: true
+           });
+           return;
+        }
+
         set({ connectionState: 'disconnected', discovered: false });
         get().addTransaction({
           direction: 'tx', operation: 'DISCONNECT', command: 'CLOSE', service: 'TBD', mapping: null,
           requestPayload: '{}', responsePayload: '{}', requestHex: 'SIM 02 00', responseHex: 'SIM 82 00', requestDecoded: 'Simulated session close; CIP service TBD', responseDecoded: 'Simulated close acknowledged',
           status: 'ok', latency: 5, relatedAction: 'disconnect', expectedResult: 'ACK', actualResult: 'ACK', pass: true
         });
+      },
+
+      selectCandidate: (candidate) => set(state => ({
+        selectedCandidate: candidate,
+        ...(candidate ? {
+          device: {
+            ...state.device,
+            ip: candidate.sourceAddress || candidate.socketAddress || 'Unknown',
+            product: candidate.productName || 'Unknown',
+            serial: candidate.serialNumber.toString(),
+            hardwareRevision: candidate.revision,
+            firmware: 'Unverified',
+            platform: 'ESP32 (Unverified)',
+          },
+        } : {}),
+      })),
+      setManualProbeIp: (ip) => set({ manualProbeIp: ip }),
+
+      readHardwareTelemetry: async () => {
+         const bridge = getDesktopBridge();
+          const state = get();
+          if (
+            !bridge ||
+            state.mode !== 'hardware' ||
+            state.connectionState !== 'connected' ||
+            !state.profileReadiness?.readReady
+          ) return;
+          const start = monotonicNowMs();
+         try {
+            const reqs = ['Ready', 'Faulted', 'EmissionControlOutputActive'];
+            if (get().capabilities.interlock) reqs.push('InterlockOK');
+            if (get().capabilities.remoteStop) reqs.push('RemoteStopOK');
+
+            const updates: Partial<LogicalState> = {};
+            for (const name of reqs) {
+               const res = await bridge.hardwareReadField(name);
+               if (typeof res.value !== 'boolean') {
+                 throw new Error(`Field ${name} returned non-boolean type`);
+               }
+               if (name === 'Ready') updates.ready = res.value;
+               else if (name === 'Faulted') updates.faulted = res.value;
+               else if (name === 'EmissionControlOutputActive') updates.emissionControlOutputActive = res.value;
+               else if (name === 'InterlockOK') updates.interlockOK = res.value;
+               else if (name === 'RemoteStopOK') updates.remoteStopOK = res.value;
+            }
+
+             const latency = Math.round(monotonicNowMs() - start);
+
+            set(state => ({
+               logicalState: { ...state.logicalState, ...updates },
+               lastValidTelemetryAt: Date.now()
+            }));
+
+            get().addTransaction({
+               direction: 'bidirectional', operation: 'READ_STATE', command: 'Refresh', service: 'PROFILE-RESOLVED', mapping: null,
+               requestPayload: '', responsePayload: 'Complete', requestHex: '', responseHex: '', requestDecoded: 'Physical Read State', responseDecoded: 'All core fields hydrated',
+               status: 'ok', latency, relatedAction: 'telemetry_read', expectedResult: 'State hydrated', actualResult: 'State hydrated', pass: true
+            });
+         } catch (err: unknown) {
+             const latency = Math.round(monotonicNowMs() - start);
+            const msg = err instanceof Error ? err.message : String(err);
+            set({ lastValidTelemetryAt: null });
+            get().addTransaction({
+               direction: 'bidirectional', operation: 'READ_STATE', command: 'Refresh', service: 'PROFILE-RESOLVED', mapping: null,
+               requestPayload: '', responsePayload: msg, requestHex: '', responseHex: '', requestDecoded: 'Physical Read State', responseDecoded: 'Read Failed',
+               status: 'error', latency, relatedAction: 'telemetry_read', expectedResult: 'State hydrated', actualResult: 'Read Failed', pass: false
+            });
+         }
+      },
+
+      initializeHardwareSubscriptions: () => {
+         const bridge = getDesktopBridge();
+         if (!bridge) return () => {};
+         return bridge.onHardwareState((state: DesktopHardwareState) => {
+            if (get().mode !== 'hardware') return;
+            const prevState = get().connectionState;
+
+            if (state.state === 'disconnected') {
+               if (prevState === 'connected') {
+                  get().latchTimerInterruption('hardware socket loss');
+                  set({
+                     connectionState: 'faulted',
+                     hardwareUnlocked: false,
+                     lastValidTelemetryAt: null
+                  });
+               } else {
+                  set({
+                     connectionState: 'disconnected',
+                     hardwareUnlocked: false,
+                     lastValidTelemetryAt: null
+                  });
+               }
+            } else if (state.state === 'connected') {
+               set({ connectionState: 'connected' });
+            } else if (state.state === 'connecting') {
+               set({ connectionState: 'connecting' });
+            }
+         });
       },
 
       latchTimerInterruption: (_reason) => {
@@ -943,18 +1200,67 @@ export const useStore = create<LSNStore>()(
         set(state => ({ timerOutputInterruptions: state.timerOutputInterruptions + 1 }));
       },
 
-      toggleEnable: (enable) => {
+      toggleEnable: async (enable) => {
         const { connectionState, mode, settings, responseAttempt } = get();
-        
+
         if (mode === 'hardware') {
-          // Controls visibly blocked in UI, but if reached, record as blocked
-          get().addTransaction({
-            direction: 'tx', operation: 'WRITE', command: 'ENABLE_REQ', service: 'TBD', mapping: 'RequestedEnable',
-            requestPayload: enable ? '1' : '0', responsePayload: '', requestHex: '', responseHex: '', requestDecoded: 'Hardware Transmit Blocked', responseDecoded: '',
-            status: 'error', latency: 0, relatedAction: 'toggleEnable', expectedResult: 'Block', actualResult: 'Block', pass: false
-          });
-          return;
+           if (connectionState !== 'connected') return;
+           const bridge = getDesktopBridge();
+           if (!bridge) return;
+
+           const startedAt = monotonicNowMs();
+           try {
+              if (enable) {
+                 const armRes = await bridge.hardwareArmControl();
+                 if (!armRes.armed) {
+                    get().addTransaction({
+                      direction: 'tx', operation: 'WRITE', command: 'Preflight/Arm', service: 'NATIVE CONSENT', mapping: null,
+                      requestPayload: 'Arm', responsePayload: 'Rejected', requestHex: '', responseHex: '', requestDecoded: 'Physical Arm Request', responseDecoded: 'Arm Failed / Native Cancelled',
+                      status: 'error', latency: Math.round(monotonicNowMs() - startedAt), relatedAction: 'toggleEnable', expectedResult: 'Armed', actualResult: 'Rejected', pass: false
+                    });
+                    return;
+                 }
+                 get().addTransaction({
+                   direction: 'tx', operation: 'WRITE', command: 'Preflight/Arm', service: 'NATIVE CONSENT', mapping: null,
+                   requestPayload: 'Arm', responsePayload: 'Armed', requestHex: '', responseHex: '', requestDecoded: 'Physical Arm Request', responseDecoded: 'Arm Success',
+                   status: 'ok', latency: Math.round(monotonicNowMs() - startedAt), relatedAction: 'toggleEnable', expectedResult: 'Armed', actualResult: 'Armed', pass: true
+                 });
+              }
+
+              const res = await bridge.hardwareWriteEnable(enable);
+
+              get().addTransaction({
+                direction: 'tx', operation: 'WRITE', command: 'ENABLE_REQ', service: 'PROFILE-RESOLVED', mapping: 'EmissionEnableRequest',
+                requestPayload: enable ? '1' : '0', responsePayload: `Requested: ${res.requested}, Output: ${res.outputActive}`, requestHex: '', responseHex: '', requestDecoded: `Physical RequestedEnable = ${enable}`, responseDecoded: `Requested: ${res.requested}, Output: ${res.outputActive}`,
+                status: 'ok', latency: Math.round(monotonicNowMs() - startedAt), relatedAction: 'toggleEnable', expectedResult: enable ? 'Requested and output active' : 'Output inactive', actualResult: res.outputActive ? 'Output active' : 'Output inactive', pass: enable ? res.requested && res.outputActive : !res.outputActive
+              });
+
+              set(state => ({
+                 logicalState: {
+                    ...state.logicalState,
+                    requestedEnable: res.requested,
+                    emissionControlOutputActive: res.outputActive,
+                 },
+                 lastValidTelemetryAt: Date.now()
+              }));
+
+              // Refresh full telemetry after control change
+              await get().readHardwareTelemetry();
+
+              if (!res.outputActive) {
+                 get().latchTimerInterruption('hardware toggleEnable left output inactive');
+              }
+           } catch (error: unknown) {
+              const message = error instanceof Error ? error.message : String(error);
+              get().addTransaction({
+                direction: 'tx', operation: 'WRITE', command: 'ENABLE_REQ', service: 'PROFILE-RESOLVED', mapping: 'EmissionEnableRequest',
+                requestPayload: enable ? '1' : '0', responsePayload: message, requestHex: '', responseHex: '', requestDecoded: `Physical RequestedEnable = ${enable}`, responseDecoded: 'Error',
+                status: 'error', latency: Math.round(monotonicNowMs() - startedAt), relatedAction: 'toggleEnable', expectedResult: 'Success', actualResult: message, pass: false
+              });
+           }
+           return;
         }
+
         if (connectionState !== 'connected') return;
 
         const dropResponse = get().logicalState.commsLoss || shouldDropResponse(settings.droppedResponseRate, responseAttempt);
@@ -974,7 +1280,7 @@ export const useStore = create<LSNStore>()(
           let outputActive = false;
           const interlockBlocks = reqEnable && state.capabilities.interlock && !state.logicalState.interlockOK;
           const remoteStopBlocks = reqEnable && state.capabilities.remoteStop && !state.logicalState.remoteStopOK;
-          
+
           if (reqEnable) {
             if (interlockBlocks || remoteStopBlocks || state.logicalState.faulted) {
               permitted = false;
@@ -1112,7 +1418,7 @@ export const useStore = create<LSNStore>()(
               : Date.now(),
         }));
       },
-      
+
       updateProfileItem: (id, updates) => set(state => {
         const profile = state.profile.map(p => p.id === id ? { ...p, ...updates } : p);
         return {
@@ -1287,7 +1593,7 @@ export const useStore = create<LSNStore>()(
         }
         set({ transactionCapabilityContext: selectedTest.capability ?? null });
         set(state => ({ tests: state.tests.map(t => t.id === testId ? { ...t, status: 'running' } : t) }));
-        
+
         let passed = false;
         let evidence = '';
         const startTime = Date.now();
@@ -1327,7 +1633,7 @@ export const useStore = create<LSNStore>()(
               if (!get().logicalState.interlockOK) setInterlock(true);
               if (!get().logicalState.remoteStopOK) setRemoteStop(true);
               if (get().logicalState.faulted) clearFault();
-              
+
               toggleEnable(true);
               await new Promise(r => setTimeout(r, 200));
               passed = get().logicalState.emissionControlOutputActive === true;
@@ -1443,7 +1749,7 @@ export const useStore = create<LSNStore>()(
 
         const duration = Date.now() - startTime;
         set(state => ({
-          tests: state.tests.map(t => t.id === testId ? { 
+          tests: state.tests.map(t => t.id === testId ? {
             ...t, status: passed ? 'passed' : 'failed', duration, actual: evidence, evidence
           } : t),
           transactionCapabilityContext: null,
@@ -1798,14 +2104,14 @@ export const useStore = create<LSNStore>()(
         };
 
         set({ firmwareState: { isActive: true, stage: 'verifying_metadata', progress: 0, scenarioId, failureStage: null, failureReason: null, resultingVersion: null, knownGoodAvailable: true, rollbackOccurred: false, recommendedNextStep: null, runningFirmwareAffected: false, deviceState: 'maintenance', basicValidationStatus: 'not-run' } });
-        
+
         const updateProgress = async (stage: any, duration: number, targetProgress: number) => {
           set(s => ({ firmwareState: { ...s.firmwareState, stage } }));
           const steps = 10;
           const stepTime = duration / steps;
           const currentProgress = get().firmwareState.progress;
           const increment = (targetProgress - currentProgress) / steps;
-          
+
           for (let i = 0; i < steps; i++) {
             if (!get().firmwareState.isActive) return false;
             await new Promise(r => setTimeout(r, stepTime));
@@ -1858,7 +2164,7 @@ export const useStore = create<LSNStore>()(
         logFwTx('rebooting', 'REBOOT', 'Rebooting device', 'ok', 'REBOOT', 'REBOOT');
         get().disconnect();
         await new Promise(r => setTimeout(r, 1500));
-        
+
         if (scenarioId === 'power_loss_before_activation' || scenarioId === 'power_loss_before') {
           return fail('Power loss before activating the new image', 'rebooting', false, 'Restore power; known-good firmware remains selected', false, 'offline');
         }
@@ -1869,14 +2175,14 @@ export const useStore = create<LSNStore>()(
         // Rediscover
         await get().discover();
         await get().connect();
-        
+
         if (scenarioId === 'reboot_failure') return fail('Device did not rediscover after reboot', 'rebooting', true, 'Use known-good recovery and verify power/network', true, 'unreachable');
         if (scenarioId === 'post_boot_fail') return fail('Post-boot validation failed', 'validating', true, 'Reverted to known-good version automatically', true, 'recovery');
         if (scenarioId === 'known_good_recovery') return fail('Recovery scenario forced rollback to known-good firmware', 'validating', true, 'Validate the known-good image before retrying', false, 'recovered');
 
         // Success
         logFwTx('validating', 'PASS', 'Validation Passed', 'ok', 'PASS', 'PASS');
-        set(s => ({ 
+        set(s => ({
           firmwareState: { ...s.firmwareState, stage: 'completed', progress: 100, resultingVersion: pkgMetadata.version, rollbackOccurred: false, knownGoodAvailable: true, recommendedNextStep: 'Review the automatic Basic Validation result', runningFirmwareAffected: true, deviceState: 'validating', basicValidationStatus: 'running' },
           device: { ...s.device, firmware: pkgMetadata.version }
         }));

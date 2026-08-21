@@ -8,8 +8,14 @@ const {
   WindowsUpdateService,
   classifyPublisherSignature,
 } = require('./update-service.cjs');
+const { HardwareService } = require('./hardware-service.cjs');
+const {
+  isPhysicalHardwareRuntime,
+  assertPhysicalHardwareRuntime,
+} = require('./hardware-runtime.cjs');
 
 const isDev = !app.isPackaged;
+let hardwareService = null;
 const DEFAULT_API_ORIGIN = 'https://lsn.saberindustrial.net';
 const EXPECTED_UPDATE_PUBLISHER = 'Saber Industrial Applications';
 const execFileAsync = promisify(execFile);
@@ -20,6 +26,14 @@ const allowedChannels = new Set([
   'desktop:select-firmware',
   'desktop:hardware-capabilities',
   'desktop:save-file',
+  'desktop:hw-discover',
+  'desktop:hw-connect',
+  'desktop:hw-disconnect',
+  'desktop:hw-get-state',
+  'desktop:hw-profile-readiness',
+  'desktop:hw-read-field',
+  'desktop:hw-arm-control',
+  'desktop:hw-write-enable',
 ]);
 
 const authRoutes = [
@@ -234,13 +248,121 @@ ipcMain.handle('desktop:save-file', async (_event, request) => {
   return { saved: true, path: result.filePath };
 });
 
-ipcMain.handle('desktop:hardware-capabilities', () => ({
-  controlTransport: 'AWAITING FIRMWARE IMPLEMENTATION',
-  profileMapping: 'PROTOCOL MAPPING TBD',
-  maintenanceTransport: 'MAINTENANCE ENDPOINT NOT YET IMPLEMENTED',
-  physicalValidation: 'HARDWARE VALIDATION REQUIRED',
-  canTransmit: false,
-}));
+ipcMain.handle('desktop:hardware-capabilities', () => {
+  // Standard EtherNet/IP discovery + session can transmit in the packaged
+  // Windows runtime. Profile-driven control readiness is derived dynamically
+  // from the pinned profile; the current TBD profile keeps it false.
+  const transportCapable = isPhysicalHardwareRuntime({
+    isPackaged: app.isPackaged,
+    platform: process.platform,
+  });
+  const readiness = transportCapable
+    ? getHardwareService().getProfileReadiness()
+    : { controlReady: false, readReady: false };
+  return {
+    controlTransport: 'AWAITING FIRMWARE IMPLEMENTATION',
+    profileMapping: 'PROTOCOL MAPPING TBD',
+    maintenanceTransport: 'MAINTENANCE ENDPOINT NOT YET IMPLEMENTED',
+    physicalValidation: 'HARDWARE VALIDATION REQUIRED',
+    canTransmit: false,
+    discoveryTransport: transportCapable,
+    sessionTransport: transportCapable,
+    profileControl: transportCapable && readiness.controlReady === true,
+    profileRead: transportCapable && readiness.readReady === true,
+  };
+});
+
+function broadcastHardwareState(state) {
+  for (const window of BrowserWindow.getAllWindows()) {
+    if (!window.isDestroyed()) {
+      window.webContents.send('desktop:hw-state', state);
+    }
+  }
+}
+
+// Native physical-output consent used to mint an arm token. The renderer can
+// never bypass this; only an explicit operator confirmation returns true.
+async function confirmArmControl() {
+  const result = await dialog.showMessageBox({
+    type: 'warning',
+    title: 'Arm physical emission control?',
+    message: 'Arm the LSN emission-control output?',
+    detail:
+      'Arming permits a subsequent enable request to energize the physical ' +
+      'emission-control output on the connected LSN hardware. Ensure the work ' +
+      'area is safe and all personnel are clear before continuing. The arm is ' +
+      'single-use and expires shortly.',
+    buttons: ['Arm control', 'Cancel'],
+    defaultId: 1,
+    cancelId: 1,
+    noLink: true,
+  });
+  return result.response === 0;
+}
+
+function getHardwareService() {
+  assertPhysicalHardwareRuntime({
+    isPackaged: app.isPackaged,
+    platform: process.platform,
+  });
+  if (!hardwareService) {
+    hardwareService = new HardwareService({
+      onStateChange: broadcastHardwareState,
+      confirmArm: confirmArmControl,
+    });
+  }
+  return hardwareService;
+}
+
+// EtherNet/IP discovery. Fixed port 44818 is enforced inside the transport;
+// the renderer may only supply an optional validated IPv4 probe target.
+ipcMain.handle('desktop:hw-discover', async (_event, request) => {
+  const address = request?.address;
+  if (address !== undefined && typeof address !== 'string') {
+    throw new Error('Invalid discovery request');
+  }
+  return getHardwareService().discover({ address });
+});
+
+ipcMain.handle('desktop:hw-connect', async (_event, request) => {
+  const address = request?.address;
+  if (typeof address !== 'string') {
+    throw new Error('Connect requires an IPv4 address');
+  }
+  return getHardwareService().connect(address);
+});
+
+ipcMain.handle('desktop:hw-disconnect', async () => {
+  return getHardwareService().disconnect();
+});
+
+ipcMain.handle('desktop:hw-get-state', () => getHardwareService().getState());
+
+// Narrow symbolic profile operations. The renderer never supplies a CIP
+// service, EPATH, raw bytes, or a profile document; main resolves everything.
+ipcMain.handle('desktop:hw-profile-readiness', () =>
+  getHardwareService().getProfileReadiness(),
+);
+
+ipcMain.handle('desktop:hw-read-field', async (_event, request) => {
+  const symbolicName = request?.symbolicName;
+  if (typeof symbolicName !== 'string') {
+    throw new Error('readField requires a symbolic field name');
+  }
+  return getHardwareService().readField(symbolicName);
+});
+
+ipcMain.handle('desktop:hw-arm-control', async () =>
+  getHardwareService().armControl(),
+);
+
+ipcMain.handle('desktop:hw-write-enable', async (_event, request) => {
+  const enable = request?.enable;
+  if (typeof enable !== 'boolean') {
+    throw new Error('writeEnable requires a boolean');
+  }
+  return getHardwareService().writeEnable(enable);
+});
 
 ipcMain.handle('desktop:select-firmware', async () => {
   const result = await dialog.showOpenDialog({
@@ -267,6 +389,21 @@ app.whenReady().then(() => {
   });
 });
 
+async function shutdownHardwareTransport() {
+  if (hardwareService) {
+    try {
+      await hardwareService.close();
+    } catch {
+      // teardown errors are non-fatal
+    }
+  }
+}
+
 app.on('window-all-closed', () => {
+  void shutdownHardwareTransport();
   if (process.platform !== 'darwin') app.quit();
+});
+
+app.on('before-quit', () => {
+  void shutdownHardwareTransport();
 });

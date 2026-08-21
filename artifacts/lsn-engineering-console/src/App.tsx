@@ -80,6 +80,9 @@ function RuntimeModeInitializer({ children }: { children: ReactNode }) {
   useEffect(() => {
     const bridge = getDesktopBridge();
     if (!bridge) return;
+
+    const cleanup = useStore.getState().initializeHardwareSubscriptions();
+
     let cancelled = false;
     void bridge.getPlatform()
       .then((platform) => {
@@ -96,6 +99,7 @@ function RuntimeModeInitializer({ children }: { children: ReactNode }) {
       });
     return () => {
       cancelled = true;
+      if (cleanup) cleanup();
     };
   }, []);
 

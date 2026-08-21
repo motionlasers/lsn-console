@@ -1,6 +1,18 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { createRequire } from 'node:module';
+
+const require = createRequire(import.meta.url);
+const {
+  HARDWARE_RUNTIME_ERROR,
+  isPhysicalHardwareRuntime,
+  assertPhysicalHardwareRuntime,
+} = require('../electron/hardware-runtime.cjs') as {
+  HARDWARE_RUNTIME_ERROR: string;
+  isPhysicalHardwareRuntime: (runtime: { isPackaged: boolean; platform: string }) => boolean;
+  assertPhysicalHardwareRuntime: (runtime: { isPackaged: boolean; platform: string }) => void;
+};
 
 describe('Electron security boundary', () => {
   const main = readFileSync(resolve(import.meta.dirname, '../electron/main.cjs'), 'utf8');
@@ -76,6 +88,115 @@ describe('Electron security boundary', () => {
     expect(preload).toContain("ipcRenderer.invoke('desktop:updates-install')");
     expect(preload).not.toContain('LSN_UPDATE_INSTALLER');
     expect(preload).not.toContain('releases/latest');
+  });
+
+  it('keeps EtherNet/IP transport in main behind a narrow preload surface', () => {
+    // Transport modules live in main; the port is fixed and never renderer-set.
+    expect(main).toContain("require('./hardware-service.cjs')");
+    expect(main).toContain("'desktop:hw-discover'");
+    expect(main).toContain("'desktop:hw-connect'");
+    expect(main).toContain("'desktop:hw-disconnect'");
+    // Renderer supplies only an optional address for discovery/connect.
+    expect(preload).toContain('hardwareDiscover');
+    expect(preload).toContain('hardwareConnect');
+    expect(preload).toContain('onHardwareState');
+    // The preload must NOT expose ipcRenderer, raw sockets, or arbitrary
+    // host/port controls to the renderer.
+    expect(preload).not.toContain("exposeInMainWorld('ipcRenderer'");
+    expect(preload).not.toMatch(/require\(['"]node:net['"]\)/);
+    expect(preload).not.toMatch(/require\(['"]node:dgram['"]\)/);
+    expect(preload).not.toContain('createSocket');
+    expect(preload).not.toContain('44818');
+  });
+
+  it('authorizes physical transport only in packaged Windows', () => {
+    expect(isPhysicalHardwareRuntime({ isPackaged: true, platform: 'win32' })).toBe(true);
+    expect(isPhysicalHardwareRuntime({ isPackaged: false, platform: 'win32' })).toBe(false);
+    expect(isPhysicalHardwareRuntime({ isPackaged: true, platform: 'linux' })).toBe(false);
+    expect(isPhysicalHardwareRuntime({ isPackaged: true, platform: 'darwin' })).toBe(false);
+    expect(() =>
+      assertPhysicalHardwareRuntime({ isPackaged: false, platform: 'win32' }),
+    ).toThrow(HARDWARE_RUNTIME_ERROR);
+    expect(() =>
+      assertPhysicalHardwareRuntime({ isPackaged: true, platform: 'linux' }),
+    ).toThrow(HARDWARE_RUNTIME_ERROR);
+  });
+
+  it('guards service construction and every physical hardware IPC operation', () => {
+    const serviceFactory = main.match(
+      /function getHardwareService\(\) \{([\s\S]*?)\n\}/,
+    )?.[1] ?? '';
+    expect(serviceFactory).toContain('assertPhysicalHardwareRuntime');
+    expect(serviceFactory.indexOf('assertPhysicalHardwareRuntime')).toBeLessThan(
+      serviceFactory.indexOf('new HardwareService'),
+    );
+
+    const guardedChannels = [
+      'desktop:hw-discover',
+      'desktop:hw-connect',
+      'desktop:hw-disconnect',
+      'desktop:hw-get-state',
+      'desktop:hw-profile-readiness',
+      'desktop:hw-read-field',
+      'desktop:hw-arm-control',
+      'desktop:hw-write-enable',
+    ];
+    for (const channel of guardedChannels) {
+      const start = main.indexOf(`ipcMain.handle('${channel}'`);
+      expect(start, `${channel} is registered`).toBeGreaterThanOrEqual(0);
+      const nextHandler = main.indexOf('ipcMain.handle(', start + 20);
+      const handler = main.slice(start, nextHandler < 0 ? undefined : nextHandler);
+      expect(handler, `${channel} delegates through guarded service access`).toContain(
+        'getHardwareService()',
+      );
+    }
+  });
+
+  it('exposes only narrow symbolic profile operations, never raw CIP access', () => {
+    // No raw explicit-request surface may exist anywhere in the boundary.
+    expect(preload).not.toContain('hardwareExplicitRequest');
+    expect(preload).not.toContain('desktop:hw-explicit-request');
+    expect(main).not.toContain('desktop:hw-explicit-request');
+    expect(main).not.toContain('explicitRequest');
+    // The renderer may only invoke symbolic operations; it never supplies a CIP
+    // service, EPATH, raw bytes, or a profile document.
+    expect(preload).toContain('hardwareGetProfileReadiness');
+    expect(preload).toContain('hardwareReadField');
+    expect(preload).toContain('hardwareArmControl');
+    expect(preload).toContain('hardwareWriteEnable');
+    expect(preload).not.toContain('cipRequest');
+    expect(preload).not.toContain('epath');
+    expect(preload).not.toContain('serviceCode');
+    // No arbitrary write-symbol API — only the guarded enable workflow.
+    expect(preload).not.toMatch(/hardwareWriteField/);
+    // Arm control requires a native physical-output consent dialog in main.
+    expect(main).toContain('confirmArmControl');
+    expect(main).toContain('dialog.showMessageBox');
+    expect(main).toContain('emission-control output');
+  });
+
+  it('loads and pins the bundled profile in main, never from the renderer', () => {
+    const profileOps = readFileSync(
+      resolve(import.meta.dirname, '../electron/profile-operations.cjs'),
+      'utf8',
+    );
+    expect(profileOps).toContain('lsn-v0.1.json');
+    expect(profileOps).toContain('deepFreeze');
+    expect(profileOps).toContain("createHash('sha256')");
+    // The renderer never provides a profile path or document.
+    expect(preload).not.toContain('lsn-v0.1');
+    expect(preload).not.toContain('loadProfile');
+  });
+
+  it('fixes the EtherNet/IP port to 44818 and validates IPv4 in main', () => {
+    const transport = readFileSync(
+      resolve(import.meta.dirname, '../electron/ethernet-ip-transport.cjs'),
+      'utf8',
+    );
+    expect(transport).toContain('ENIP_PORT = 44818');
+    expect(transport).toContain('isValidIpv4');
+    // No enable command, no implicit I/O, no guessed CIP object mappings.
+    expect(transport).not.toMatch(/enableEmission|sendEnable|forwardOpen/i);
   });
 
   it('does not let the renderer choose an update URL, file path, or process command', () => {

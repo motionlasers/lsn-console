@@ -5,14 +5,40 @@ import { Button } from "@/components/ui/button";
 import { TelemetryNotice, TelemetryValue, useTelemetryState } from "@/components/TelemetryState";
 
 export default function Control() {
-  const { logicalState, toggleEnable, mode, connectionState, transactions, capabilities } = useStore();
+  const { logicalState, toggleEnable, mode, connectionState, transactions, capabilities, profileReadiness } = useStore();
   const telemetry = useTelemetryState();
 
-  const disabled = mode === 'hardware' || connectionState !== 'connected';
+  const isHardware = mode === 'hardware';
+  const isConnected = connectionState === 'connected';
+  const isProfileReady = isHardware ? profileReadiness?.enable?.ready && profileReadiness?.stateRead?.ready : true;
+  const hasFreshTelemetry = telemetry.isLive;
+  const physicalControlActive =
+    isHardware && logicalState.emissionControlOutputActive
+      ? true
+      : logicalState.requestedEnable;
+
+  // For enabling in hardware mode, we need connection, profile mapping, and fresh telemetry.
+  // For disabling, we only need connection and profile mapping (already active).
+  // In simulation mode, we just need connection.
+  const canEnable = isHardware
+     ? (isConnected && isProfileReady && hasFreshTelemetry)
+     : isConnected;
+  const canDisable = isHardware
+     ? (isConnected && isProfileReady)
+     : isConnected;
+
+  const disabled = physicalControlActive ? !canDisable : !canEnable;
+
   const disabledReason =
-    mode === 'hardware'
-        ? 'HARDWARE OUTPUT TESTS LOCKED · PROTOCOL MAPPING TBD · AWAITING FIRMWARE IMPLEMENTATION'
-      : connectionState !== 'connected'
+    isHardware
+      ? !isConnected
+         ? 'CONNECT TO DEVICE TO SEND CONTROL REQUESTS'
+         : !isProfileReady
+            ? 'HARDWARE OUTPUT TESTS LOCKED · PROTOCOL MAPPING TBD'
+             : !hasFreshTelemetry && !physicalControlActive
+               ? 'AWAITING FRESH TELEMETRY BEFORE ENABLE'
+               : null
+      : !isConnected
         ? 'CONNECT TO DEVICE TO SEND CONTROL REQUESTS'
         : null;
 
@@ -57,14 +83,20 @@ export default function Control() {
                 </TelemetryValue>
               </div>
 
-              <Button 
-                className={`w-full h-16 font-mono text-sm tracking-wider ${logicalState.requestedEnable ? 'bg-destructive hover:bg-destructive/90 text-white' : 'bg-primary hover:bg-primary/90 text-black'}`}
+              <Button
+                className={`w-full h-16 font-mono text-sm tracking-wider ${physicalControlActive ? 'bg-destructive hover:bg-destructive/90 text-white' : 'bg-primary hover:bg-primary/90 text-black'}`}
                 disabled={disabled}
-                onClick={() => toggleEnable(!logicalState.requestedEnable)}
+                onClick={() => toggleEnable(!physicalControlActive)}
               >
-                {logicalState.requestedEnable ? "CANCEL ENABLE REQ" : "EMISSION ENABLE REQ"}
+                {physicalControlActive ? "REQUEST PHYSICAL DISABLE" : "EMISSION ENABLE REQ"}
               </Button>
-              
+
+              {isHardware && (
+                <p className="text-center font-mono text-[10px] text-muted-foreground">
+                  Enable opens a native confirmation, consumes a one-shot arm, and runs fresh main-process safety preflight reads. Disable does not require re-arming.
+                </p>
+              )}
+
               {disabled && (
                 <div className="text-center font-mono text-[10px] text-destructive mt-2">
                   {disabledReason}
@@ -73,7 +105,7 @@ export default function Control() {
             </div>
           </CardContent>
         </Card>
-        
+
         <Card data-tour="control-safety" className="border-border bg-card/50 backdrop-blur">
           <CardHeader className="border-b border-border/50 bg-black/20 pb-4">
             <CardTitle className="text-sm font-mono tracking-widest text-primary flex items-center gap-2">
@@ -134,25 +166,25 @@ export default function Control() {
 
                 <div className="space-y-2">
                   <div className="flex justify-between items-center text-[10px] text-muted-foreground uppercase">
-                    <span>Simulated Request</span>
+                    <span>{isHardware ? 'Physical Request' : 'Simulated Request'}</span>
                     <span>{recentControlTx.latency}ms</span>
                   </div>
                   <div className="bg-black/30 p-2 border border-border/30 rounded-sm break-all text-primary">
-                     {recentControlTx.requestHex || 'NO DATA'}
+                     {recentControlTx.requestHex || (isHardware ? 'NATIVE BINDING' : 'NO DATA')}
                   </div>
                   <div className="text-[10px] text-muted-foreground">{recentControlTx.requestDecoded}</div>
                 </div>
-                
+
                 <div className="space-y-2">
-                  <div className="text-[10px] text-muted-foreground uppercase">Simulated Response</div>
+                  <div className="text-[10px] text-muted-foreground uppercase">{isHardware ? 'Physical Response' : 'Simulated Response'}</div>
                   <div className="bg-black/30 p-2 border border-border/30 rounded-sm break-all text-success">
-                     {recentControlTx.responseHex || 'NO DATA'}
+                     {recentControlTx.responseHex || (isHardware ? 'NATIVE BINDING' : 'NO DATA')}
                   </div>
                   <div className="text-[10px] text-muted-foreground">{recentControlTx.responseDecoded}</div>
                 </div>
 
                 <div className="mt-auto pt-4 text-[10px] text-muted-foreground opacity-50 italic border-t border-border/30">
-                   Simulator envelope bytes only. CIP service, identity, and field mappings remain TBD and are never inferred.
+                   {isHardware ? 'Transport encoding provided by desktop bridge. Profile mapping dynamically resolved.' : 'Simulator envelope bytes only. CIP service, identity, and field mappings remain TBD and are never inferred.'}
                 </div>
               </div>
             ) : (

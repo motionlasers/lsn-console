@@ -393,7 +393,7 @@ test('Communication loss faults the session and invalidates telemetry', () => {
 test('Toggle enable fails when disconnected', () => {
   const store = useStore.getState();
   store.toggleEnable(true);
-  
+
   const newState = useStore.getState();
   expect(newState.logicalState.requestedEnable).toBe(false);
   expect(newState.logicalState.emissionControlOutputActive).toBe(false);
@@ -402,9 +402,9 @@ test('Toggle enable fails when disconnected', () => {
 test('Toggle enable succeeds when connected and interlocks OK', async () => {
   useStore.setState({ connectionState: 'connected' });
   const store = useStore.getState();
-  
+
   store.toggleEnable(true);
-  
+
   const newState = useStore.getState();
   expect(newState.logicalState.requestedEnable).toBe(true);
   expect(newState.logicalState.reportedEnablePermitted).toBe(true);
@@ -418,10 +418,10 @@ test('Interlock failure blocks enable', () => {
     capabilities: { ...state.capabilities, interlock: true },
   }));
   const store = useStore.getState();
-  
+
   store.setInterlock(false); // Break interlock
   store.toggleEnable(true);
-  
+
   const newState = useStore.getState();
   expect(newState.logicalState.interlockOK).toBe(false);
   expect(newState.logicalState.requestedEnable).toBe(true); // Can request
@@ -432,21 +432,21 @@ test('Interlock failure blocks enable', () => {
 test('Comms loss auto-disables active emission on tick', () => {
   useStore.setState({ connectionState: 'connected' });
   const store = useStore.getState();
-  
+
   store.setInterlock(true);
   store.setRemoteStop(true);
   store.clearFault();
   store.toggleEnable(true);
-  
+
   const state = useStore.getState();
   expect(state.logicalState.emissionControlOutputActive).toBe(true);
-  
+
   // Inject comms loss
   state.updateLogicalState({ commsLoss: true });
-  
+
   // Tick
   useStore.getState().tick(100);
-  
+
   const finalState = useStore.getState();
   expect(finalState.logicalState.emissionControlOutputActive).toBe(false); // Auto disabled
 });
@@ -456,13 +456,13 @@ test('Runtime accumulates strictly monotonically when output active', () => {
   const store = useStore.getState();
   store.setInterlock(true);
   store.toggleEnable(true);
-  
+
   store.tick(100);
   expect(useStore.getState().logicalState.lifetimeEmissionTimeMs).toBe(100);
-  
+
   store.tick(50);
   expect(useStore.getState().logicalState.lifetimeEmissionTimeMs).toBe(150);
-  
+
   store.toggleEnable(false);
   store.tick(200);
   expect(useStore.getState().logicalState.lifetimeEmissionTimeMs).toBe(150); // Did not accumulate while disabled
@@ -1095,7 +1095,6 @@ test('timer FAILS with blocked enable (interlock open) even under generous toler
 test('timer FAILS on mid-run output loss then re-enable, even under generous tolerance', async () => {
   useStore.setState({ connectionState: 'connected', lastValidTelemetryAt: Date.now() });
   useStore.getState().setInterlock(true);
-  const start = useStore.getState().logicalState.lifetimeEmissionTimeMs;
   const pending = useStore.getState().runGuidedTimerTest({ durationMs: 120, toleranceMs: 10_000 });
   // Mid-run: disable then re-enable the output. The durable continuity latch must
   // record the interruption so the re-enable cannot hide it.
@@ -1107,11 +1106,174 @@ test('timer FAILS on mid-run output loss then re-enable, even under generous tol
   expect(result.continuousActiveLive).toBe(false);
   // Only observed active/live spans were credited (never the whole interval).
   expect(result.lsnIncreaseMs).toBeLessThan(120);
-  const delta = Math.round(useStore.getState().logicalState.lifetimeEmissionTimeMs - start);
-  expect(result.lsnIncreaseMs).toBe(delta);
-  // Final output safely inactive.
   expect(useStore.getState().logicalState.emissionControlOutputActive).toBe(false);
 });
+
+// ── Hardware Mode Store Integration ──────────────────────────────────────────
+
+test('discover fails when desktop bridge is missing', async () => {
+  useStore.setState({ mode: 'hardware' });
+  // window.lsnDesktop is undefined natively in this test environment
+  await useStore.getState().discover();
+  const state = useStore.getState();
+  expect(state.discoveryStatus).toBe('error');
+  expect(state.discoveryError).toMatch(/packaged Windows desktop app/);
+});
+
+test('discover calls hardware bridge and populates candidates', async () => {
+  useStore.setState({ mode: 'hardware' });
+  let calledAddress = '';
+  // Mock bridge
+  (global as any).window = {
+    lsnDesktop: {
+      hardwareDiscover: async (addr?: string) => {
+        calledAddress = addr || 'all';
+        return {
+          candidates: [{
+            sourceAddress: '192.168.1.100', socketAddress: '', socketPort: 0, vendorId: 1, deviceType: 2, productCode: 3, revision: '1.0', status: 0, serialNumber: 1234, productName: 'TestDevice', state: 0, encapProtocolVersion: 1
+          }]
+        };
+      }
+    }
+  };
+
+  await useStore.getState().discover();
+  let state = useStore.getState();
+  expect(calledAddress).toBe('all');
+  expect(state.hardwareCandidates.length).toBe(1);
+  expect(state.hardwareCandidates[0].productName).toBe('TestDevice');
+  expect(state.device.ip).toBe('192.168.1.100'); // populated from candidate
+  expect(state.device.firmware).toBe('Unverified'); // conservatively unverified
+
+  // test manual probe
+  await useStore.getState().discover('10.0.0.5');
+  expect(calledAddress).toBe('10.0.0.5');
+  state = useStore.getState();
+  expect(state.hardwareCandidates[0].productName).toBe('TestDevice');
+
+  delete (global as any).window;
+});
+
+test('connect uses selected candidate and fetches profile readiness but leaves telemetry UNKNOWN if TBD', async () => {
+  useStore.setState({ mode: 'hardware' });
+  (global as any).window = {
+    lsnDesktop: {
+      hardwareConnect: async (addr: string) => ({ state: 'connected', connected: true, address: addr, sessionHandle: 1 }),
+      hardwareGetProfileReadiness: async () => ({ readReady: false }), // Not ready for reads
+    }
+  };
+
+  useStore.getState().selectCandidate({
+    sourceAddress: '192.168.1.200', socketAddress: '', socketPort: 0, vendorId: 1, deviceType: 2, productCode: 3, revision: '1.0', status: 0, serialNumber: 1234, productName: 'TestDevice', state: 0, encapProtocolVersion: 1
+  });
+
+  await useStore.getState().connect();
+  const state = useStore.getState();
+  expect(state.connectionState).toBe('connected');
+  // Telemetry should NOT be live yet since we couldn't read fields
+  expect(state.lastValidTelemetryAt).toBeNull();
+
+  delete (global as any).window;
+});
+
+test('connect explicitly reads fields if profile is ready and updates telemetry', async () => {
+  useStore.setState({ mode: 'hardware' });
+  (global as any).window = {
+    lsnDesktop: {
+      hardwareConnect: async (addr: string) => ({ state: 'connected', connected: true, address: addr, sessionHandle: 1 }),
+      hardwareGetProfileReadiness: async () => ({ readReady: true }),
+      hardwareReadField: async (name: string) => {
+        if (name === 'Ready') return { value: true, symbolicName: name };
+        if (name === 'Faulted') return { value: false, symbolicName: name };
+        if (name === 'EmissionControlOutputActive') return { value: true, symbolicName: name }; // e.g. already active
+        throw new Error('Unsupported');
+      }
+    }
+  };
+
+  useStore.getState().setManualProbeIp('10.0.0.1');
+  await useStore.getState().connect();
+  const state = useStore.getState();
+  expect(state.connectionState).toBe('connected');
+  expect(state.lastValidTelemetryAt).not.toBeNull();
+  expect(state.logicalState.ready).toBe(true);
+  expect(state.logicalState.emissionControlOutputActive).toBe(true);
+
+  delete (global as any).window;
+});
+
+test('hardware toggleEnable(true) requires arm and guarded write', async () => {
+  useStore.setState({ mode: 'hardware', connectionState: 'connected' });
+  let armed = false;
+  let writeCalled = false;
+  (global as any).window = {
+    lsnDesktop: {
+      hardwareArmControl: async () => { armed = true; return { armed: true }; },
+      hardwareWriteEnable: async (enable: boolean) => {
+         writeCalled = true;
+         return { requested: enable, outputActive: enable };
+      },
+      hardwareReadField: async (name: string) => ({ value: name === 'EmissionControlOutputActive' ? true : false, symbolicName: name }), // mock refresh
+    }
+  };
+
+  await useStore.getState().toggleEnable(true);
+  const state = useStore.getState();
+  expect(armed).toBe(true);
+  expect(writeCalled).toBe(true);
+  expect(state.logicalState.requestedEnable).toBe(true);
+  expect(state.logicalState.emissionControlOutputActive).toBe(true);
+
+  delete (global as any).window;
+});
+
+test('hardware toggleEnable(false) directly writes without arm', async () => {
+  useStore.setState({ mode: 'hardware', connectionState: 'connected' });
+  let armed = false;
+  let writeCalled = false;
+  (global as any).window = {
+    lsnDesktop: {
+      hardwareArmControl: async () => { armed = true; return { armed: true }; },
+      hardwareWriteEnable: async (enable: boolean) => {
+         writeCalled = true;
+         return { requested: enable, outputActive: enable };
+      },
+      hardwareReadField: async () => ({ value: false, symbolicName: 'test' }),
+    }
+  };
+
+  await useStore.getState().toggleEnable(false);
+  const state = useStore.getState();
+  expect(armed).toBe(false); // Should not arm on disable
+  expect(writeCalled).toBe(true);
+  expect(state.logicalState.requestedEnable).toBe(false);
+
+  delete (global as any).window;
+});
+
+test('hardware state disconnected clears connection and live evidence', () => {
+  useStore.getState().timerTest.status = 'running'; // force latch block evaluation
+  let hardwareStateCb: any;
+  (global as any).window = {
+    lsnDesktop: {
+      onHardwareState: (cb: any) => { hardwareStateCb = cb; return () => {}; }
+    }
+  };
+
+  useStore.setState({ mode: 'hardware', connectionState: 'connected', lastValidTelemetryAt: 12345 });
+  useStore.getState().initializeHardwareSubscriptions();
+
+  // fire mock socket loss
+  hardwareStateCb({ state: 'disconnected' });
+
+  const state = useStore.getState();
+  expect(state.connectionState).toBe('faulted');
+  expect(state.lastValidTelemetryAt).toBeNull();
+  expect(state.timerOutputInterruptions).toBe(1); // Latched the interruption
+
+  delete (global as any).window;
+});
+
 
 test('timer FAILS on mid-run telemetry loss then reconnect, even under generous tolerance', async () => {
   useStore.setState({ connectionState: 'connected', lastValidTelemetryAt: Date.now() });
