@@ -25,10 +25,29 @@ export interface FirmwarePackageResult {
   files: Record<string, string>;
 }
 
+/**
+ * Immutable governed source identity for a firmware package. A package must be
+ * generated from a specific immutable version that has been published to the
+ * DEVELOPMENT channel — never from a mutable working document. When provided,
+ * the governed version number and full content digest are woven into the
+ * filename, README, JSON metadata, and manifest so the resulting artifact can
+ * always be traced back to the exact governed source it came from.
+ */
+export interface GovernedSourceIdentity {
+  versionNumber: number;
+  digest: string;
+}
+
 export interface FirmwarePackageOptions {
   generatedAt?: Date;
   consoleVersion?: string;
   packageFormatVersion?: string;
+  /**
+   * Immutable governed source identity. When present, the package is treated as
+   * generated from a published-to-DEVELOPMENT immutable version and its
+   * version/digest are surfaced across the package.
+   */
+  governedSource: GovernedSourceIdentity;
 }
 
 type ActiveCapabilities = Record<string, boolean>;
@@ -457,15 +476,20 @@ ${sections}`;
 export function generatePackageReadme(
   document: DeviceProfileDocument,
   summary: FirmwarePackageSummary,
-  metadata: { generatedAt: string; consoleVersion: string; packageFormatVersion: string },
+  metadata: { generatedAt: string; consoleVersion: string; packageFormatVersion: string; governedSource?: GovernedSourceIdentity },
 ): string {
+  const governance = metadata.governedSource
+    ? `- Governed version: ${metadata.governedSource.versionNumber}
+- Governed digest: ${metadata.governedSource.digest}
+`
+    : '';
   return `LSN Firmware Integration Package
 ================================
 
 Generated from:
 - Device Profile: ${document.profileVersion}
 - Protocol: ${document.protocolVersion}
-- Console: ${metadata.consoleVersion}
+${governance}- Console: ${metadata.consoleVersion}
 - Package format: ${metadata.packageFormatVersion}
 - Generated: ${metadata.generatedAt}
 - Target platform: ${document.hardwareFamily}
@@ -510,6 +534,33 @@ the Phase 1 implementation checklist.
 `;
 }
 
+export function generatePackageManifest(
+  document: DeviceProfileDocument,
+  summary: FirmwarePackageSummary,
+  metadata: { generatedAt: string; consoleVersion: string; packageFormatVersion: string; governedSource?: GovernedSourceIdentity },
+): string {
+  const manifest = {
+    packageFormatVersion: metadata.packageFormatVersion,
+    generatedAt: metadata.generatedAt,
+    consoleVersion: metadata.consoleVersion,
+    profileVersion: document.profileVersion,
+    protocolVersion: document.protocolVersion,
+    hardwareFamily: document.hardwareFamily,
+    governedSource: metadata.governedSource
+      ? {
+          versionNumber: metadata.governedSource.versionNumber,
+          digest: metadata.governedSource.digest,
+        }
+      : null,
+    summary: {
+      activeFieldCount: summary.activeFieldCount,
+      mappedFieldCount: summary.mappedFieldCount,
+      tbdFieldCount: summary.tbdFieldCount,
+    },
+  };
+  return `${JSON.stringify(manifest, null, 2)}\n`;
+}
+
 function sanitizeFilenamePart(value: string): string {
   return value
     .trim()
@@ -527,17 +578,27 @@ function interfaceVersionToken(document: DeviceProfileDocument): string {
 export async function createFirmwareIntegrationPackage(
   document: DeviceProfileDocument,
   capabilities: ActiveCapabilities,
-  options: FirmwarePackageOptions = {},
+  options: FirmwarePackageOptions,
 ): Promise<FirmwarePackageResult> {
+  if (
+    !Number.isSafeInteger(options.governedSource?.versionNumber)
+    || options.governedSource.versionNumber < 1
+    || typeof options.governedSource.digest !== "string"
+    || options.governedSource.digest.trim().length < 16
+  ) {
+    throw new Error("A valid immutable Development publication version and digest are required.");
+  }
   const generatedAt = (options.generatedAt ?? new Date()).toISOString();
   const metadata = {
     generatedAt,
     consoleVersion: options.consoleVersion ?? consolePackage.version,
     packageFormatVersion: options.packageFormatVersion ?? FIRMWARE_PACKAGE_FORMAT_VERSION,
+    governedSource: options.governedSource,
   };
   const activeFields = getActiveProfileFields(document, capabilities);
   const summary = summarizeFirmwarePackage(document, capabilities);
-  const folderName = `LSN-Firmware-Interface-v${interfaceVersionToken(document)}`;
+  const governedToken = `-gov${options.governedSource.versionNumber}-${sanitizeFilenamePart(options.governedSource.digest).slice(0, 12)}`;
+  const folderName = `LSN-Firmware-Interface-v${interfaceVersionToken(document)}${governedToken}`;
   const filename = `${folderName}.zip`;
   const files: Record<string, string> = {
     'lsn_protocol.h': generateProtocolHeader(document, capabilities, metadata),
@@ -545,6 +606,7 @@ export async function createFirmwareIntegrationPackage(
     'lsn_protocol_profile.json': `${JSON.stringify(document, null, 2)}\n`,
     'lsn_interface.csv': generateInterfaceCsv(activeFields),
     'lsn_interface.md': generateInterfaceMarkdown(document, activeFields, metadata),
+    'manifest.json': generatePackageManifest(document, summary, metadata),
     'README.md': generatePackageReadme(document, summary, metadata),
   };
 

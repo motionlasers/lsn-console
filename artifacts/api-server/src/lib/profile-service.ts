@@ -130,8 +130,14 @@ export async function saveDraft(
         revision: draft.revision + 1,
         updatedBy: actor.userId,
       })
-      .where(eq(profileDraftsTable.profileId, profileId))
+      .where(
+        and(
+          eq(profileDraftsTable.profileId, profileId),
+          eq(profileDraftsTable.revision, draft.revision),
+        ),
+      )
       .returning();
+    if (!updated) throw new RevisionConflictError();
 
     await appendAudit(tx, {
       profileId,
@@ -183,14 +189,46 @@ async function createVersionTx(
  * for the profile is marked SUPERSEDED (previously submitted snapshots are
  * never overwritten — a new immutable record is created).
  */
-export async function submitForReview(actor: Actor, profileId: number) {
+export async function submitForReview(actor: Actor, profileId: number, expectedRevision: number) {
   return db.transaction(async (tx) => {
     const [draft] = await tx
       .select()
       .from(profileDraftsTable)
-      .where(eq(profileDraftsTable.profileId, profileId))
+      .where(
+        and(
+          eq(profileDraftsTable.profileId, profileId),
+          eq(profileDraftsTable.revision, expectedRevision),
+        ),
+      )
+      .for("update")
       .limit(1);
-    if (!draft) throw new Error("Draft not found");
+    if (!draft) {
+      const [existing] = await tx
+        .select({ id: profileDraftsTable.id })
+        .from(profileDraftsTable)
+        .where(eq(profileDraftsTable.profileId, profileId))
+        .limit(1);
+      if (existing) throw new RevisionConflictError();
+      throw new Error("Draft not found");
+    }
+
+    // Consume the submitted revision while the row lock is held. A second
+    // request carrying the same expectedRevision can no longer match after this
+    // transaction commits, so one draft revision produces at most one review.
+    const [consumedDraft] = await tx
+      .update(profileDraftsTable)
+      .set({
+        revision: draft.revision + 1,
+        updatedBy: actor.userId,
+      })
+      .where(
+        and(
+          eq(profileDraftsTable.profileId, profileId),
+          eq(profileDraftsTable.revision, draft.revision),
+        ),
+      )
+      .returning();
+    if (!consumedDraft) throw new RevisionConflictError();
 
     const version = await createVersionTx(
       tx,
@@ -232,7 +270,7 @@ export async function submitForReview(actor: Actor, profileId: number) {
       detail: { reviewId: review.id, digest: version.digest, versionNumber: version.versionNumber },
     });
 
-    return { version, review };
+    return { version, review, draft: consumedDraft };
   });
 }
 
@@ -554,6 +592,7 @@ export async function recordSimulation(
   versionId: number,
   passed: boolean,
   evidence: Record<string, unknown>,
+  reviewId?: number,
 ) {
   return db.transaction(async (tx) => {
     const [version] = await tx
@@ -563,6 +602,42 @@ export async function recordSimulation(
       .limit(1);
     if (!version) throw new Error("Version not found");
 
+    let review: typeof profileReviewsTable.$inferSelect | null = null;
+    if (actor.role === "CLIENT_REVIEWER" || reviewId != null) {
+      if (!Number.isFinite(reviewId)) {
+        throw new InvariantError(
+          "Client simulation evidence must identify its immutable review",
+        );
+      }
+      const [boundReview] = await tx
+        .select()
+        .from(profileReviewsTable)
+        .where(eq(profileReviewsTable.id, reviewId!))
+        .limit(1);
+      if (
+        !boundReview
+        || boundReview.profileId !== version.profileId
+        || boundReview.versionId !== version.id
+        || boundReview.digest !== version.digest
+      ) {
+        throw new InvariantError(
+          "Simulation review does not match the immutable profile version",
+        );
+      }
+      review = boundReview;
+    }
+
+    // Identity fields are server-owned. Client evidence may add result detail,
+    // but it cannot claim a different review, version, profile, or digest.
+    const boundEvidence = {
+      ...evidence,
+      profileId: version.profileId,
+      versionId: version.id,
+      versionDigest: version.digest,
+      reviewId: review?.id ?? null,
+      reviewDigest: review?.digest ?? null,
+    };
+
     const [rec] = await tx
       .insert(profileValidationsTable)
       .values({
@@ -571,7 +646,7 @@ export async function recordSimulation(
         digest: version.digest,
         kind: "SIMULATION",
         passed,
-        evidence,
+        evidence: boundEvidence,
         recordedBy: actor.userId,
       })
       .returning();
@@ -692,9 +767,59 @@ export async function promoteProduction(actor: Actor, versionId: number) {
   });
 }
 
-/** Upsert the private client sandbox for a user + profile. */
-export async function saveSandbox(actor: Actor, profileId: number, document: unknown) {
+interface SandboxReviewBinding {
+  reviewId: number;
+  versionId: number;
+  digest: string;
+}
+
+async function requireSandboxReview(profileId: number, reviewId: number) {
+  if (!Number.isFinite(reviewId)) {
+    throw new InvariantError("Sandbox reviewId is required");
+  }
+  const [review] = await db
+    .select()
+    .from(profileReviewsTable)
+    .where(eq(profileReviewsTable.id, reviewId))
+    .limit(1);
+  if (!review || review.profileId !== profileId) {
+    throw new InvariantError("Sandbox review does not belong to this profile");
+  }
+  return review;
+}
+
+function sandboxBinding(document: unknown): SandboxReviewBinding | null {
+  if (!document || typeof document !== "object" || Array.isArray(document)) return null;
+  const candidate = (document as Record<string, unknown>).__reviewBinding;
+  if (!candidate || typeof candidate !== "object" || Array.isArray(candidate)) return null;
+  const binding = candidate as Partial<SandboxReviewBinding>;
+  return Number.isFinite(binding.reviewId)
+    && Number.isFinite(binding.versionId)
+    && typeof binding.digest === "string"
+    ? binding as SandboxReviewBinding
+    : null;
+}
+
+/** Upsert a private sandbox bound to one exact immutable review snapshot. */
+export async function saveSandbox(
+  actor: Actor,
+  profileId: number,
+  reviewId: number,
+  document: unknown,
+) {
+  const review = await requireSandboxReview(profileId, reviewId);
   const canonical = canonicalize(document);
+  if (!canonical || typeof canonical !== "object" || Array.isArray(canonical)) {
+    throw new InvariantError("Sandbox document must be an object");
+  }
+  const boundDocument = {
+    ...(canonical as Record<string, unknown>),
+    __reviewBinding: {
+      reviewId: review.id,
+      versionId: review.versionId,
+      digest: review.digest,
+    },
+  };
   const [existing] = await db
     .select()
     .from(profileSandboxesTable)
@@ -709,14 +834,14 @@ export async function saveSandbox(actor: Actor, profileId: number, document: unk
   if (existing) {
     const [updated] = await db
       .update(profileSandboxesTable)
-      .set({ document: canonical })
+      .set({ document: boundDocument })
       .where(eq(profileSandboxesTable.id, existing.id))
       .returning();
     return updated;
   }
   const [created] = await db
     .insert(profileSandboxesTable)
-    .values({ profileId, ownerId: actor.userId, document: canonical })
+    .values({ profileId, ownerId: actor.userId, document: boundDocument })
     .returning();
   return created;
 }
@@ -741,7 +866,8 @@ export async function resetSandbox(actor: Actor, profileId: number) {
   });
 }
 
-export async function getSandbox(actor: Actor, profileId: number) {
+export async function getSandbox(actor: Actor, profileId: number, reviewId: number) {
+  const review = await requireSandboxReview(profileId, reviewId);
   const [row] = await db
     .select()
     .from(profileSandboxesTable)
@@ -752,7 +878,17 @@ export async function getSandbox(actor: Actor, profileId: number) {
       ),
     )
     .limit(1);
-  return row ?? null;
+  if (!row) return null;
+  const binding = sandboxBinding(row.document);
+  if (
+    !binding
+    || binding.reviewId !== review.id
+    || binding.versionId !== review.versionId
+    || binding.digest !== review.digest
+  ) {
+    return null;
+  }
+  return row;
 }
 
 // ---------------------------------------------------------------------------
@@ -789,6 +925,34 @@ export async function listVersions(profileId: number) {
     .orderBy(desc(profileVersionsTable.versionNumber));
 }
 
+/**
+ * Version list restricted to review/public-visible versions, for reviewers.
+ * A version is included when it is bound to a review OR has been published to
+ * a channel — decided from DB records, never request input. Unpublished,
+ * never-reviewed candidates are omitted so reviewers cannot enumerate them.
+ */
+export async function listReviewVisibleVersions(profileId: number) {
+  const all = await listVersions(profileId);
+  if (all.length === 0) return all;
+
+  const [reviewRows, publicationRows] = await Promise.all([
+    db
+      .select({ versionId: profileReviewsTable.versionId })
+      .from(profileReviewsTable)
+      .where(eq(profileReviewsTable.profileId, profileId)),
+    db
+      .select({ versionId: profilePublicationsTable.versionId })
+      .from(profilePublicationsTable)
+      .where(eq(profilePublicationsTable.profileId, profileId)),
+  ]);
+
+  const visible = new Set<number>();
+  for (const r of reviewRows) visible.add(r.versionId);
+  for (const p of publicationRows) visible.add(p.versionId);
+
+  return all.filter((v) => visible.has(v.id));
+}
+
 export async function getVersion(versionId: number) {
   const [v] = await db
     .select()
@@ -796,6 +960,34 @@ export async function getVersion(versionId: number) {
     .where(eq(profileVersionsTable.id, versionId))
     .limit(1);
   return v ?? null;
+}
+
+/**
+ * Decide, from DB records only (never request input), whether a version is
+ * visible to a Client Reviewer. A version is review/public-visible when it is
+ * bound to a review the reviewer participates in, OR it has been published to
+ * a client-facing channel. Draft-derived versions that were never submitted for
+ * review or published stay hidden from reviewers.
+ *
+ * `versionId` is validated by the caller; an invalid (non-finite) id yields
+ * `false` so lookups fail safely.
+ */
+export async function isVersionReviewVisible(versionId: number): Promise<boolean> {
+  if (!Number.isFinite(versionId)) return false;
+
+  const [review] = await db
+    .select({ id: profileReviewsTable.id })
+    .from(profileReviewsTable)
+    .where(eq(profileReviewsTable.versionId, versionId))
+    .limit(1);
+  if (review) return true;
+
+  const [publication] = await db
+    .select({ id: profilePublicationsTable.id })
+    .from(profilePublicationsTable)
+    .where(eq(profilePublicationsTable.versionId, versionId))
+    .limit(1);
+  return Boolean(publication);
 }
 
 export async function getReview(reviewId: number) {

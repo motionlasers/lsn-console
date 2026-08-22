@@ -31,11 +31,14 @@ import {
   listDecisions,
   getActivePublication,
   listPublications,
+  listReviewVisibleVersions,
   listValidations,
   listAudit,
+  isVersionReviewVisible,
   RevisionConflictError,
   InvariantError,
 } from "../lib/profile-service.js";
+import { roleHasPermission } from "../lib/permissions.js";
 import { diffProfiles, canonicalString, digestOf } from "../lib/profile-canonical.js";
 import { summarizeProfile } from "../lib/profile-summary.js";
 
@@ -52,6 +55,34 @@ function actorOf(req: Request): Actor {
 function parseId(raw: string | string[] | undefined): number {
   const v = Array.isArray(raw) ? raw[0] : raw;
   return Number(v);
+}
+
+/**
+ * True when the session role has the author/history read grant (Firmware Admin
+ * and Superadmin). Reviewers lack this and are restricted to review/public
+ * resources, decided from DB records (see isVersionReviewVisible).
+ */
+function canReadHistory(req: Request): boolean {
+  const su = req.sessionUser;
+  return !!su && roleHasPermission(su.role, "history.read");
+}
+
+/**
+ * Guard a single-version read (artifact / validations / download). History
+ * readers pass unconditionally; reviewers are limited to versions that are
+ * review- or publication-visible per DB records. Invalid ids fail safely with
+ * a 400 so nothing leaks. Returns true when the caller may proceed; otherwise
+ * writes the response and returns false.
+ */
+async function guardVersionRead(req: Request, res: Response, versionId: number): Promise<boolean> {
+  if (!Number.isFinite(versionId)) {
+    res.status(400).json({ error: "Invalid version id" });
+    return false;
+  }
+  if (canReadHistory(req)) return true;
+  if (await isVersionReviewVisible(versionId)) return true;
+  res.status(403).json({ error: "Forbidden" });
+  return false;
 }
 
 /** Centralized error mapping for service invariants. */
@@ -86,6 +117,7 @@ function handleServiceError(req: Request, res: Response, err: unknown): void {
 // GET /api/profiles/versions/:versionId — a single version
 router.get("/versions/:versionId", async (req, res): Promise<void> => {
   const versionId = parseId(req.params.versionId);
+  if (!(await guardVersionRead(req, res, versionId))) return;
   const v = await getVersion(versionId);
   if (!v) {
     res.status(404).json({ error: "Version not found" });
@@ -95,8 +127,14 @@ router.get("/versions/:versionId", async (req, res): Promise<void> => {
 });
 
 // GET /api/profiles/versions/:versionId/validations
-router.get("/versions/:versionId/validations", async (req, res): Promise<void> => {
+// Validation history (hardware/simulation evidence) is an author/history read:
+// only history readers may access it. Reviewers are denied.
+router.get("/versions/:versionId/validations", requirePermission("history.read"), async (req, res): Promise<void> => {
   const versionId = parseId(req.params.versionId);
+  if (!Number.isFinite(versionId)) {
+    res.status(400).json({ error: "Invalid version id" });
+    return;
+  }
   res.json(await listValidations(versionId));
 });
 
@@ -104,6 +142,7 @@ router.get("/versions/:versionId/validations", async (req, res): Promise<void> =
 // of the canonical immutable artifact. Comes from the selected version only.
 router.get("/versions/:versionId/download", async (req, res): Promise<void> => {
   const versionId = parseId(req.params.versionId);
+  if (!(await guardVersionRead(req, res, versionId))) return;
   const v = await getVersion(versionId);
   if (!v) {
     res.status(404).json({ error: "Version not found" });
@@ -172,7 +211,7 @@ router.post("/versions/:versionId/verify-hardware", requirePermission("hardware.
 // POST /api/profiles/versions/:versionId/simulation — record simulation evidence
 router.post("/versions/:versionId/simulation", requirePermission("simulation.run"), async (req, res): Promise<void> => {
   const versionId = parseId(req.params.versionId);
-  const { passed, evidence } = req.body ?? {};
+  const { passed, evidence, reviewId } = req.body ?? {};
   if (typeof passed !== "boolean") {
     res.status(400).json({ error: "passed (boolean) required" });
     return;
@@ -183,6 +222,7 @@ router.post("/versions/:versionId/simulation", requirePermission("simulation.run
       versionId,
       passed,
       evidence && typeof evidence === "object" ? evidence : {},
+      typeof reviewId === "number" ? reviewId : undefined,
     );
     res.status(201).json(rec);
   } catch (err) {
@@ -205,17 +245,35 @@ router.post("/versions/:versionId/promote", requirePermission("production.promot
 router.get("/diff", async (req, res): Promise<void> => {
   const from = String(req.query.from ?? "");
   const to = String(req.query.to ?? "");
+  const historyReader = canReadHistory(req);
 
-  async function resolveDoc(ref: string): Promise<unknown | null> {
+  // Resolve a diff operand. Returns the document, or a sentinel:
+  //  - null     => not found (404)
+  //  - "denied" => operand exists but the caller may not read it (403)
+  const DENIED = Symbol("denied");
+  async function resolveDoc(ref: string): Promise<unknown | typeof DENIED | null> {
     if (ref.startsWith("draft:")) {
-      const d = await getDraft(Number(ref.slice("draft:".length)));
+      // Mutable drafts are author-only. Reviewers may never diff a draft.
+      if (!historyReader) return DENIED;
+      const draftId = Number(ref.slice("draft:".length));
+      if (!Number.isFinite(draftId)) return null;
+      const d = await getDraft(draftId);
       return d ? d.document : null;
     }
-    const v = await getVersion(Number(ref));
-    return v ? v.document : null;
+    const versionId = Number(ref);
+    if (!Number.isFinite(versionId)) return null;
+    const v = await getVersion(versionId);
+    if (!v) return null;
+    // Reviewers may only diff review/public-visible versions (DB-decided).
+    if (!historyReader && !(await isVersionReviewVisible(versionId))) return DENIED;
+    return v.document;
   }
 
   const [a, b] = await Promise.all([resolveDoc(from), resolveDoc(to)]);
+  if (a === DENIED || b === DENIED) {
+    res.status(403).json({ error: "Forbidden" });
+    return;
+  }
   if (a == null || b == null) {
     res.status(404).json({ error: "One or both diff operands not found" });
     return;
@@ -329,12 +387,20 @@ router.get("/:id", async (req, res): Promise<void> => {
     getActivePublication(id, "DEVELOPMENT"),
     getActivePublication(id, "PRODUCTION"),
   ]);
-  res.json({ profile, draft, development, production });
+  // The mutable working draft is author-only. Reviewers still receive the
+  // profile metadata and the client-facing (published) channels needed by the
+  // review UI, but never the in-progress draft document.
+  const draftForCaller = canReadHistory(req) ? draft : null;
+  res.json({ profile, draft: draftForCaller, development, production });
 });
 
-// GET /api/profiles/:id/draft
-router.get("/:id/draft", async (req, res): Promise<void> => {
+// GET /api/profiles/:id/draft — the mutable working draft is author-only.
+router.get("/:id/draft", requirePermission("history.read"), async (req, res): Promise<void> => {
   const id = parseId(req.params.id);
+  if (!Number.isFinite(id)) {
+    res.status(400).json({ error: "Invalid profile id" });
+    return;
+  }
   const draft = await getDraft(id);
   if (!draft) {
     res.status(404).json({ error: "Draft not found" });
@@ -367,8 +433,13 @@ router.put("/:id/draft", requirePermission("draft.edit"), async (req, res): Prom
 // POST /api/profiles/:id/submit — submit draft for client review (Firmware Admin)
 router.post("/:id/submit", requirePermission("review.submit"), async (req, res): Promise<void> => {
   const id = parseId(req.params.id);
+  const { expectedRevision } = req.body ?? {};
+  if (!Number.isInteger(expectedRevision) || expectedRevision < 0) {
+    res.status(400).json({ error: "expectedRevision (non-negative integer) required" });
+    return;
+  }
   try {
-    const result = await submitForReview(actorOf(req), id);
+    const result = await submitForReview(actorOf(req), id, expectedRevision);
     res.status(201).json(result);
   } catch (err) {
     handleServiceError(req, res, err);
@@ -397,21 +468,39 @@ router.post("/:id/rollback", requirePermission("development.rollback"), async (r
   }
 });
 
-// GET /api/profiles/:id/versions — version history
+// GET /api/profiles/:id/versions — version history. History readers see the
+// full history; reviewers receive only review/public-visible versions (needed
+// by the review UI to locate the prior version for a diff), decided from DB.
 router.get("/:id/versions", async (req, res): Promise<void> => {
   const id = parseId(req.params.id);
-  res.json(await listVersions(id));
+  if (!Number.isFinite(id)) {
+    res.status(400).json({ error: "Invalid profile id" });
+    return;
+  }
+  const versions = canReadHistory(req)
+    ? await listVersions(id)
+    : await listReviewVisibleVersions(id);
+  res.json(versions);
 });
 
-// GET /api/profiles/:id/publications — publication history
-router.get("/:id/publications", async (req, res): Promise<void> => {
+// GET /api/profiles/:id/publications — publication history (author/history read).
+router.get("/:id/publications", requirePermission("history.read"), async (req, res): Promise<void> => {
   const id = parseId(req.params.id);
+  if (!Number.isFinite(id)) {
+    res.status(400).json({ error: "Invalid profile id" });
+    return;
+  }
   res.json(await listPublications(id));
 });
 
-// GET /api/profiles/:id/audit — append-only audit history
-router.get("/:id/audit", async (req, res): Promise<void> => {
+// GET /api/profiles/:id/audit — append-only audit history. Superadmin-only
+// (governance UI); Firmware Admin and reviewers are denied.
+router.get("/:id/audit", requirePermission("audit.read"), async (req, res): Promise<void> => {
   const id = parseId(req.params.id);
+  if (!Number.isFinite(id)) {
+    res.status(400).json({ error: "Invalid profile id" });
+    return;
+  }
   res.json(await listAudit(id));
 });
 
@@ -422,18 +511,27 @@ router.get("/:id/audit", async (req, res): Promise<void> => {
 // GET /api/profiles/:id/sandbox
 router.get("/:id/sandbox", requirePermission("sandbox.use"), async (req, res): Promise<void> => {
   const id = parseId(req.params.id);
-  res.json(await getSandbox(actorOf(req), id));
+  const reviewId = Number(req.query.reviewId);
+  try {
+    res.json(await getSandbox(actorOf(req), id, reviewId));
+  } catch (err) {
+    handleServiceError(req, res, err);
+  }
 });
 
 // PUT /api/profiles/:id/sandbox
 router.put("/:id/sandbox", requirePermission("sandbox.use"), async (req, res): Promise<void> => {
   const id = parseId(req.params.id);
-  const { document } = req.body ?? {};
+  const { document, reviewId } = req.body ?? {};
   if (document == null || typeof document !== "object") {
     res.status(400).json({ error: "document (object) required" });
     return;
   }
-  res.json(await saveSandbox(actorOf(req), id, document));
+  try {
+    res.json(await saveSandbox(actorOf(req), id, Number(reviewId), document));
+  } catch (err) {
+    handleServiceError(req, res, err);
+  }
 });
 
 // DELETE /api/profiles/:id/sandbox — reset

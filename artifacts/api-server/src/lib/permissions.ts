@@ -1,5 +1,6 @@
 import type { Role } from "@workspace/db/schema";
-import { ROLES } from "@workspace/db/schema";
+
+const ROLES = ["SUPERADMIN", "FIRMWARE_ADMIN", "CLIENT_REVIEWER"] as const;
 
 /**
  * Centralized, server-side permission model for the three canonical governance
@@ -24,6 +25,12 @@ export type Permission =
   | "review.comment"
   | "review.decide"
   | "sandbox.use"
+  // Author/engineering history reads (Firmware Admin + Superadmin). Covers the
+  // mutable draft, version history/artifacts, publication history, validation
+  // history, and unrestricted artifact download. NOT granted to reviewers.
+  | "history.read"
+  // Append-only governance audit read (Superadmin only — governance UI).
+  | "audit.read"
   // Superadmin-exclusive promotion authority
   | "production.promote";
 
@@ -42,6 +49,8 @@ const SUPERADMIN: Permission[] = [
   "review.comment",
   "review.decide",
   "sandbox.use",
+  "history.read",
+  "audit.read",
   "production.promote",
 ];
 
@@ -55,6 +64,7 @@ const FIRMWARE_ADMIN: Permission[] = [
   "development.rollback",
   "hardware.record",
   "review.inspect",
+  "history.read",
 ];
 
 const CLIENT_REVIEWER: Permission[] = [

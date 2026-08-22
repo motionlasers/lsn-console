@@ -26,7 +26,16 @@ describe("centralized permissions", () => {
     expect(roleHasPermission("SUPERADMIN", "production.promote")).toBe(true);
     expect(roleHasPermission("SUPERADMIN", "user.manage")).toBe(true);
     expect(roleHasPermission("SUPERADMIN", "development.publish")).toBe(true);
+    expect(roleHasPermission("SUPERADMIN", "history.read")).toBe(true);
+    expect(roleHasPermission("SUPERADMIN", "audit.read")).toBe(true);
     expect(isSuperadmin("SUPERADMIN")).toBe(true);
+  });
+
+  it("audit.read is Superadmin-only; history.read excludes reviewers", () => {
+    expect(roleHasPermission("FIRMWARE_ADMIN", "history.read")).toBe(true);
+    expect(roleHasPermission("FIRMWARE_ADMIN", "audit.read")).toBe(false);
+    expect(roleHasPermission("CLIENT_REVIEWER", "history.read")).toBe(false);
+    expect(roleHasPermission("CLIENT_REVIEWER", "audit.read")).toBe(false);
   });
 
   it("Firmware Admin can author/publish/rollback/verify but NOT promote or manage users", () => {
@@ -54,6 +63,8 @@ describe("centralized permissions", () => {
     expect(roleHasPermission("CLIENT_REVIEWER", "draft.edit")).toBe(false);
     expect(roleHasPermission("CLIENT_REVIEWER", "development.publish")).toBe(false);
     expect(roleHasPermission("CLIENT_REVIEWER", "production.promote")).toBe(false);
+    expect(roleHasPermission("CLIENT_REVIEWER", "history.read")).toBe(false);
+    expect(roleHasPermission("CLIENT_REVIEWER", "audit.read")).toBe(false);
   });
 
   it("permissionsForRole returns a non-empty list for each role", () => {

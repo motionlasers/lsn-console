@@ -7,7 +7,7 @@ import {
   visibleLogicalState,
 } from "@/lib/store";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Settings, RefreshCw, Download, Upload, Play, KeyRound, Users, Trash2, ShieldCheck, Plus, Eye, EyeOff } from "lucide-react";
+import { Settings, RefreshCw, Download, Upload, Play, KeyRound, Users, Trash2, ShieldCheck, Plus, Eye, EyeOff, ScrollText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { downloadFile } from "@/lib/exports";
 import { useRef, useState, type FormEvent } from "react";
@@ -15,6 +15,8 @@ import { useTourStore } from "@/hooks/use-tour";
 import { useAuth } from "@/contexts/AuthContext";
 import { authApi, adminApi, type AdminUser, type CanonicalRole } from "@/lib/auth-api";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { governanceApi } from "@/lib/profile-governance-api";
+import { format } from "date-fns";
 
 // ─── Change Password Card ─────────────────────────────────────────────────────
 function ChangePasswordCard() {
@@ -430,6 +432,93 @@ function AdminUsersCard() {
   );
 }
 
+function AdminAuditCard() {
+  const [selectedProfileId, setSelectedProfileId] = useState<number | null>(null);
+  const { data: profiles = [] } = useQuery({
+    queryKey: ["governance-profiles"],
+    queryFn: async () => {
+      const result = await governanceApi.listProfiles();
+      if (!result.ok) throw new Error(result.error);
+      return result.data;
+    },
+  });
+  const profileId = selectedProfileId ?? profiles[0]?.id;
+  const { data: audit = [], isLoading, refetch } = useQuery({
+    queryKey: ["profile-audit", profileId],
+    queryFn: async () => {
+      if (!profileId) return [];
+      const result = await governanceApi.listAudit(profileId);
+      if (!result.ok) throw new Error(result.error);
+      return result.data;
+    },
+    enabled: Boolean(profileId),
+  });
+
+  return (
+    <Card className="max-w-4xl border-border bg-card/50 backdrop-blur" data-testid="card-governance-audit">
+      <CardHeader className="flex flex-row items-center justify-between border-b border-border/50 bg-black/20 pb-4">
+        <CardTitle className="flex items-center gap-2 text-sm font-mono tracking-widest text-primary">
+          <ScrollText className="h-4 w-4" />
+          Governance Audit History
+        </CardTitle>
+        <Button
+          variant="outline"
+          size="sm"
+          className="h-7 font-mono text-[10px]"
+          onClick={() => void refetch()}
+          data-testid="button-refresh-governance-audit"
+        >
+          <RefreshCw className="mr-1 h-3 w-3" /> REFRESH
+        </Button>
+      </CardHeader>
+      <CardContent className="pt-4">
+        <div className="mb-3 font-mono text-[10px] text-muted-foreground">
+          Append-only profile lifecycle events with the responsible account and canonical role.
+        </div>
+        {profiles.length > 0 && (
+          <label className="mb-3 flex items-center gap-2 font-mono text-[10px] text-muted-foreground">
+            PROFILE
+            <select
+              value={profileId ?? ""}
+              onChange={(event) => setSelectedProfileId(Number(event.target.value))}
+              className="border border-border bg-black/40 px-2 py-1 text-foreground"
+              data-testid="select-governance-audit-profile"
+            >
+              {profiles.map(profile => (
+                <option key={profile.id} value={profile.id}>{profile.name}</option>
+              ))}
+            </select>
+          </label>
+        )}
+        {isLoading ? (
+          <div className="font-mono text-xs text-muted-foreground">Loading audit history…</div>
+        ) : (
+          <div className="max-h-96 space-y-2 overflow-y-auto">
+            {audit.map((entry) => (
+              <div key={entry.id} className="grid grid-cols-[minmax(130px,auto)_1fr_auto] gap-3 border border-border/50 bg-black/20 p-3 font-mono text-[10px]" data-testid={`row-audit-${entry.id}`}>
+                <div className="text-muted-foreground">{format(new Date(entry.createdAt), "yyyy-MM-dd HH:mm:ss")}</div>
+                <div>
+                  <div className="font-bold text-foreground">{entry.action}</div>
+                  <div className="mt-1 break-all text-muted-foreground">
+                    {entry.versionId ? `Version ID ${entry.versionId} · ` : ""}
+                    {JSON.stringify(entry.detail ?? {})}
+                  </div>
+                </div>
+                <div className="text-right">
+                  <div className="text-primary">{entry.actorUsername}</div>
+                  <div className="text-muted-foreground">{entry.actorRole}</div>
+                </div>
+              </div>
+            ))}
+            {!profileId && <div className="font-mono text-xs text-muted-foreground">No governed profile exists.</div>}
+            {profileId && audit.length === 0 && <div className="font-mono text-xs text-muted-foreground">No audit events recorded.</div>}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 // ─── Main settings page ───────────────────────────────────────────────────────
 export default function SettingsPage() {
   const { settings, logicalState, updateSettings, updateLogicalState, resetSettings, importState } = useStore();
@@ -618,7 +707,12 @@ export default function SettingsPage() {
       <ChangePasswordCard />
 
       {/* User Management — admin only */}
-      {user?.isAdmin && <AdminUsersCard />}
+      {user?.isAdmin && (
+        <>
+          <AdminUsersCard />
+          <AdminAuditCard />
+        </>
+      )}
     </div>
   );
 }

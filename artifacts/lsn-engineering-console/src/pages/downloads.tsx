@@ -21,6 +21,7 @@ import {
 import { History } from 'lucide-react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { governanceApi, type ImmutableProfileVersion } from '@/lib/profile-governance-api';
+import { useRoles } from '@/hooks/use-roles';
 import {
   activateProfileUpdate,
   checkForProfileUpdate,
@@ -30,6 +31,7 @@ import {
 
 export default function Downloads() {
   const { activeProfileDocument, capabilities } = useStore();
+  const { isFirmwareAdmin } = useRoles();
   const queryClient = useQueryClient();
   const [selectedVersionId, setSelectedVersionId] = useState<number | null>(null);
   const [notesExpanded, setNotesExpanded] = useState(true);
@@ -58,11 +60,27 @@ export default function Downloads() {
       if (!res.ok) throw new Error(res.error);
       return res.data;
     },
-    enabled: primaryProfileId !== null && primaryProfileId !== undefined,
+    enabled: isFirmwareAdmin && primaryProfileId !== null && primaryProfileId !== undefined,
   });
-  const selectedVersion = versions.find((version: ImmutableProfileVersion) => version.id === selectedVersionId)
-    ?? versions.find((version: ImmutableProfileVersion) => ['DEVELOPMENT_PUBLISHED', 'HARDWARE_VERIFIED', 'PRODUCTION_FROZEN'].includes(version.state))
-    ?? versions[0];
+  const { data: publications = [] } = useQuery({
+    queryKey: ['download-profile-publications', primaryProfileId],
+    queryFn: async () => {
+      const res = await governanceApi.listPublications(primaryProfileId!);
+      if (!res.ok) throw new Error(res.error);
+      return res.data;
+    },
+    enabled: isFirmwareAdmin && primaryProfileId !== null && primaryProfileId !== undefined,
+  });
+  const developmentPublishedIds = useMemo(
+    () => new Set(publications.filter(publication => publication.channel === 'DEVELOPMENT').map(publication => publication.versionId)),
+    [publications],
+  );
+  const eligibleVersions = useMemo(
+    () => versions.filter(version => developmentPublishedIds.has(version.id)),
+    [developmentPublishedIds, versions],
+  );
+  const selectedVersion = eligibleVersions.find((version: ImmutableProfileVersion) => version.id === selectedVersionId)
+    ?? eligibleVersions[0];
   const packageDocument = selectedVersion?.document ?? activeProfileDocument;
   const packageCapabilities = useMemo(() => ({
     interlock: packageDocument.capabilities?.interlock?.enabled ?? capabilities.interlock,
@@ -99,7 +117,12 @@ export default function Downloads() {
       if (!selectedVersion) {
         throw new Error("Select an immutable governed profile version before generating a package.");
       }
-      const result = await createFirmwareIntegrationPackage(packageDocument, packageCapabilities);
+      const result = await createFirmwareIntegrationPackage(selectedVersion.document, packageCapabilities, {
+        governedSource: {
+          versionNumber: selectedVersion.versionNumber,
+          digest: selectedVersion.digest,
+        },
+      });
       downloadBlob(result.blob, result.filename);
       
       try {
@@ -129,7 +152,12 @@ export default function Downloads() {
       if (!selectedVersion) {
         throw new Error("Select an immutable governed profile version before generating a file.");
       }
-      const result = await createFirmwareIntegrationPackage(packageDocument, packageCapabilities);
+      const result = await createFirmwareIntegrationPackage(selectedVersion.document, packageCapabilities, {
+        governedSource: {
+          versionNumber: selectedVersion.versionNumber,
+          digest: selectedVersion.digest,
+        },
+      });
       const content = result.files[filename];
       if (content) {
         downloadFile(content, filename, mimeType);
@@ -220,7 +248,7 @@ export default function Downloads() {
               className="mt-2 w-full bg-black/40 border border-border px-3 py-2 text-xs font-mono"
               data-testid="select-immutable-profile-version"
             >
-              {versions.map((version: ImmutableProfileVersion) => (
+              {eligibleVersions.map((version: ImmutableProfileVersion) => (
                 <option key={version.id} value={version.id}>
                   v{version.versionNumber} · {version.state} · {version.digest.slice(0, 12)}
                 </option>

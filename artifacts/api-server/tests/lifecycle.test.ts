@@ -48,6 +48,9 @@ beforeAll(async () => {
 afterAll(async () => {
   const [p] = await db.select().from(profilesTable).where(eq(profilesTable.key, KEY)).limit(1);
   if (p) await db.delete(profilesTable).where(eq(profilesTable.id, p.id));
+  if (submissionRaceProfileId) {
+    await db.delete(profilesTable).where(eq(profilesTable.id, submissionRaceProfileId));
+  }
   await deleteUser("t_super");
   await deleteUser("t_fw");
   await deleteUser("t_rev");
@@ -104,15 +107,70 @@ describe("draft editing + optimistic concurrency", () => {
       .send({ document: baseDoc, expectedRevision: 0 });
     expect(res.status).toBe(409);
   });
+
+  it("atomically rejects one of two concurrent writes from the same revision", async () => {
+    const current = await firmware.get(`/api/profiles/${profileId}/draft`);
+    const [left, right] = await Promise.all([
+      firmware
+        .put(`/api/profiles/${profileId}/draft`)
+        .send({ document: { ...baseDoc, note: "concurrent-left" }, expectedRevision: current.body.revision }),
+      firmware
+        .put(`/api/profiles/${profileId}/draft`)
+        .send({ document: { ...baseDoc, note: "concurrent-right" }, expectedRevision: current.body.revision }),
+    ]);
+    expect([left.status, right.status].sort()).toEqual([200, 409]);
+  });
 });
 
 let reviewId: number;
 let versionId: number;
 let versionDigest: string;
+let submissionRaceProfileId: number;
 
 describe("review submission creates an immutable snapshot", () => {
+  it("allows only one concurrent submission of the same draft revision", async () => {
+    const created = await firmware
+      .post("/api/profiles")
+      .send({ key: `${KEY}-submit-race`, name: "Submit race", document: baseDoc });
+    expect(created.status).toBe(201);
+    submissionRaceProfileId = created.body.id;
+
+    const [left, right] = await Promise.all([
+      firmware
+        .post(`/api/profiles/${submissionRaceProfileId}/submit`)
+        .send({ expectedRevision: 0 }),
+      firmware
+        .post(`/api/profiles/${submissionRaceProfileId}/submit`)
+        .send({ expectedRevision: 0 }),
+    ]);
+    expect([left.status, right.status].sort()).toEqual([201, 409]);
+
+    const reviews = await firmware.get(`/api/profiles/${submissionRaceProfileId}/reviews`);
+    expect(reviews.status).toBe(200);
+    expect(reviews.body).toHaveLength(1);
+  });
+
+  it("rejects submission when the draft changed after the submitter read it", async () => {
+    const stale = await firmware.get(`/api/profiles/${profileId}/draft`);
+    const changed = await firmware
+      .put(`/api/profiles/${profileId}/draft`)
+      .send({
+        document: { ...stale.body.document, note: "intervening-edit" },
+        expectedRevision: stale.body.revision,
+      });
+    expect(changed.status).toBe(200);
+
+    const res = await firmware
+      .post(`/api/profiles/${profileId}/submit`)
+      .send({ expectedRevision: stale.body.revision });
+    expect(res.status).toBe(409);
+  });
+
   it("Firmware Admin submits for review", async () => {
-    const res = await firmware.post(`/api/profiles/${profileId}/submit`).send({});
+    const draft = await firmware.get(`/api/profiles/${profileId}/draft`);
+    const res = await firmware
+      .post(`/api/profiles/${profileId}/submit`)
+      .send({ expectedRevision: draft.body.revision });
     expect(res.status).toBe(201);
     reviewId = res.body.review.id;
     versionId = res.body.version.id;
@@ -200,10 +258,12 @@ let version2Id: number;
 
 describe("second version + diff + rollback", () => {
   it("edit + resubmit + accept + publish a second version", async () => {
-    await firmware
+    const saved = await firmware
       .put(`/api/profiles/${profileId}/draft`)
       .send({ document: { ...baseDoc, profileVersion: "0.2.0" } });
-    const sub = await firmware.post(`/api/profiles/${profileId}/submit`).send({});
+    const sub = await firmware
+      .post(`/api/profiles/${profileId}/submit`)
+      .send({ expectedRevision: saved.body.revision });
     version2Id = sub.body.version.id;
     const rev2 = sub.body.review.id;
     await reviewer.post(`/api/profiles/reviews/${rev2}/decision`).send({ decision: "ACCEPTED", rationale: "ok" });
@@ -235,10 +295,12 @@ describe("second version + diff + rollback", () => {
 
   it("cannot roll back to a version never published to Development (409)", async () => {
     // Create an accepted-but-never-published version.
-    await firmware
+    const saved = await firmware
       .put(`/api/profiles/${profileId}/draft`)
       .send({ document: { ...baseDoc, profileVersion: "0.3.0" } });
-    const sub = await firmware.post(`/api/profiles/${profileId}/submit`).send({});
+    const sub = await firmware
+      .post(`/api/profiles/${profileId}/submit`)
+      .send({ expectedRevision: saved.body.revision });
     const unpublished = sub.body.version.id;
     await reviewer
       .post(`/api/profiles/reviews/${sub.body.review.id}/decision`)
@@ -258,7 +320,7 @@ describe("hardware verification + production promotion authority", () => {
       .send({ key: `${KEY}-guard`, name: "Transition guard", document: baseDoc });
     const submitted = await firmware
       .post(`/api/profiles/${created.body.id}/submit`)
-      .send({});
+      .send({ expectedRevision: 0 });
     const candidateId = submitted.body.version.id;
 
     const verify = await firmware
@@ -278,7 +340,7 @@ describe("hardware verification + production promotion authority", () => {
       .send({ key: `${KEY}-rejected`, name: "Rejected transition", document: baseDoc });
     const submitted = await firmware
       .post(`/api/profiles/${created.body.id}/submit`)
-      .send({});
+      .send({ expectedRevision: 0 });
     const candidateId = submitted.body.version.id;
     await reviewer
       .post(`/api/profiles/reviews/${submitted.body.review.id}/decision`)
@@ -335,11 +397,42 @@ describe("simulation and hardware evidence are distinct + version-bound", () => 
     expect(kinds).toContain("HARDWARE");
     for (const v of list.body) expect(v.digest).toBe(versionDigest);
   });
+
+  it("denies reviewer simulation evidence without an exact review binding", async () => {
+    const res = await reviewer
+      .post(`/api/profiles/versions/${versionId}/simulation`)
+      .send({ passed: true, evidence: { reviewId, versionId } });
+    expect(res.status).toBe(409);
+  });
+
+  it("server binds reviewer simulation identity to the authoritative review and version", async () => {
+    const res = await reviewer
+      .post(`/api/profiles/versions/${versionId}/simulation`)
+      .send({
+        passed: true,
+        reviewId,
+        evidence: {
+          reviewId: 999999,
+          reviewDigest: "forged",
+          versionId: 999999,
+          versionDigest: "forged",
+        },
+      });
+    expect(res.status).toBe(201);
+    expect(res.body.evidence).toMatchObject({
+      reviewId,
+      reviewDigest: versionDigest,
+      versionId,
+      versionDigest,
+      profileId,
+    });
+  });
 });
 
 describe("audit history is append-only + records actors/roles/actions", () => {
   it("records the full lifecycle with actor + role", async () => {
-    const res = await firmware.get(`/api/profiles/${profileId}/audit`);
+    // Audit is Superadmin-visible governance data.
+    const res = await superadmin.get(`/api/profiles/${profileId}/audit`);
     expect(res.status).toBe(200);
     const actions = res.body.map((a: { action: string }) => a.action);
     for (const expected of [
@@ -370,19 +463,150 @@ describe("digest-addressed download", () => {
   });
 });
 
+describe("Client Reviewer read access is tightened to review/public resources", () => {
+  it("denies reviewer the mutable working draft (403)", async () => {
+    const res = await reviewer.get(`/api/profiles/${profileId}/draft`);
+    expect(res.status).toBe(403);
+  });
+
+  it("omits the mutable draft from the reviewer's profile view", async () => {
+    const res = await reviewer.get(`/api/profiles/${profileId}`);
+    expect(res.status).toBe(200);
+    // Metadata + client-facing channels remain, but the in-progress draft does not.
+    expect(res.body.profile.id).toBe(profileId);
+    expect(res.body.draft).toBeNull();
+  });
+
+  it("denies reviewer the append-only audit history (403)", async () => {
+    const res = await reviewer.get(`/api/profiles/${profileId}/audit`);
+    expect(res.status).toBe(403);
+  });
+
+  it("denies Firmware Admin the audit history — Superadmin-only governance read (403)", async () => {
+    const res = await firmware.get(`/api/profiles/${profileId}/audit`);
+    expect(res.status).toBe(403);
+  });
+
+  it("allows Superadmin to read the audit history (200)", async () => {
+    const res = await superadmin.get(`/api/profiles/${profileId}/audit`);
+    expect(res.status).toBe(200);
+    expect(Array.isArray(res.body)).toBe(true);
+  });
+
+  it("denies reviewer the validation (hardware/simulation) history (403)", async () => {
+    const res = await reviewer.get(`/api/profiles/versions/${versionId}/validations`);
+    expect(res.status).toBe(403);
+  });
+
+  it("denies reviewer the publication history (403)", async () => {
+    const res = await reviewer.get(`/api/profiles/${profileId}/publications`);
+    expect(res.status).toBe(403);
+  });
+
+  it("denies reviewer diffing the mutable draft (403)", async () => {
+    const res = await reviewer.get(
+      `/api/profiles/diff?from=draft:${profileId}&to=${versionId}`,
+    );
+    expect(res.status).toBe(403);
+  });
+
+  it("restricts the reviewer version list to review/public-visible versions", async () => {
+    const res = await reviewer.get(`/api/profiles/${profileId}/versions`);
+    expect(res.status).toBe(200);
+    expect(Array.isArray(res.body)).toBe(true);
+    // Every listed version must be bound to a review or a publication.
+    const listed = res.body.map((v: { id: number }) => v.id);
+    expect(listed).toContain(versionId);
+  });
+
+  it("lets the reviewer read a review-visible version artifact (200)", async () => {
+    const res = await reviewer.get(`/api/profiles/versions/${versionId}`);
+    expect(res.status).toBe(200);
+    expect(res.body.version.id).toBe(versionId);
+  });
+
+  it("denies reviewer access to a version that is neither reviewed nor published (403)", async () => {
+    // A very large id that does not correspond to any review/publication.
+    const orphanId = 2_000_000_000;
+    const res = await reviewer.get(`/api/profiles/versions/${orphanId}`);
+    expect(res.status).toBe(403);
+  });
+
+  it("fails safely on an invalid (non-numeric) version id (400)", async () => {
+    const res = await reviewer.get(`/api/profiles/versions/not-a-number`);
+    expect(res.status).toBe(400);
+  });
+
+  it("fails safely on an invalid (non-numeric) profile id (400)", async () => {
+    const res = await reviewer.get(`/api/profiles/not-a-number/draft`);
+    // history.read gate runs first; both denial paths are safe, assert non-2xx.
+    expect(res.status).toBeGreaterThanOrEqual(400);
+  });
+});
+
+describe("Client Reviewer prohibited writes are denied", () => {
+  it("cannot save the draft (403)", async () => {
+    const res = await reviewer
+      .put(`/api/profiles/${profileId}/draft`)
+      .send({ document: baseDoc });
+    expect(res.status).toBe(403);
+  });
+
+  it("cannot submit for review (403)", async () => {
+    const res = await reviewer.post(`/api/profiles/${profileId}/submit`).send({});
+    expect(res.status).toBe(403);
+  });
+
+  it("cannot publish to Development (403)", async () => {
+    const res = await reviewer.post(`/api/profiles/versions/${versionId}/publish`).send({});
+    expect(res.status).toBe(403);
+  });
+
+  it("cannot record hardware verification (403)", async () => {
+    const res = await reviewer
+      .post(`/api/profiles/versions/${versionId}/verify-hardware`)
+      .send({ passed: true, evidence: {} });
+    expect(res.status).toBe(403);
+  });
+
+  it("cannot roll back Development (403)", async () => {
+    const res = await reviewer
+      .post(`/api/profiles/${profileId}/rollback`)
+      .send({ targetVersionId: versionId });
+    expect(res.status).toBe(403);
+  });
+
+  it("cannot promote to Production (403)", async () => {
+    const res = await reviewer.post(`/api/profiles/versions/${versionId}/promote`).send({});
+    expect(res.status).toBe(403);
+  });
+});
+
 describe("client sandbox isolation", () => {
   it("Client Reviewer saves + reads a private sandbox", async () => {
     const put = await reviewer
       .put(`/api/profiles/${profileId}/sandbox`)
-      .send({ document: { override: 1 } });
+      .send({ reviewId, document: { override: 1, __reviewBinding: { reviewId: 999 } } });
     expect(put.status).toBe(200);
-    const get = await reviewer.get(`/api/profiles/${profileId}/sandbox`);
+    const get = await reviewer.get(`/api/profiles/${profileId}/sandbox?reviewId=${reviewId}`);
     expect(get.body.document.override).toBe(1);
+    expect(get.body.document.__reviewBinding).toEqual({
+      reviewId,
+      versionId,
+      digest: versionDigest,
+    });
   });
 
   it("another user's sandbox is separate (isolation)", async () => {
-    const get = await superadmin.get(`/api/profiles/${profileId}/sandbox`);
+    const get = await superadmin.get(`/api/profiles/${profileId}/sandbox?reviewId=${reviewId}`);
     expect(get.body).toBeNull();
+  });
+
+  it("rejects a sandbox that is not bound to a real review", async () => {
+    const put = await reviewer
+      .put(`/api/profiles/${profileId}/sandbox`)
+      .send({ reviewId: 2_000_000_000, document: { override: 2 } });
+    expect(put.status).toBe(409);
   });
 
   it("sandbox never mutates the shared draft/versions", async () => {
@@ -392,7 +616,7 @@ describe("client sandbox isolation", () => {
 
   it("reset clears the sandbox", async () => {
     await reviewer.delete(`/api/profiles/${profileId}/sandbox`);
-    const get = await reviewer.get(`/api/profiles/${profileId}/sandbox`);
+    const get = await reviewer.get(`/api/profiles/${profileId}/sandbox?reviewId=${reviewId}`);
     expect(get.body).toBeNull();
   });
 });

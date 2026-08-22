@@ -3,6 +3,24 @@ import type { DeviceProfileDocument } from "./profile-validation";
 
 export type ProfileDraftStatus = 'DRAFT' | 'CLIENT_REVIEW' | 'CLIENT_REVIEW_ACCEPTED' | 'DEVELOPMENT_PUBLISHED' | 'HARDWARE_VERIFIED' | 'PRODUCTION_FROZEN' | 'REJECTED' | 'SUPERSEDED';
 
+/**
+ * Immutable states that indicate a version has been published to the
+ * DEVELOPMENT channel (or promoted beyond it). Only versions in one of these
+ * states are eligible sources for a Firmware Integration Package export: their
+ * `document` snapshot is immutable and traceable, unlike the mutable working
+ * draft. HARDWARE_VERIFIED and PRODUCTION_FROZEN are supersets of a published
+ * development artifact, so they remain valid governed sources.
+ */
+export const DEVELOPMENT_PUBLISHED_STATES: ProfileDraftStatus[] = [
+  'DEVELOPMENT_PUBLISHED',
+  'HARDWARE_VERIFIED',
+  'PRODUCTION_FROZEN',
+];
+
+export function isPublishedToDevelopment(version: Pick<ImmutableProfileVersion, 'state'>): boolean {
+  return DEVELOPMENT_PUBLISHED_STATES.includes(version.state);
+}
+
 export interface ImmutableProfileVersion {
   id: number;
   profileId: number;
@@ -52,10 +70,33 @@ export interface Review {
   id: number;
   profileId: number;
   versionId: number;
+  digest: string;
   state: 'OPEN' | 'DECIDED';
   snapshot: DeviceProfileDocument;
   submittedAt: string;
   submittedBy: number;
+}
+
+export interface ProfilePublication {
+  id: number;
+  profileId: number;
+  versionId: number;
+  channel: 'DEVELOPMENT' | 'PRODUCTION';
+  digest: string;
+  active: boolean;
+  publishedAt: string;
+  supersededAt?: string | null;
+}
+
+export interface ProfileAuditEntry {
+  id: number;
+  profileId: number;
+  versionId?: number | null;
+  action: string;
+  actorUsername?: string | null;
+  actorRole: string;
+  detail: Record<string, unknown>;
+  createdAt: string;
 }
 
 export interface GovernedProfile {
@@ -151,8 +192,11 @@ export const governanceApi = {
       body: JSON.stringify({ document, expectedRevision }),
     }),
   
-  submitForReview: (id: number) =>
-    apiFetch<any>(`/api/profiles/${id}/submit`, { method: "POST" }),
+  submitForReview: (id: number, expectedRevision: number) =>
+    apiFetch<any>(`/api/profiles/${id}/submit`, {
+      method: "POST",
+      body: JSON.stringify({ expectedRevision }),
+    }),
 
   // Reviews & Decisions
   listReviews: (id: number) => apiFetch<Review[]>(`/api/profiles/${id}/reviews`),
@@ -179,17 +223,17 @@ export const governanceApi = {
   // Lifecycle
   publishDevelopment: (versionId: number) => apiFetch<any>(`/api/profiles/versions/${versionId}/publish`, { method: "POST" }),
   rollbackDevelopment: (id: number, targetVersionId: number) => apiFetch<any>(`/api/profiles/${id}/rollback`, { method: "POST", body: JSON.stringify({ targetVersionId }) }),
-  recordSimulation: (versionId: number, passed: boolean, evidence: Record<string, unknown>) =>
-    apiFetch<any>(`/api/profiles/versions/${versionId}/simulation`, { method: "POST", body: JSON.stringify({ passed, evidence }) }),
+  recordSimulation: (versionId: number, passed: boolean, evidence: Record<string, unknown>, reviewId?: number) =>
+    apiFetch<any>(`/api/profiles/versions/${versionId}/simulation`, { method: "POST", body: JSON.stringify({ passed, evidence, reviewId }) }),
   recordHardwareVerification: (versionId: number, passed: boolean, evidence: Record<string, unknown>) =>
     apiFetch<any>(`/api/profiles/versions/${versionId}/verify-hardware`, { method: "POST", body: JSON.stringify({ passed, evidence }) }),
   promoteProduction: (versionId: number) => apiFetch<any>(`/api/profiles/versions/${versionId}/promote`, { method: "POST" }),
 
   // Logs & Sandbox
-  listPublications: (id: number) => apiFetch<any[]>(`/api/profiles/${id}/publications`),
-  listAudit: (id: number) => apiFetch<any[]>(`/api/profiles/${id}/audit`),
+  listPublications: (id: number) => apiFetch<ProfilePublication[]>(`/api/profiles/${id}/publications`),
+  listAudit: (id: number) => apiFetch<ProfileAuditEntry[]>(`/api/profiles/${id}/audit`),
 
-  getSandbox: (id: number) => apiFetch<SandboxOverride | null>(`/api/profiles/${id}/sandbox`),
-  saveSandbox: (id: number, document: DeviceProfileDocument) => apiFetch<SandboxOverride>(`/api/profiles/${id}/sandbox`, { method: "PUT", body: JSON.stringify({ document }) }),
+  getSandbox: (id: number, reviewId: number) => apiFetch<SandboxOverride | null>(`/api/profiles/${id}/sandbox?reviewId=${reviewId}`),
+  saveSandbox: (id: number, reviewId: number, document: DeviceProfileDocument) => apiFetch<SandboxOverride>(`/api/profiles/${id}/sandbox`, { method: "PUT", body: JSON.stringify({ reviewId, document }) }),
   resetSandbox: (id: number) => apiFetch<any>(`/api/profiles/${id}/sandbox`, { method: "DELETE" }),
 };

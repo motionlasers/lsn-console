@@ -10,8 +10,15 @@ import { effectiveFirmwareStatus } from '../src/lib/store';
 import {
   createFirmwareIntegrationPackage,
   effectiveDocumentFirmwareStatus,
+  generatePackageManifest,
+  generatePackageReadme,
   summarizeFirmwarePackage,
 } from '../src/lib/firmware-package';
+import {
+  isPublishedToDevelopment,
+  DEVELOPMENT_PUBLISHED_STATES,
+  type ImmutableProfileVersion,
+} from '../src/lib/profile-governance-api';
 import type { DeviceProfileDocument } from '../src/lib/profile-validation';
 
 const profile = JSON.parse(
@@ -21,6 +28,10 @@ const profile = JSON.parse(
 const capabilities = Object.fromEntries(
   Object.entries(profile.capabilities).map(([key, capability]) => [key, capability.enabled]),
 );
+const testGovernedSource = {
+  versionNumber: 1,
+  digest: 'sha256:1111111111111111111111111111111111111111111111111111111111111111',
+};
 
 describe('LSN v0.1 device profile', () => {
   it('keeps every unresolved CIP mapping explicitly TBD or null', () => {
@@ -124,13 +135,14 @@ describe('LSN v0.1 device profile', () => {
     expect(effectiveDocumentFirmwareStatus(stale)).toBe('TBD');
   });
 
-  it('builds the complete six-file firmware integration ZIP without invented values', async () => {
+  it('builds the complete firmware integration ZIP without invented values', async () => {
     const result = await createFirmwareIntegrationPackage(profile, capabilities, {
       generatedAt: new Date('2026-08-14T12:00:00.000Z'),
       consoleVersion: '0.1.0-test',
+      governedSource: testGovernedSource,
     });
-    expect(result.filename).toBe('LSN-Firmware-Interface-v0.1.zip');
-    expect(result.folderName).toBe('LSN-Firmware-Interface-v0.1');
+    expect(result.filename).toContain('LSN-Firmware-Interface-v0.1-gov1-');
+    expect(result.folderName).toContain('LSN-Firmware-Interface-v0.1-gov1-');
     expect(result.summary.mappedFieldCount).toBe(0);
 
     const zip = await JSZip.loadAsync(await result.blob.arrayBuffer());
@@ -141,6 +153,7 @@ describe('LSN v0.1 device profile', () => {
       'lsn_protocol.h',
       'lsn_protocol_profile.json',
       'lsn_protocol_types.h',
+      'manifest.json',
     ];
     const actualFiles = Object.keys(zip.files)
       .filter(path => !zip.files[path].dir)
@@ -215,6 +228,7 @@ describe('LSN v0.1 device profile', () => {
 
     const result = await createFirmwareIntegrationPackage(resolvedProfile, capabilities, {
       generatedAt: new Date('2026-08-14T12:00:00.000Z'),
+      governedSource: testGovernedSource,
     });
     expect(result.files['lsn_protocol.h']).toContain('#define LSN_READY_CIP_SERVICE "Get_Attribute_Single"');
     expect(result.files['lsn_protocol.h']).toContain('#define LSN_READY_CIP_CLASS UINT32_C(4)');
@@ -226,6 +240,7 @@ describe('LSN v0.1 device profile', () => {
   it('generates headers that compile as portable C11 and C++17', async () => {
     const result = await createFirmwareIntegrationPackage(profile, capabilities, {
       generatedAt: new Date('2026-08-14T12:00:00.000Z'),
+      governedSource: testGovernedSource,
     });
     const directory = mkdtempSync(resolve(tmpdir(), 'lsn-firmware-package-'));
     try {
@@ -268,6 +283,7 @@ describe('LSN v0.1 device profile', () => {
       ready.cipService = 'Get\r\u0000Attribute';
       const hostile = await createFirmwareIntegrationPackage(hostileProfile, capabilities, {
         generatedAt: new Date('2026-08-14T12:00:00.000Z'),
+        governedSource: testGovernedSource,
       });
       expect(hostile.files['lsn_protocol_types.h']).toContain('bool field_class; /* Canonical: Class */');
       expect(hostile.files['lsn_protocol.h']).toContain('"0.1\\r\\000hostile"');
@@ -303,6 +319,7 @@ describe('LSN v0.1 device profile', () => {
     adversarial.fields[0].dataType = 'boolean*/\n#error injected\n/*';
     const safe = await createFirmwareIntegrationPackage(adversarial, capabilities, {
       generatedAt: new Date('2026-08-14T12:00:00.000Z'),
+      governedSource: testGovernedSource,
     });
     expect(safe.files['lsn_protocol.h']).not.toMatch(/^#define LSN_INJECTED 1$/m);
     expect(safe.files['lsn_protocol_types.h']).not.toMatch(/^#error injected$/m);
@@ -314,7 +331,80 @@ describe('LSN v0.1 device profile', () => {
     await expect(
       createFirmwareIntegrationPackage(colliding, capabilities, {
         generatedAt: new Date('2026-08-14T12:00:00.000Z'),
+        governedSource: testGovernedSource,
       }),
     ).rejects.toThrow(/collide as generated C/);
+  });
+});
+
+describe('governed firmware integration package identity', () => {
+  const capabilities = Object.fromEntries(
+    Object.entries(profile.capabilities).map(([key, capability]) => [key, capability.enabled]),
+  );
+  const governedSource = { versionNumber: 7, digest: 'sha256:abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789' };
+
+  it('recognizes only versions published to DEVELOPMENT as eligible sources', () => {
+    expect(DEVELOPMENT_PUBLISHED_STATES).toContain('DEVELOPMENT_PUBLISHED');
+    expect(isPublishedToDevelopment({ state: 'DEVELOPMENT_PUBLISHED' })).toBe(true);
+    expect(isPublishedToDevelopment({ state: 'HARDWARE_VERIFIED' })).toBe(true);
+    expect(isPublishedToDevelopment({ state: 'PRODUCTION_FROZEN' })).toBe(true);
+    expect(isPublishedToDevelopment({ state: 'DRAFT' })).toBe(false);
+    expect(isPublishedToDevelopment({ state: 'CLIENT_REVIEW' })).toBe(false);
+    expect(isPublishedToDevelopment({ state: 'CLIENT_REVIEW_ACCEPTED' })).toBe(false);
+    expect(isPublishedToDevelopment({ state: 'REJECTED' })).toBe(false);
+  });
+
+  it('embeds the governed version number and full digest across the package', async () => {
+    const version: ImmutableProfileVersion = {
+      id: 42,
+      profileId: 1,
+      versionNumber: governedSource.versionNumber,
+      document: structuredClone(profile),
+      state: 'DEVELOPMENT_PUBLISHED',
+      createdAt: '2026-08-14T12:00:00.000Z',
+      createdBy: 1,
+      digest: governedSource.digest,
+    };
+    expect(isPublishedToDevelopment(version)).toBe(true);
+
+    const result = await createFirmwareIntegrationPackage(version.document, capabilities, {
+      generatedAt: new Date('2026-08-14T12:00:00.000Z'),
+      consoleVersion: '0.1.0-test',
+      governedSource: { versionNumber: version.versionNumber, digest: version.digest },
+    });
+
+    // Filename carries the governed version and a digest fragment.
+    expect(result.filename).toContain('-gov7-');
+
+    // README identifies version and full digest.
+    const readme = result.files['README.md'];
+    expect(readme).toContain('Governed version: 7');
+    expect(readme).toContain(`Governed digest: ${governedSource.digest}`);
+
+    // Manifest carries the machine-readable governed source identity.
+    const manifest = JSON.parse(result.files['manifest.json']);
+    expect(manifest.governedSource).toEqual({
+      versionNumber: 7,
+      digest: governedSource.digest,
+    });
+    expect(manifest.profileVersion).toBe(profile.profileVersion);
+  });
+
+  it('omits governed identity when no immutable source is supplied', async () => {
+    const summary = summarizeFirmwarePackage(profile, capabilities);
+    const readme = generatePackageReadme(profile, summary, {
+      generatedAt: '2026-08-14T12:00:00.000Z',
+      consoleVersion: '0.1.0-test',
+      packageFormatVersion: '1.0',
+    });
+    expect(readme).not.toContain('Governed version');
+    const manifest = JSON.parse(
+      generatePackageManifest(profile, summary, {
+        generatedAt: '2026-08-14T12:00:00.000Z',
+        consoleVersion: '0.1.0-test',
+        packageFormatVersion: '1.0',
+      }),
+    );
+    expect(manifest.governedSource).toBeNull();
   });
 });

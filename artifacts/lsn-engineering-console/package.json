@@ -12,8 +12,9 @@
     "lint": "eslint src tests vite.config.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
-    "test:browser": "node tests/browser/tour-browser.mjs && node tests/browser/downloads-warning-browser.mjs",
+    "test:browser": "node tests/browser/tour-browser.mjs && node tests/browser/downloads-warning-browser.mjs && node tests/browser/role-workflows-browser.mjs",
     "test:browser:downloads": "node tests/browser/downloads-warning-browser.mjs",
+    "test:browser:role-workflows": "node tests/browser/role-workflows-browser.mjs",
     "desktop": "electron-forge start",
     "package": "pnpm run build && electron-forge package",
     "make": "pnpm run build && electron-forge make"

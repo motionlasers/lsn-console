@@ -1,30 +1,28 @@
-import { useStore, ImplementationStatus, SimulationStatus, effectiveFirmwareStatus, isProfileItemSupported } from "@/lib/store";
+import { useStore, isProfileItemSupported } from "@/lib/store";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { FileJson, CheckCircle2, Clock, AlertTriangle, FileCode2, Download, Upload, PackageOpen, Loader2, GitCommit, GitBranch, ArrowLeft, Send } from "lucide-react";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { CheckCircle2, AlertTriangle, Download, Upload, PackageOpen, GitCommit, GitBranch, ArrowLeft, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { generateMarkdownProfile, downloadBlob, downloadFile } from "@/lib/exports";
-import { useMemo, useRef, useState } from "react";
-import { createFirmwareIntegrationPackage, summarizeFirmwarePackage } from "@/lib/firmware-package";
+import { generateMarkdownProfile, downloadFile } from "@/lib/exports";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { summarizeFirmwarePackage } from "@/lib/firmware-package";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { governanceApi, type ImmutableProfileVersion } from "@/lib/profile-governance-api";
+import { governanceApi, type ImmutableProfileVersion, type ProfileDraft } from "@/lib/profile-governance-api";
 import { useAuth } from "@/contexts/AuthContext";
 import { useRoles } from "@/hooks/use-roles";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
+import { validateDeviceProfile, type DeviceProfileDocument } from "@/lib/profile-validation";
+import { DeviceProfileEditor } from "@/components/profile/device-profile-editor";
+import { FirmwarePackageDialog } from "@/components/profile/firmware-package-dialog";
 
 export default function Profile() {
   const {
     profile,
     activeProfileDocument,
-    settings,
-    updateProfileItem,
     importProfile,
     capabilities,
-    setCapability,
-    mode,
   } = useStore();
   const { user } = useAuth();
   const { isFirmwareAdmin, isSuperadmin } = useRoles();
@@ -33,22 +31,49 @@ export default function Profile() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [importStatus, setImportStatus] = useState<{success?: boolean, msg?: string}>({});
   const [handoffOpen, setHandoffOpen] = useState(false);
-  const [isExportingPackage, setIsExportingPackage] = useState(false);
-  const [packageError, setPackageError] = useState<string | null>(null);
-  
+
   const [submitDialogOpen, setSubmitDialogOpen] = useState(false);
   const [publishVersionId, setPublishVersionId] = useState<number | null>(null);
 
+  // The editor is hydrated from the governed server Draft once the primary
+  // profile resolves. The browser store is updated only after a governed write
+  // succeeds, so a stale local default cannot overwrite shared work.
+  const [draftDoc, setDraftDoc] = useState<DeviceProfileDocument>(() => structuredClone(activeProfileDocument));
+  const [draftConflict, setDraftConflict] = useState<string | null>(null);
+
+  const draftValidation = useMemo(() => validateDeviceProfile(draftDoc), [draftDoc]);
+
   const supportedProfile = profile.filter(item => isProfileItemSupported(item, capabilities));
   const packageSummary = useMemo(
-    () => summarizeFirmwarePackage(activeProfileDocument, capabilities),
-    [activeProfileDocument, capabilities],
+    () => summarizeFirmwarePackage(draftDoc, capabilities),
+    [draftDoc, capabilities],
   );
 
   const { data: primaryProfileId } = useQuery({
     queryKey: ['primary-profile'],
     queryFn: async () => await governanceApi.getPrimaryProfileId(activeProfileDocument),
   });
+
+  const governedDraftQuery = useQuery({
+    queryKey: ['profile-draft', primaryProfileId],
+    queryFn: async () => {
+      if (!primaryProfileId) throw new Error("No profile available");
+      const res = await governanceApi.getDraft(primaryProfileId);
+      if (!res.ok) throw new Error(res.error);
+      return res.data;
+    },
+    enabled: !!primaryProfileId && isFirmwareAdmin,
+  });
+
+  useEffect(() => {
+    if (!governedDraftQuery.data) return;
+    setDraftDoc(structuredClone(governedDraftQuery.data.document));
+  }, [governedDraftQuery.data]);
+
+  const canPersist = isFirmwareAdmin
+    && !!governedDraftQuery.data
+    && !governedDraftQuery.isFetching
+    && draftValidation.valid;
 
   const { data: versions = [] } = useQuery({
     queryKey: ['profile-versions', primaryProfileId],
@@ -61,30 +86,86 @@ export default function Profile() {
     enabled: !!primaryProfileId
   });
 
-  const saveDraft = useMutation({
-    mutationFn: async () => {
-      if (!primaryProfileId) throw new Error("No profile available");
-      const res = await governanceApi.saveDraft(primaryProfileId, activeProfileDocument);
+  const { data: publications = [] } = useQuery({
+    queryKey: ['profile-publications', primaryProfileId],
+    queryFn: async () => {
+      if (!primaryProfileId) return [];
+      const res = await governanceApi.listPublications(primaryProfileId);
       if (!res.ok) throw new Error(res.error);
       return res.data;
     },
-    onSuccess: () => {
+    enabled: !!primaryProfileId && isFirmwareAdmin,
+  });
+
+  const developmentPublishedVersionIds = useMemo(
+    () => publications
+      .filter(publication => publication.channel === 'DEVELOPMENT')
+      .map(publication => publication.versionId),
+    [publications],
+  );
+
+  const validatedDraftDocument = (): DeviceProfileDocument => {
+    const validation = validateDeviceProfile(draftDoc);
+    if (!validation.valid) {
+      throw new Error(`Profile is invalid: ${validation.errors.join("; ")}`);
+    }
+    return structuredClone(draftDoc);
+  };
+
+  const requestError = (message: string, status?: number) => {
+    const error = new Error(message) as Error & { status?: number };
+    error.status = status;
+    return error;
+  };
+
+  const acceptSavedDraft = (saved: ProfileDraft) => {
+    qc.setQueryData(['profile-draft', primaryProfileId], saved);
+    setDraftDoc(structuredClone(saved.document));
+    const imported = importProfile(JSON.stringify(saved.document));
+    if (!imported.success) {
+      throw new Error(imported.error ?? "Saved draft could not be loaded into the local workspace");
+    }
+    setDraftConflict(null);
+  };
+
+  const saveDraft = useMutation({
+    mutationFn: async () => {
+      if (!isFirmwareAdmin) throw new Error("Firmware Admin role required");
+      if (!primaryProfileId) throw new Error("No profile available");
+      if (!governedDraftQuery.data) throw new Error("Governed draft is still loading");
+      const document = validatedDraftDocument();
+      const res = await governanceApi.saveDraft(primaryProfileId, document, governedDraftQuery.data.revision);
+      if (!res.ok) throw requestError(res.error, res.status);
+      return res.data;
+    },
+    onSuccess: (saved) => {
+      acceptSavedDraft(saved);
       toast({ title: "Working draft saved successfully." });
     },
-    onError: (err: any) => toast({ title: "Failed to save draft", description: err.message, variant: "destructive" })
+    onError: async (err: Error & { status?: number }) => {
+      if (err.status === 409) {
+        setDraftConflict("This draft changed in another session. The latest governed revision has been reloaded; review it before saving again.");
+        await governedDraftQuery.refetch();
+      }
+      toast({ title: "Failed to save draft", description: err.message, variant: "destructive" });
+    },
   });
 
   const submitDraft = useMutation({
     mutationFn: async () => {
       if (!user) throw new Error("Unauthenticated");
+      if (!isFirmwareAdmin) throw new Error("Firmware Admin role required");
       if (!primaryProfileId) throw new Error("No profile available");
+      if (!governedDraftQuery.data) throw new Error("Governed draft is still loading");
+
+      const document = validatedDraftDocument();
+      const saveRes = await governanceApi.saveDraft(primaryProfileId, document, governedDraftQuery.data.revision);
+      if (!saveRes.ok) throw requestError(saveRes.error, saveRes.status);
+      acceptSavedDraft(saveRes.data);
       
-      // Save current working copy first
-      const saveRes = await governanceApi.saveDraft(primaryProfileId, activeProfileDocument);
-      if (!saveRes.ok) throw new Error(saveRes.error);
-      
-      const submitRes = await governanceApi.submitForReview(primaryProfileId);
-      if (!submitRes.ok) throw new Error(submitRes.error);
+      const submitRes = await governanceApi.submitForReview(primaryProfileId, saveRes.data.revision);
+      if (!submitRes.ok) throw requestError(submitRes.error, submitRes.status);
+      if (submitRes.data.draft) acceptSavedDraft(submitRes.data.draft);
       
       return submitRes.data;
     },
@@ -93,7 +174,11 @@ export default function Profile() {
       setSubmitDialogOpen(false);
       qc.invalidateQueries({ queryKey: ['profile-versions'] });
     },
-    onError: (err: any) => {
+    onError: async (err: Error & { status?: number }) => {
+      if (err.status === 409) {
+        setDraftConflict("This draft changed in another session. The latest governed revision has been reloaded; review it before submitting again.");
+        await governedDraftQuery.refetch();
+      }
       toast({ title: "Submit failed", description: err.message, variant: "destructive" });
     }
   });
@@ -140,6 +225,7 @@ export default function Profile() {
     onSuccess: () => {
       setPublishVersionId(null);
       void qc.invalidateQueries({ queryKey: ['profile-versions'] });
+      void qc.invalidateQueries({ queryKey: ['profile-publications'] });
       toast({ title: "Profile lifecycle updated" });
     },
     onError: (err: Error) => toast({ title: "Lifecycle action failed", description: err.message, variant: "destructive" }),
@@ -150,33 +236,33 @@ export default function Profile() {
     downloadFile(md, 'lsn-interface-specification.md', 'text/markdown');
   };
 
-  const handleImportClick = () => fileInputRef.current?.click();
-
-  const handleFirmwarePackageExport = async () => {
-    setIsExportingPackage(true);
-    setPackageError(null);
-    try {
-      const result = await createFirmwareIntegrationPackage(activeProfileDocument, capabilities);
-      downloadBlob(result.blob, result.filename);
-      setHandoffOpen(false);
-    } catch (error) {
-      setPackageError(error instanceof Error ? error.message : 'Package generation failed.');
-    } finally {
-      setIsExportingPackage(false);
-    }
+  const handleImportClick = () => {
+    if (!isFirmwareAdmin) return;
+    fileInputRef.current?.click();
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    if (!isFirmwareAdmin) {
+      setImportStatus({ success: false, msg: 'Import requires the Firmware Admin role.' });
+      setTimeout(() => setImportStatus({}), 5000);
+      return;
+    }
     const reader = new FileReader();
     reader.onload = (e) => {
       if (e.target?.result) {
-        const res = importProfile(e.target.result as string);
-        if (res.success) {
-          setImportStatus({ success: true, msg: res.message || "JSON Schema validated and profile imported." });
-        } else {
-          setImportStatus({ success: false, msg: res.error });
+        try {
+          const importedDocument = JSON.parse(e.target.result as string) as DeviceProfileDocument;
+          const validation = validateDeviceProfile(importedDocument);
+          if (!validation.valid) {
+            throw new Error(validation.errors.join("; "));
+          }
+          setDraftDoc(structuredClone(importedDocument));
+          setDraftConflict(null);
+          setImportStatus({ success: true, msg: "JSON Schema validated and loaded into the editor. Save to update the governed draft." });
+        } catch (error) {
+          setImportStatus({ success: false, msg: error instanceof Error ? error.message : "Invalid profile JSON" });
         }
         setTimeout(() => setImportStatus({}), 5000);
       }
@@ -184,29 +270,6 @@ export default function Profile() {
     reader.readAsText(file);
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
-
-  const statusColor = (status: string) => {
-    switch (status) {
-      case 'VERIFIED': return 'text-success bg-success/10 border-success/20';
-      case 'IMPLEMENTED': return 'text-primary bg-primary/10 border-primary/20';
-      case 'TESTING': return 'text-warning bg-warning/10 border-warning/20';
-      case 'IMPLEMENTING': return 'text-secondary-foreground bg-secondary border-secondary-border';
-      default: return 'text-muted-foreground bg-muted border-border';
-    }
-  };
-
-  const statusIcon = (status: string) => {
-    switch (status) {
-      case 'VERIFIED': return <CheckCircle2 className="w-3 h-3" />;
-      case 'IMPLEMENTED': return <CheckCircle2 className="w-3 h-3" />;
-      case 'TESTING': return <Clock className="w-3 h-3" />;
-      case 'IMPLEMENTING': return <FileCode2 className="w-3 h-3" />;
-      default: return <AlertTriangle className="w-3 h-3" />;
-    }
-  };
-
-  const statusOptions: ImplementationStatus[] = ['TBD', 'IMPLEMENTING', 'TESTING', 'IMPLEMENTED', 'VERIFIED'];
-  const simulationStatusOptions: SimulationStatus[] = ['NOT_TESTED', 'TESTING', 'VERIFIED'];
 
   return (
     <div className="flex flex-col h-full gap-6 animate-in fade-in duration-300">
@@ -219,10 +282,10 @@ export default function Profile() {
            </p>
         </div>
         <div className="flex gap-2">
-           <Button variant="outline" disabled={!isFirmwareAdmin || saveDraft.isPending} onClick={() => saveDraft.mutate()} className="font-mono text-xs" data-testid="button-save-governed-draft">
+           <Button variant="outline" disabled={!canPersist || saveDraft.isPending} onClick={() => saveDraft.mutate()} className="font-mono text-xs" data-testid="button-save-governed-draft">
              {saveDraft.isPending ? "SAVING…" : "SAVE DRAFT"}
            </Button>
-           <Button disabled={!isFirmwareAdmin} onClick={() => setSubmitDialogOpen(true)} className="font-mono text-xs font-bold" data-testid="button-submit-draft">
+           <Button disabled={!canPersist} onClick={() => setSubmitDialogOpen(true)} className="font-mono text-xs font-bold" data-testid="button-submit-draft">
              <Send className="w-4 h-4 mr-2" /> SUBMIT WORKING DRAFT
            </Button>
         </div>
@@ -239,47 +302,18 @@ export default function Profile() {
         </TabsList>
 
         <TabsContent value="editor" className="mt-6 flex flex-col gap-6">
-          {settings.devMode && mode === 'simulation' && <Card data-tour="profile-capabilities" className="border-warning/40 bg-warning/5 backdrop-blur">
-            <CardHeader className="border-b border-border/50 bg-black/20 pb-4">
-              <CardTitle className="text-sm font-mono tracking-widest text-primary flex items-center gap-2">
-                 Simulation / Developer Experimental Capabilities
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="pt-4 flex gap-6">
-              <div className="flex flex-col gap-1">
-                <span className="text-[10px] text-muted-foreground uppercase font-mono tracking-widest">Interlock</span>
-                <span className={`font-mono text-xs ${capabilities?.interlock ? 'text-success' : 'text-muted-foreground'}`}>{capabilities?.interlock ? 'ENABLED' : 'DISABLED'}</span>
-              </div>
-              <div className="flex flex-col gap-1">
-                <span className="text-[10px] text-muted-foreground uppercase font-mono tracking-widest">Remote Stop</span>
-                <span className={`font-mono text-xs ${capabilities?.remoteStop ? 'text-success' : 'text-muted-foreground'}`}>{capabilities?.remoteStop ? 'ENABLED' : 'DISABLED'}</span>
-              </div>
-              <div className="flex flex-col gap-1">
-                <span className="text-[10px] text-muted-foreground uppercase font-mono tracking-widest">Sensors</span>
-                <span className={`font-mono text-xs ${capabilities?.sensors ? 'text-success' : 'text-muted-foreground'}`}>{capabilities?.sensors ? 'ENABLED' : 'DISABLED'}</span>
-              </div>
-              
-                <div className="ml-auto flex items-center gap-2 border-l border-border/50 pl-6">
-                  <span className="text-[10px] text-destructive uppercase font-mono tracking-widest mr-2">Dev Override:</span>
-                  <Button size="sm" variant="outline" onClick={() => setCapability?.('interlock', !capabilities?.interlock)} className={`h-7 text-[10px] font-mono ${capabilities?.interlock ? 'border-primary text-primary' : 'border-muted text-muted-foreground'}`}>
-                    INT
-                  </Button>
-                  <Button size="sm" variant="outline" onClick={() => setCapability?.('remoteStop', !capabilities?.remoteStop)} className={`h-7 text-[10px] font-mono ${capabilities?.remoteStop ? 'border-primary text-primary' : 'border-muted text-muted-foreground'}`}>
-                    REM
-                  </Button>
-                  <Button size="sm" variant="outline" onClick={() => setCapability?.('sensors', !capabilities?.sensors)} className={`h-7 text-[10px] font-mono ${capabilities?.sensors ? 'border-primary text-primary' : 'border-muted text-muted-foreground'}`}>
-                    SEN
-                  </Button>
-                </div>
-            </CardContent>
-          </Card>}
-
           <Card data-tour="profile-interface" className="border-border bg-card/50 backdrop-blur">
             <CardHeader className="border-b border-border/50 bg-black/20 pb-4 flex flex-row items-center justify-between">
-              <CardTitle className="text-sm font-mono tracking-widest text-primary flex items-center gap-2">
-                <FileJson className="w-4 h-4" />
-                Active Profile Specification
-              </CardTitle>
+              <div>
+                <CardTitle className="text-sm font-mono tracking-widest text-primary">
+                  Device Profile Working Editor
+                </CardTitle>
+                <p className="mt-1 text-[10px] font-mono text-muted-foreground">
+                  {isFirmwareAdmin
+                    ? 'Edit the complete supported Device Profile document. Save/Submit is blocked while the profile is invalid.'
+                    : 'Read-only. Firmware Admin role required to edit, import, or publish the Device Profile.'}
+                </p>
+              </div>
               <div className="flex flex-wrap items-center justify-end gap-3">
                 <div className="text-[10px] font-mono text-muted-foreground text-right">
                   <div>
@@ -290,13 +324,15 @@ export default function Profile() {
                   </div>
                   <div>HARDWARE VALIDATION: <span className="text-warning">REQUIRED</span></div>
                 </div>
-                
+
                 <input type="file" ref={fileInputRef} className="hidden" accept=".json" onChange={handleFileChange} />
-                <Button variant="outline" size="sm" onClick={handleImportClick} className="h-7 text-[10px] font-mono border-border text-foreground hover:bg-white/10">
-                  <Upload className="w-3 h-3 mr-2" /> IMPORT JSON
-                </Button>
-                
-                <Button variant="outline" size="sm" onClick={handleExport} className="h-7 text-[10px] font-mono border-primary text-primary hover:bg-primary/20">
+                {isFirmwareAdmin && (
+                  <Button variant="outline" size="sm" onClick={handleImportClick} className="h-7 text-[10px] font-mono border-border text-foreground hover:bg-white/10" data-testid="button-import-json">
+                    <Upload className="w-3 h-3 mr-2" /> IMPORT JSON
+                  </Button>
+                )}
+
+                <Button variant="outline" size="sm" onClick={handleExport} className="h-7 text-[10px] font-mono border-primary text-primary hover:bg-primary/20" data-testid="button-export-spec">
                   <Download className="w-3 h-3 mr-2" /> EXPORT SPEC (MD)
                 </Button>
 
@@ -304,93 +340,54 @@ export default function Profile() {
                   data-tour="profile-export"
                   variant="outline"
                   size="sm"
-                  onClick={() => {
-                    setPackageError(null);
-                    setHandoffOpen(true);
-                  }}
+                  onClick={() => setHandoffOpen(true)}
                   className="h-7 text-[10px] font-mono border-success/60 text-success hover:bg-success/10"
+                  data-testid="button-open-firmware-package"
                 >
                   <PackageOpen className="w-3 h-3 mr-2" /> EXPORT FIRMWARE INTEGRATION PACKAGE
                 </Button>
               </div>
             </CardHeader>
-            
+
             {importStatus.msg && (
               <div className={`px-6 py-2 text-xs font-mono border-b border-border/50 ${importStatus.success ? 'bg-success/10 text-success' : 'bg-destructive/10 text-destructive'}`}>
                  {importStatus.success ? <CheckCircle2 className="w-3 h-3 inline mr-2"/> : <AlertTriangle className="w-3 h-3 inline mr-2"/>}
-                 {importStatus.msg} 
+                 {importStatus.msg}
               </div>
             )}
 
-            <CardContent className="p-0">
-              <Table>
-                <TableHeader className="bg-card">
-                  <TableRow className="border-border/50 hover:bg-transparent">
-                    <TableHead className="font-mono text-[10px] text-muted-foreground">SYMBOLIC NAME</TableHead>
-                    <TableHead className="font-mono text-[10px] text-muted-foreground">DIR / TYPE</TableHead>
-                    <TableHead className="font-mono text-[10px] text-muted-foreground">CIP REF</TableHead>
-                    <TableHead className="font-mono text-[10px] text-muted-foreground">FIRMWARE STATUS</TableHead>
-                    <TableHead className="font-mono text-[10px] text-muted-foreground">SIMULATION STATUS</TableHead>
-                    <TableHead className="font-mono text-[10px] text-muted-foreground">EXPECTED FW BEHAVIOR</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody className="font-mono text-xs">
-                  {supportedProfile.map(item => (
-                    <TableRow key={item.id} className="border-border/20 hover:bg-white/5">
-                      <TableCell className="font-bold text-foreground/90">
-                        {item.symbolicName}
-                        <div className="text-[10px] font-normal text-muted-foreground mt-0.5 max-w-xs">{item.notes}</div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="text-foreground/80">{item.direction.toUpperCase()}</div>
-                        <div className="text-[10px] text-primary">{item.dataType} ({item.access.toUpperCase()})</div>
-                      </TableCell>
-                      <TableCell className="text-muted-foreground">
-                        Class: {item.class} <br/>
-                        Inst: {item.instance} <br/>
-                        Attr: {item.attribute}
-                      </TableCell>
-                      <TableCell>
-                        {settings.devMode ? (
-                          <select 
-                            value={effectiveFirmwareStatus(item)}
-                            onChange={(e) => updateProfileItem(item.id, { implementationStatus: e.target.value as ImplementationStatus })}
-                            disabled={effectiveFirmwareStatus(item) === 'TBD'}
-                            title={effectiveFirmwareStatus(item) === 'TBD' ? 'Firmware status remains TBD until protocol mappings are resolved.' : undefined}
-                            className={`bg-black border rounded-sm text-[10px] font-mono p-1 focus:outline-none disabled:opacity-70 ${statusColor(effectiveFirmwareStatus(item))}`}
-                          >
-                            {statusOptions.map(opt => <option key={opt} value={opt} className="bg-background text-foreground">{opt}</option>)}
-                          </select>
-                        ) : (
-                          <span className={`inline-flex items-center gap-1.5 px-2 py-1 border rounded-sm text-[10px] tracking-wider ${statusColor(effectiveFirmwareStatus(item))}`}>
-                            {statusIcon(effectiveFirmwareStatus(item))}
-                            {effectiveFirmwareStatus(item)}
-                          </span>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        {settings.devMode ? (
-                          <select
-                            value={item.simulationStatus}
-                            onChange={(e) => updateProfileItem(item.id, { simulationStatus: e.target.value as SimulationStatus })}
-                            className={`bg-black border rounded-sm text-[10px] font-mono p-1 focus:outline-none ${statusColor(item.simulationStatus)}`}
-                          >
-                            {simulationStatusOptions.map(opt => <option key={opt} value={opt} className="bg-background text-foreground">{opt}</option>)}
-                          </select>
-                        ) : (
-                          <span className={`inline-flex items-center gap-1.5 px-2 py-1 border rounded-sm text-[10px] tracking-wider ${statusColor(item.simulationStatus)}`}>
-                            {statusIcon(item.simulationStatus)}
-                            {item.simulationStatus}
-                          </span>
-                        )}
-                      </TableCell>
-                      <TableCell className="text-muted-foreground text-[10px] max-w-[200px]" title={item.expectedFirmwareBehavior}>
-                        {item.expectedFirmwareBehavior}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+            {draftConflict && (
+              <div className="px-6 py-3 text-xs font-mono border-b border-warning/40 bg-warning/10 text-warning" data-testid="alert-draft-conflict">
+                <AlertTriangle className="w-3 h-3 inline mr-2" />
+                {draftConflict}
+              </div>
+            )}
+
+            <CardContent className="pt-4">
+              {/* data-tour="profile-capabilities": the full editor now hosts the
+                  future-capability metadata controls (see Future Capabilities card). */}
+              <div data-tour="profile-capabilities">
+                {governedDraftQuery.isLoading && (
+                  <div className="py-12 text-center text-xs font-mono text-muted-foreground" data-testid="governed-draft-loading">
+                    Loading governed draft…
+                  </div>
+                )}
+                {governedDraftQuery.isError && (
+                  <div className="py-12 text-center text-xs font-mono text-destructive" data-testid="governed-draft-error">
+                    Failed to load the governed draft. Refresh before editing.
+                  </div>
+                )}
+                {!governedDraftQuery.isLoading && !governedDraftQuery.isError && (
+                <DeviceProfileEditor
+                  document={draftDoc}
+                  onChange={(next) => {
+                    setDraftDoc(next);
+                    setDraftConflict(null);
+                  }}
+                  readOnly={!isFirmwareAdmin}
+                />
+                )}
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
@@ -506,111 +503,12 @@ export default function Profile() {
         </TabsContent>
       </Tabs>
 
-      <Dialog open={handoffOpen} onOpenChange={setHandoffOpen}>
-        <DialogContent className="max-w-2xl border-border bg-background">
-          <DialogHeader>
-            <DialogTitle className="font-mono text-base tracking-wider text-primary flex items-center gap-2">
-              <PackageOpen className="h-5 w-5" />
-              Firmware Integration Package
-            </DialogTitle>
-            <DialogDescription className="font-mono text-xs">
-              Review the active Device Profile summary before generating the ESP-IDF / C/C++ handoff ZIP.
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="grid grid-cols-2 gap-3 font-mono text-xs" data-testid="firmware-package-summary">
-            <div className="border border-border bg-card/50 p-3">
-              <div className="text-[10px] uppercase tracking-widest text-muted-foreground">Active Profile</div>
-              <div className="mt-1 text-foreground">{packageSummary.profileVersion}</div>
-            </div>
-            <div className="border border-border bg-card/50 p-3">
-              <div className="text-[10px] uppercase tracking-widest text-muted-foreground">Protocol Version</div>
-              <div className="mt-1 text-foreground">{packageSummary.protocolVersion}</div>
-            </div>
-            <div className="border border-border bg-card/50 p-3">
-              <div className="text-[10px] uppercase tracking-widest text-muted-foreground">Protocol Mapping</div>
-              <div className="mt-1 flex gap-4">
-                <span className="text-success">{packageSummary.mappedFieldCount} MAPPED</span>
-                <span className={packageSummary.tbdFieldCount > 0 ? "text-warning" : "text-muted-foreground"}>
-                  {packageSummary.tbdFieldCount} TBD
-                </span>
-              </div>
-            </div>
-            <div className="border border-border bg-card/50 p-3">
-              <div className="text-[10px] uppercase tracking-widest text-muted-foreground">Active Interface</div>
-              <div className="mt-1 text-foreground">{packageSummary.activeFieldCount} FIELDS</div>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3 font-mono text-[10px]">
-            <div className="border border-border/70 p-3">
-              <div className="mb-2 uppercase tracking-widest text-muted-foreground">Firmware Status</div>
-              <div className="flex flex-wrap gap-2">
-                {Object.entries(packageSummary.firmwareStatuses).map(([status, count]) => (
-                  <span key={status} className="border border-border bg-muted/30 px-2 py-1">
-                    {status}: {count}
-                  </span>
-                ))}
-              </div>
-            </div>
-            <div className="border border-border/70 p-3">
-              <div className="mb-2 uppercase tracking-widest text-muted-foreground">Simulation Status</div>
-              <div className="flex flex-wrap gap-2">
-                {Object.entries(packageSummary.simulationStatuses).map(([status, count]) => (
-                  <span key={status} className="border border-border bg-muted/30 px-2 py-1">
-                    {status}: {count}
-                  </span>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          {packageSummary.tbdFieldCount > 0 && (
-            <div
-              className="border border-warning/40 bg-warning/10 p-3 text-xs font-mono text-warning"
-              data-testid="firmware-package-tbd-warning"
-            >
-              <AlertTriangle className="mr-2 inline h-4 w-4" />
-              This package contains unresolved protocol mappings. These entries are intentionally marked TBD for firmware implementation.
-            </div>
-          )}
-
-          <div className="text-[11px] font-mono leading-relaxed text-muted-foreground">
-            The ZIP includes portable headers, the complete active profile JSON, CSV and Markdown checklists,
-            and a practical README. Missing enum values, string layouts, byte/bit packing, GPIO assignments,
-            and CIP values are never inferred.
-          </div>
-
-          {packageError && (
-            <div className="border border-destructive/40 bg-destructive/10 p-3 text-xs font-mono text-destructive">
-              {packageError}
-            </div>
-          )}
-
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setHandoffOpen(false)}
-              disabled={isExportingPackage}
-              className="font-mono text-xs"
-            >
-              CANCEL
-            </Button>
-            <Button
-              onClick={handleFirmwarePackageExport}
-              disabled={isExportingPackage}
-              className="font-mono text-xs"
-              data-testid="button-confirm-firmware-package"
-            >
-              {isExportingPackage ? (
-                <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> GENERATING ZIP</>
-              ) : (
-                <><Download className="mr-2 h-4 w-4" /> GENERATE & DOWNLOAD ZIP</>
-              )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <FirmwarePackageDialog
+        open={handoffOpen}
+        onOpenChange={setHandoffOpen}
+        versions={versions}
+        developmentPublishedVersionIds={developmentPublishedVersionIds}
+      />
       
       <Dialog open={submitDialogOpen} onOpenChange={setSubmitDialogOpen}>
         <DialogContent className="max-w-md border-border bg-background">

@@ -43,6 +43,13 @@ export async function requireAuth(
   res: Response,
   next: NextFunction,
 ): Promise<void> {
+  // Browser integration tests can mount the production router with an already
+  // resolved session. This bypasses only the database session lookup; route
+  // ordering and all production permission middleware remain unchanged.
+  if (process.env.NODE_ENV === "test" && req.sessionUser) {
+    next();
+    return;
+  }
   const userId = getSessionUserId(req);
   if (!userId) {
     res.status(401).json({ error: "Unauthorized" });
