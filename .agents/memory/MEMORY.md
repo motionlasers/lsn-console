@@ -7,3 +7,4 @@
 - [Windows CI native bins](windows-ci-native-bins.md) — three separate fixes needed: npm temp-dir copy for platform bins, onlyBuiltDependencies for electron-winstaller, 30s test timeout for C compiler test.
 - [Windows profile-smoke trust](windows-profile-smoke-trust.md) — use process-scoped CA trust and exact-origin Node fetch; hosted runners can hang on Current User Root imports.
 - [Non-interactive Drizzle reconciliation](noninteractive-drizzle-reconciliation.md) — do not trust push exit status alone; populated-table prompts can fail without a TTY yet report success.
+- [Append-only audit identity](append-only-audit-identity.md) — immutable audit actor IDs must be snapshots without mutating user FKs or runtime-accessible maintenance bypasses.

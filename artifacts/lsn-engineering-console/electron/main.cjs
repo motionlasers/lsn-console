@@ -15,6 +15,7 @@ const {
 } = require('./hardware-runtime.cjs');
 const { ProfileUpdateService } = require('./profile-update-service.cjs');
 const { createCiProfileSmokeFetch } = require('./ci-profile-smoke-fetch.cjs');
+const { isAllowedAuthRequest } = require('./auth-route-policy.cjs');
 
 const isDev = !app.isPackaged;
 let hardwareService = null;
@@ -45,47 +46,12 @@ const allowedChannels = new Set([
   'desktop:profile-discard-staged',
 ]);
 
-const authRoutes = [
-  { pattern: /^\/api\/auth\/session$/, methods: new Set(['GET']) },
-  { pattern: /^\/api\/auth\/login$/, methods: new Set(['POST']) },
-  { pattern: /^\/api\/auth\/logout$/, methods: new Set(['POST']) },
-  { pattern: /^\/api\/auth\/change-password$/, methods: new Set(['POST']) },
-  { pattern: /^\/api\/admin\/users$/, methods: new Set(['GET', 'POST']) },
-  { pattern: /^\/api\/admin\/users\/\d+$/, methods: new Set(['PUT', 'DELETE']) },
-  { pattern: /^\/api\/profiles$/, methods: new Set(['GET', 'POST']) },
-  { pattern: /^\/api\/profiles\/\d+$/, methods: new Set(['GET']) },
-  { pattern: /^\/api\/profiles\/\d+\/draft$/, methods: new Set(['GET', 'PUT']) },
-  { pattern: /^\/api\/profiles\/\d+\/submit$/, methods: new Set(['POST']) },
-  { pattern: /^\/api\/profiles\/\d+\/reviews$/, methods: new Set(['GET']) },
-  { pattern: /^\/api\/profiles\/\d+\/versions$/, methods: new Set(['GET']) },
-  { pattern: /^\/api\/profiles\/\d+\/publications$/, methods: new Set(['GET']) },
-  { pattern: /^\/api\/profiles\/\d+\/audit$/, methods: new Set(['GET']) },
-  { pattern: /^\/api\/profiles\/\d+\/rollback$/, methods: new Set(['POST']) },
-  { pattern: /^\/api\/profiles\/\d+\/sandbox$/, methods: new Set(['GET', 'PUT', 'DELETE']) },
-  { pattern: /^\/api\/profiles\/reviews\/\d+$/, methods: new Set(['GET']) },
-  { pattern: /^\/api\/profiles\/reviews\/\d+\/comments$/, methods: new Set(['POST']) },
-  { pattern: /^\/api\/profiles\/reviews\/\d+\/decision$/, methods: new Set(['POST']) },
-  { pattern: /^\/api\/profiles\/versions\/\d+$/, methods: new Set(['GET']) },
-  { pattern: /^\/api\/profiles\/versions\/\d+\/validations$/, methods: new Set(['GET']) },
-  { pattern: /^\/api\/profiles\/versions\/\d+\/simulation$/, methods: new Set(['POST']) },
-  { pattern: /^\/api\/profiles\/versions\/\d+\/publish$/, methods: new Set(['POST']) },
-  { pattern: /^\/api\/profiles\/versions\/\d+\/verify-hardware$/, methods: new Set(['POST']) },
-  { pattern: /^\/api\/profiles\/versions\/\d+\/promote$/, methods: new Set(['POST']) },
-  { pattern: /^\/api\/profiles\/diff\?from=\d+&to=\d+$/, methods: new Set(['GET']) },
-];
-
 function getApiOrigin() {
   const origin = new URL(process.env.LSN_API_BASE_URL || DEFAULT_API_ORIGIN);
   if (app.isPackaged && origin.protocol !== 'https:') {
     throw new Error('Packaged desktop API origin must use HTTPS');
   }
   return origin.origin;
-}
-
-function isAllowedAuthRequest(pathname, method) {
-  return authRoutes.some(
-    (route) => route.pattern.test(pathname) && route.methods.has(method),
-  );
 }
 
 function getCiProfileSmokeFetch() {

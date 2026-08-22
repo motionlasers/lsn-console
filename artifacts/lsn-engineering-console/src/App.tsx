@@ -40,6 +40,8 @@ import Help from '@/pages/help';
 import SettingsPage from '@/pages/settings';
 import Downloads from '@/pages/downloads';
 
+import { ActivityObserver } from '@/components/ActivityObserver';
+
 const queryClient = new QueryClient();
 
 function Router() {
@@ -124,6 +126,7 @@ function App() {
               base={routerConfig.base}
             >
               <AuthGate>
+                <ActivityObserver />
                 <Router />
               </AuthGate>
             </WouterRouter>

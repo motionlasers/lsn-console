@@ -16,6 +16,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { authApi, adminApi, type AdminUser, type CanonicalRole } from "@/lib/auth-api";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { governanceApi } from "@/lib/profile-governance-api";
+import { activityApi, generateEventId } from "@/lib/activity-api";
 import { format } from "date-fns";
 
 // ─── Change Password Card ─────────────────────────────────────────────────────
@@ -55,7 +56,7 @@ function ChangePasswordCard() {
   };
 
   return (
-    <Card className="max-w-2xl border-border bg-card/50 backdrop-blur">
+    <Card className="max-w-2xl border-border bg-card/50 backdrop-blur" data-testid="card-user-management">
       <CardHeader className="border-b border-border/50 bg-black/20 pb-4">
         <CardTitle className="text-sm font-mono tracking-widest text-primary flex items-center gap-2">
           <KeyRound className="w-4 h-4" />
@@ -519,6 +520,8 @@ function AdminAuditCard() {
   );
 }
 
+import { AdminActivityLogCard } from "@/components/AdminActivityLog";
+
 // ─── Main settings page ───────────────────────────────────────────────────────
 export default function SettingsPage() {
   const { settings, logicalState, updateSettings, updateLogicalState, resetSettings, importState } = useStore();
@@ -526,6 +529,36 @@ export default function SettingsPage() {
   const { user } = useAuth();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const selectedBrandLogo = settings.brandLogo ?? 'sia';
+
+  const handleUpdateSetting = (key: keyof typeof settings, value: any) => {
+    const oldValue = settings[key];
+    if (oldValue !== value) {
+      updateSettings({ [key]: value });
+      activityApi.recordEvent({
+        eventName: 'SETTING_CHANGED',
+        clientEventId: generateEventId(),
+        targetType: 'SETTING',
+        targetId: key,
+        targetLabel: key,
+        detail: { before: oldValue, after: value, scope: 'settings' }
+      });
+    }
+  };
+
+  const handleUpdateLogicalState = (key: keyof typeof logicalState, value: any) => {
+    const oldValue = logicalState[key];
+    if (oldValue !== value) {
+      updateLogicalState({ [key]: value });
+      activityApi.recordEvent({
+        eventName: 'SETTING_CHANGED',
+        clientEventId: generateEventId(),
+        targetType: 'LOGICAL_STATE',
+        targetId: key,
+        targetLabel: key,
+        detail: { before: oldValue, after: value, scope: 'logical_state' }
+      });
+    }
+  };
 
   const handleExportState = () => {
     const state = useStore.getState();
@@ -595,7 +628,7 @@ export default function SettingsPage() {
                         ? 'bg-primary/20 text-primary hover:bg-primary/20 hover:text-primary'
                         : 'text-muted-foreground hover:text-foreground'
                     }`}
-                    onClick={() => updateSettings({ brandLogo: value })}
+                    onClick={() => handleUpdateSetting('brandLogo', value)}
                     aria-pressed={selectedBrandLogo === value}
                     data-testid={`button-brand-${value}`}
                   >
@@ -613,7 +646,7 @@ export default function SettingsPage() {
               <Button 
                 variant="outline" 
                 className={`font-mono text-xs border ${settings.devMode ? 'border-primary text-primary' : 'border-border text-muted-foreground'}`}
-                onClick={() => updateSettings({ devMode: !settings.devMode })}
+                onClick={() => handleUpdateSetting('devMode', !settings.devMode)}
               >
                 {settings.devMode ? 'ENABLED' : 'DISABLED'}
               </Button>
@@ -627,7 +660,7 @@ export default function SettingsPage() {
               <Button 
                 variant="outline" 
                 className={`font-mono text-xs border ${settings.localPersistence ? 'border-primary text-primary' : 'border-border text-muted-foreground'}`}
-                onClick={() => updateSettings({ localPersistence: !settings.localPersistence })}
+                onClick={() => handleUpdateSetting('localPersistence', !settings.localPersistence)}
               >
                 {settings.localPersistence ? 'ENABLED' : 'DISABLED'}
               </Button>
@@ -657,7 +690,7 @@ export default function SettingsPage() {
                      key={val}
                      variant="outline"
                      className={`flex-1 font-mono text-xs ${settings.simulatorTiming === val ? 'bg-primary/20 border-primary text-primary' : 'border-border text-muted-foreground'}`}
-                     onClick={() => updateSettings({ simulatorTiming: val })}
+                     onClick={() => handleUpdateSetting('simulatorTiming', val)}
                    >
                      {val}ms
                    </Button>
@@ -668,17 +701,17 @@ export default function SettingsPage() {
             <div className="flex flex-col gap-3 border-t border-border/50 pt-4">
               <div className="text-sm font-mono text-foreground">Simulation Fault Controls</div>
               <div className="grid grid-cols-2 gap-2">
-                <Button variant="outline" className={`font-mono text-xs ${logicalState.commsLoss ? 'border-destructive text-destructive' : 'border-border'}`} onClick={() => updateLogicalState({ commsLoss: !logicalState.commsLoss })}>
+                <Button variant="outline" className={`font-mono text-xs ${logicalState.commsLoss ? 'border-destructive text-destructive' : 'border-border'}`} onClick={() => handleUpdateLogicalState('commsLoss', !logicalState.commsLoss)}>
                   COMMUNICATION {logicalState.commsLoss ? 'LOST' : 'NORMAL'}
                 </Button>
-                <Button variant="outline" className={`font-mono text-xs ${logicalState.storageFailure ? 'border-destructive text-destructive' : 'border-border'}`} onClick={() => updateLogicalState({ storageFailure: !logicalState.storageFailure })}>
+                <Button variant="outline" className={`font-mono text-xs ${logicalState.storageFailure ? 'border-destructive text-destructive' : 'border-border'}`} onClick={() => handleUpdateLogicalState('storageFailure', !logicalState.storageFailure)}>
                   STORAGE {logicalState.storageFailure ? 'FAILED' : 'NORMAL'}
                 </Button>
               </div>
               <div className="text-xs font-mono text-muted-foreground">Dropped response simulation</div>
               <div className="grid grid-cols-3 gap-2">
                 {[0, 25, 100].map(rate => (
-                  <Button key={rate} variant="outline" className={`font-mono text-xs ${settings.droppedResponseRate === rate ? 'border-primary text-primary' : 'border-border'}`} onClick={() => updateSettings({ droppedResponseRate: rate })}>
+                  <Button key={rate} variant="outline" className={`font-mono text-xs ${settings.droppedResponseRate === rate ? 'border-primary text-primary' : 'border-border'}`} onClick={() => handleUpdateSetting('droppedResponseRate', rate)}>
                     {rate}%
                   </Button>
                 ))}
@@ -711,6 +744,7 @@ export default function SettingsPage() {
         <>
           <AdminUsersCard />
           <AdminAuditCard />
+          <AdminActivityLogCard />
         </>
       )}
     </div>

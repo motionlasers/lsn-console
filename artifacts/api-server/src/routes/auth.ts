@@ -6,6 +6,12 @@ import bcrypt from "bcryptjs";
 import { setSession, clearSession } from "../lib/auth-session.js";
 import { requireAuth } from "../middleware/require-auth.js";
 import { normalizeRole, permissionsForRole } from "../lib/permissions.js";
+import {
+  recordActivitySafe,
+  actorFromSession,
+  actorFromUser,
+  isAdminRole,
+} from "../lib/activity-service.js";
 
 const router: IRouter = Router();
 
@@ -30,8 +36,29 @@ router.post("/login", async (req, res) => {
     return;
   }
 
+  const attemptRole = normalizeRole(user.role, user.isAdmin);
+
   const valid = await bcrypt.compare(password, user.passwordHash);
   if (!valid) {
+    // Record only known-admin invalid-password attempts; skip ordinary
+    // CLIENT_REVIEWER / nonexistent-user login noise.
+    if (isAdminRole(attemptRole)) {
+      await recordActivitySafe(
+        {
+          actor: actorFromUser({
+            id: user.id,
+            username: user.username,
+            role: attemptRole,
+          }),
+          category: "AUTH",
+          action: "LOGIN",
+          outcome: "FAILURE",
+          detail: { reason: "invalid_password" },
+          requestId: req.id ? String(req.id) : null,
+        },
+        req.log,
+      );
+    }
     res.status(401).json({ error: "Invalid credentials" });
     return;
   }
@@ -40,6 +67,20 @@ router.post("/login", async (req, res) => {
   setSession(res, user.id, user.isAdmin);
 
   const role = normalizeRole(user.role, user.isAdmin);
+
+  // Record successful admin/Firmware Admin logins only.
+  if (isAdminRole(role)) {
+    await recordActivitySafe(
+      {
+        actor: actorFromUser({ id: user.id, username: user.username, role }),
+        category: "AUTH",
+        action: "LOGIN",
+        outcome: "SUCCESS",
+        requestId: req.id ? String(req.id) : null,
+      },
+      req.log,
+    );
+  }
   res.json({
     userId: user.id,
     username: user.username,
@@ -52,7 +93,20 @@ router.post("/login", async (req, res) => {
 });
 
 // POST /api/auth/logout — requireAuth to ensure valid session, but skip forcePasswordChange check
-router.post("/logout", requireAuth, (_req, res) => {
+router.post("/logout", requireAuth, async (req, res) => {
+  const su = req.sessionUser;
+  if (isAdminRole(su?.role)) {
+    await recordActivitySafe(
+      {
+        actor: actorFromSession(su),
+        category: "AUTH",
+        action: "LOGOUT",
+        outcome: "SUCCESS",
+        requestId: req.id ? String(req.id) : null,
+      },
+      req.log,
+    );
+  }
   clearSession(res);
   res.json({ ok: true });
 });
@@ -104,6 +158,23 @@ router.post("/change-password", requireAuth, async (req, res) => {
     .update(usersTable)
     .set({ passwordHash: newHash, forcePasswordChange: false })
     .where(eq(usersTable.id, userId));
+
+  const su = req.sessionUser!;
+  if (isAdminRole(su.role)) {
+    await recordActivitySafe(
+      {
+        actor: actorFromSession(su),
+        category: "SECURITY",
+        action: "PASSWORD_CHANGED",
+        outcome: "SUCCESS",
+        targetType: "user",
+        targetId: su.userId,
+        targetLabel: su.username,
+        requestId: req.id ? String(req.id) : null,
+      },
+      req.log,
+    );
+  }
 
   res.json({ ok: true });
 });

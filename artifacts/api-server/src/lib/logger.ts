@@ -1,6 +1,8 @@
 import pino from "pino";
 
-const isProduction = process.env.NODE_ENV === "production";
+const isProduction =
+  process.env.NODE_ENV === "production" ||
+  process.env.LSN_DISABLE_PRETTY_LOGS === "1";
 
 export const logger = pino({
   level: process.env.LOG_LEVEL ?? "info",

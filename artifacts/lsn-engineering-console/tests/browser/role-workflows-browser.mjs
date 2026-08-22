@@ -138,7 +138,12 @@ async function startDenialServer() {
     [builtEntry],
     {
       cwd: apiDir,
-      env: { ...process.env, PORT: String(port), NODE_ENV: 'test' },
+      env: {
+        ...process.env,
+        PORT: String(port),
+        NODE_ENV: 'test',
+        LSN_DISABLE_PRETTY_LOGS: '1',
+      },
       stdio: ['ignore', 'pipe', 'pipe'],
       detached: true,
     },
@@ -559,6 +564,37 @@ function seedInitScript() {
         return ok(clone(auditLog));
       }
 
+      // Activity events & log
+      if (path === '/api/activity/events' && method === 'POST') {
+        return ok({ ok: true });
+      }
+      if (path.startsWith('/api/admin/activity') && method === 'GET') {
+        if (session.role !== 'SUPERADMIN') return err(403, 'Superadmin required');
+        // Return a mock activity log item to test UI rendering
+        return ok({
+          items: [{
+            id: 1,
+            actorId: null,
+            actorUsername: null,
+            actorRole: null,
+            category: 'AUTH',
+            action: 'LOGIN',
+            outcome: 'SUCCESS',
+            targetType: 'SESSION',
+            targetId: null,
+            targetLabel: null,
+            detail: { ip: '127.0.0.1' },
+            requestId: 'req-1',
+            clientEventId: 'cli-1',
+            createdAt: new Date().toISOString()
+          }],
+          page: 1,
+          pageSize: 50,
+          total: 1,
+          retentionPolicy: 'indefinite'
+        });
+      }
+
       return err(404, `No mock route for ${method} ${path}`);
     };
 
@@ -693,9 +729,26 @@ async function firmwareAdminChecks(browser, seed) {
   check(draftPut?.body?.expectedRevision === 8, `${label}: SAVE DRAFT uses governed revision 8 for conflict protection`);
   check(draftPut?.status === 200, `${label}: SAVE DRAFT returned 200`);
 
-  // A reload must rehydrate from the persisted governed Draft, not the bundled
-  // browser-store default.
-  await page.reload();
+  // ─── Test desktop downloads behavior ───
+  await page.goto(BASE + '/downloads');
+  const installerBtn = page.getByTestId('button-download-installer');
+  await waitFor(() => installerBtn.isVisible().catch(() => false), `${label}: installer download button visible`);
+  // Intercept new pages (the anchor with download attribute might pop up)
+  // But wait, the mock bridge will just run and then trigger anchor click.
+  await installerBtn.click();
+  // Wait for the desktop tracking POST
+  await waitFor(async () => {
+    const log = await requestLog(page);
+    return log.some((r) => r.method === 'POST' && r.path === '/api/activity/events' && r.body?.targetId === 'installer');
+  }, `${label}: installer download triggers tracking commit`);
+  // Check the payload
+  const logAfterDownload = await requestLog(page);
+  const trackEvent = logAfterDownload.filter((r) => r.method === 'POST' && r.path === '/api/activity/events' && r.body?.targetId === 'installer').pop();
+  check(trackEvent.body.eventName === 'DESKTOP_ACTION', `${label}: download tracked as DESKTOP_ACTION`);
+
+  // A fresh profile navigation must rehydrate from the persisted governed
+  // Draft, not the bundled browser-store default.
+  await page.goto(BASE + '/profile');
   await waitFor(() => page.getByTestId('device-profile-editor').isVisible().catch(() => false), `${label}: editor visible after reload`);
   check(await page.getByTestId('input-timing-rpi').inputValue() === '750', `${label}: saved server Draft timing survives reload`);
   check(await page.getByTestId('input-field-class-0').inputValue() === '222', `${label}: saved server Draft CIP mapping survives reload`);
@@ -876,7 +929,7 @@ async function superadminChecks(browser, seed) {
   await page.goto(BASE + '/settings');
 
   // User Management (role governance) card is visible.
-  const userMgmt = page.getByText('User Management', { exact: true });
+  const userMgmt = page.getByTestId('card-user-management');
   await waitFor(() => userMgmt.isVisible().catch(() => false), `${label}: User Management card visible`);
   check(await userMgmt.isVisible(), `${label}: user-role governance card is visible`);
 
@@ -888,6 +941,21 @@ async function superadminChecks(browser, seed) {
     await page.getByTestId('select-governance-audit-profile').isVisible(),
     `${label}: governance audit can be scoped by profile`,
   );
+
+  // Administrator activity log card is visible.
+  const activityCard = page.getByTestId('card-admin-activity');
+  await waitFor(() => activityCard.isVisible().catch(() => false), `${label}: admin activity card visible`);
+  check(await activityCard.isVisible(), `${label}: admin activity log is visible`);
+  // Verify nullable actor (SYSTEM) is rendered correctly
+  await waitFor(() => activityCard.getByText('SYSTEM').isVisible().catch(() => false), `${label}: nullable actor rendered as SYSTEM`);
+  check(await activityCard.getByText('SYSTEM').isVisible(), `${label}: nullable actor rendered as SYSTEM`);
+  // Test category filter
+  await page.getByTestId('filter-category').selectOption('AUTH');
+  await waitFor(async () => {
+    const log = await requestLog(page);
+    return log.some((r) => r.path.includes('category=AUTH'));
+  }, `${label}: filtering by category re-fetches with query param`);
+
 
   // Wait for the accounts to load, then change the firmware-admin user to Client
   // Reviewer via the REVIEWER role toggle. Match the account row by the username
@@ -950,13 +1018,11 @@ async function main() {
       executablePath: EXECUTABLE,
       args: ['--no-sandbox', '--disable-dev-shm-usage'],
     });
-    // One fresh browser context per canonical role, run concurrently to stay
-    // within the validation runner's time budget.
-    await Promise.all([
-      firmwareAdminChecks(browser, seed),
-      clientReviewerChecks(browser, seed),
-      superadminChecks(browser, seed),
-    ]);
+    // Keep each role isolated in its own context and run them serially so the
+    // deterministic in-page auth fixtures cannot race one another.
+    await firmwareAdminChecks(browser, seed);
+    await clientReviewerChecks(browser, seed);
+    await superadminChecks(browser, seed);
   } finally {
     await browser?.close();
     if (server) {

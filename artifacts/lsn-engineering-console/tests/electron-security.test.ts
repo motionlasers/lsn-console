@@ -13,10 +13,17 @@ const {
   isPhysicalHardwareRuntime: (runtime: { isPackaged: boolean; platform: string }) => boolean;
   assertPhysicalHardwareRuntime: (runtime: { isPackaged: boolean; platform: string }) => void;
 };
+const { isAllowedAuthRequest } = require('../electron/auth-route-policy.cjs') as {
+  isAllowedAuthRequest: (path: string, method: string) => boolean;
+};
 
 describe('Electron security boundary', () => {
   const main = readFileSync(resolve(import.meta.dirname, '../electron/main.cjs'), 'utf8');
   const preload = readFileSync(resolve(import.meta.dirname, '../electron/preload.cjs'), 'utf8');
+  const authPolicy = readFileSync(
+    resolve(import.meta.dirname, '../electron/auth-route-policy.cjs'),
+    'utf8',
+  );
 
   it('uses isolation, sandboxing, and no renderer Node integration', () => {
     expect(main).toContain('contextIsolation: true');
@@ -44,6 +51,23 @@ describe('Electron security boundary', () => {
     expect(main).toContain('isAllowedAuthRequest(pathname, method)');
     expect(main).toContain('event.sender.session.fetch');
     expect(preload).toContain("ipcRenderer.invoke('desktop:auth-request'");
+  });
+
+  it('allows only the narrow administrator activity bridge contracts', () => {
+    expect(isAllowedAuthRequest('/api/activity/events', 'POST')).toBe(true);
+    expect(isAllowedAuthRequest('/api/activity/events', 'GET')).toBe(false);
+    expect(isAllowedAuthRequest('/api/admin/activity', 'GET')).toBe(true);
+    expect(
+      isAllowedAuthRequest(
+        '/api/admin/activity?page=2&pageSize=50&actorId=42&category=AUTH&action=LOGIN&outcome=SUCCESS&targetType=SESSION&targetId=42&from=2024-01-01&to=2024-12-31',
+        'GET',
+      ),
+    ).toBe(true);
+    expect(isAllowedAuthRequest('/api/admin/activity', 'POST')).toBe(false);
+    expect(isAllowedAuthRequest('/api/admin/activity?unknown=value', 'GET')).toBe(false);
+    expect(isAllowedAuthRequest('/api/admin/activity?page=1&page=2', 'GET')).toBe(false);
+    expect(isAllowedAuthRequest('/api/admin/activity?action=LOGIN%26admin%3Dtrue', 'GET')).toBe(false);
+    expect(isAllowedAuthRequest('//evil.example/api/admin/activity', 'GET')).toBe(false);
   });
 
   it('uses the renderer persistent session for auth — no ephemeral in-memory partition', () => {
@@ -217,10 +241,10 @@ describe('Electron security boundary', () => {
     expect(main).toContain("ipcMain.handle('desktop:profile-check'");
     expect(main).toContain("ipcMain.handle('desktop:profile-activate'");
     expect(main).toContain("ipcMain.handle('desktop:profile-rollback'");
-    expect(main).toContain("/^\\/api\\/profiles\\/\\d+\\/draft$/");
-    expect(main).toContain("/^\\/api\\/profiles\\/reviews\\/\\d+\\/decision$/");
-    expect(main).toContain("/^\\/api\\/profiles\\/versions\\/\\d+\\/verify-hardware$/");
-    expect(main).toContain("/^\\/api\\/profiles\\/diff\\?from=\\d+&to=\\d+$/");
+    expect(authPolicy).toContain("/^\\/api\\/profiles\\/\\d+\\/draft$/");
+    expect(authPolicy).toContain("/^\\/api\\/profiles\\/reviews\\/\\d+\\/decision$/");
+    expect(authPolicy).toContain("/^\\/api\\/profiles\\/versions\\/\\d+\\/verify-hardware$/");
+    expect(authPolicy).toContain("/^\\/api\\/profiles\\/diff\\?from=\\d+&to=\\d+$/");
   });
 
   it('exposes only sanitized profile-channel operations to the renderer', () => {

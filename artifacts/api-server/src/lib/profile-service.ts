@@ -10,6 +10,7 @@ import {
   profileValidationsTable,
   profileSandboxesTable,
   profileAuditTable,
+  adminActivityTable,
   type ProfileVersion,
   type AuditAction,
   type ProfileState,
@@ -18,6 +19,7 @@ import type { Role } from "@workspace/db/schema";
 import { eq, and, desc, max } from "drizzle-orm";
 import { canonicalize, digestOf } from "./profile-canonical.js";
 import { summarizeProfile } from "./profile-summary.js";
+import { boundDetail } from "./activity-service.js";
 
 /**
  * Transactional profile lifecycle service. All state transitions that must be
@@ -45,6 +47,7 @@ async function appendAudit(
     detail?: Record<string, unknown>;
   },
 ): Promise<void> {
+  const detail = params.detail ?? {};
   await tx.insert(profileAuditTable).values({
     profileId: params.profileId,
     versionId: params.versionId ?? null,
@@ -52,8 +55,59 @@ async function appendAudit(
     actorId: params.actor.userId,
     actorUsername: params.actor.username,
     actorRole: params.actor.role,
-    detail: params.detail ?? {},
+    detail,
   });
+
+  // Mirror the governance event into the append-only admin_activity audit
+  // within the SAME transaction. Only allowlisted STRUCTURAL metadata is
+  // copied — never free-text (rationale/comment body), evidence payloads, or
+  // raw documents, any of which could contain sensitive/raw material.
+  await tx.insert(adminActivityTable).values({
+    actorId: params.actor.userId,
+    actorUsername: params.actor.username,
+    actorRole: params.actor.role,
+    category: "PROFILE_GOVERNANCE",
+    action: params.action,
+    outcome: "SUCCESS",
+    targetType: "profile",
+    targetId: String(params.profileId),
+    detail: boundDetail(mirrorStructuralDetail(detail)),
+  });
+}
+
+/**
+ * Structural-metadata allowlist for the admin_activity mirror. Deliberately
+ * excludes free-text and payload-bearing fields (rationale, comment body,
+ * target symbolic name, summary, evidence, document) so no potentially
+ * sensitive or raw material is copied out of the governance domain. Only
+ * short, structural identifiers/flags/counters survive.
+ */
+const MIRROR_STRUCTURAL_KEYS = [
+  "reviewId",
+  "versionNumber",
+  "digest",
+  "channel",
+  "kind",
+  "passed",
+  "revision",
+  "key",
+  "name",
+] as const;
+
+function mirrorStructuralDetail(
+  detail: Record<string, unknown>,
+): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  for (const key of MIRROR_STRUCTURAL_KEYS) {
+    const v = detail[key];
+    if (v === undefined || v === null) continue;
+    const t = typeof v;
+    // Only primitive structural values; drop nested objects/arrays entirely.
+    if (t === "string" || t === "number" || t === "boolean") {
+      out[key] = v;
+    }
+  }
+  return out;
 }
 
 /** Create a new profile with an initial empty draft. */
@@ -848,21 +902,34 @@ export async function saveSandbox(
 
 /** Reset (delete) the private sandbox for a user + profile. */
 export async function resetSandbox(actor: Actor, profileId: number) {
-  await db
-    .delete(profileSandboxesTable)
-    .where(
-      and(
-        eq(profileSandboxesTable.profileId, profileId),
-        eq(profileSandboxesTable.ownerId, actor.userId),
-      ),
-    );
-  await db.insert(profileAuditTable).values({
-    profileId,
-    action: "SANDBOX_RESET",
-    actorId: actor.userId,
-    actorUsername: actor.username,
-    actorRole: actor.role,
-    detail: {},
+  await db.transaction(async (tx) => {
+    await tx
+      .delete(profileSandboxesTable)
+      .where(
+        and(
+          eq(profileSandboxesTable.profileId, profileId),
+          eq(profileSandboxesTable.ownerId, actor.userId),
+        ),
+      );
+    await tx.insert(profileAuditTable).values({
+      profileId,
+      action: "SANDBOX_RESET",
+      actorId: actor.userId,
+      actorUsername: actor.username,
+      actorRole: actor.role,
+      detail: {},
+    });
+    await tx.insert(adminActivityTable).values({
+      actorId: actor.userId,
+      actorUsername: actor.username,
+      actorRole: actor.role,
+      category: "PROFILE_GOVERNANCE",
+      action: "SANDBOX_RESET",
+      outcome: "SUCCESS",
+      targetType: "profile",
+      targetId: String(profileId),
+      detail: {},
+    });
   });
 }
 
