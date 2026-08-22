@@ -1,0 +1,13 @@
+
+> @workspace/lsn-engineering-console@0.2.1 test /home/runner/workspace/artifacts/lsn-engineering-console
+> vitest run
+
+
+ RUN  v4.1.10 /home/runner/workspace/artifacts/lsn-engineering-console
+
+
+ Test Files  16 passed (16)
+      Tests  341 passed (341)
+   Start at  00:37:33
+   Duration  1.99s (transform 1.18s, setup 0ms, import 2.47s, tests 4.56s, environment 2ms)
+

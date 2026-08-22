@@ -1,0 +1,87 @@
+table_name,column_name,data_type,is_nullable
+profile_audit,id,integer,NO
+profile_audit,profile_id,integer,NO
+profile_audit,version_id,integer,YES
+profile_audit,action,text,NO
+profile_audit,actor_id,integer,YES
+profile_audit,actor_username,text,YES
+profile_audit,actor_role,text,YES
+profile_audit,detail,jsonb,NO
+profile_audit,created_at,timestamp with time zone,NO
+profile_comments,id,integer,NO
+profile_comments,review_id,integer,NO
+profile_comments,digest,text,NO
+profile_comments,body,text,NO
+profile_comments,target,text,YES
+profile_comments,author_id,integer,YES
+profile_comments,author_role,text,NO
+profile_comments,created_at,timestamp with time zone,NO
+profile_decisions,id,integer,NO
+profile_decisions,review_id,integer,NO
+profile_decisions,digest,text,NO
+profile_decisions,decision,text,NO
+profile_decisions,rationale,text,NO
+profile_decisions,decided_by,integer,YES
+profile_decisions,decided_by_role,text,NO
+profile_decisions,decided_at,timestamp with time zone,NO
+profile_drafts,id,integer,NO
+profile_drafts,profile_id,integer,NO
+profile_drafts,document,jsonb,NO
+profile_drafts,revision,integer,NO
+profile_drafts,updated_by,integer,YES
+profile_drafts,updated_at,timestamp with time zone,NO
+profile_publications,id,integer,NO
+profile_publications,profile_id,integer,NO
+profile_publications,version_id,integer,NO
+profile_publications,channel,text,NO
+profile_publications,digest,text,NO
+profile_publications,active,boolean,NO
+profile_publications,summary,jsonb,NO
+profile_publications,published_by,integer,YES
+profile_publications,published_at,timestamp with time zone,NO
+profile_publications,superseded_at,timestamp with time zone,YES
+profile_reviews,id,integer,NO
+profile_reviews,profile_id,integer,NO
+profile_reviews,version_id,integer,NO
+profile_reviews,snapshot,jsonb,NO
+profile_reviews,digest,text,NO
+profile_reviews,state,text,NO
+profile_reviews,submitted_by,integer,YES
+profile_reviews,submitted_at,timestamp with time zone,NO
+profile_sandboxes,id,integer,NO
+profile_sandboxes,profile_id,integer,NO
+profile_sandboxes,owner_id,integer,NO
+profile_sandboxes,document,jsonb,NO
+profile_sandboxes,updated_at,timestamp with time zone,NO
+profile_validations,id,integer,NO
+profile_validations,profile_id,integer,NO
+profile_validations,version_id,integer,NO
+profile_validations,digest,text,NO
+profile_validations,kind,text,NO
+profile_validations,passed,boolean,NO
+profile_validations,evidence,jsonb,NO
+profile_validations,recorded_by,integer,YES
+profile_validations,recorded_at,timestamp with time zone,NO
+profile_versions,id,integer,NO
+profile_versions,profile_id,integer,NO
+profile_versions,version_number,integer,NO
+profile_versions,state,text,NO
+profile_versions,document,jsonb,NO
+profile_versions,digest,text,NO
+profile_versions,provenance,jsonb,NO
+profile_versions,created_by,integer,YES
+profile_versions,created_at,timestamp with time zone,NO
+profiles,id,integer,NO
+profiles,key,text,NO
+profiles,name,text,NO
+profiles,description,text,NO
+profiles,created_by,integer,YES
+profiles,created_at,timestamp with time zone,NO
+profiles,updated_at,timestamp with time zone,NO
+users,id,integer,NO
+users,username,text,NO
+users,password_hash,text,NO
+users,is_admin,boolean,NO
+users,force_password_change,boolean,NO
+users,created_at,timestamp without time zone,NO
+users,role,text,NO

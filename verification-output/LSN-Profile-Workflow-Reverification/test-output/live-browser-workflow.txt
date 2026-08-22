@@ -1,0 +1,16 @@
+node:internal/modules/run_main:107
+    triggerUncaughtException(
+    ^
+
+locator.click: Timeout 30000ms exceeded.
+Call log:
+[2m  - waiting for getByRole('button', { name: 'CONFIRM ACCEPTANCE' })[22m
+
+    at /home/runner/workspace/artifacts/lsn-engineering-console/tests/browser/reverification-live.temp.mjs:149:68 {
+  log: [
+    "  - waiting for getByRole('button', { name: 'CONFIRM ACCEPTANCE' })"
+  ],
+  name: 'TimeoutError'
+}
+
+Node.js v24.13.0

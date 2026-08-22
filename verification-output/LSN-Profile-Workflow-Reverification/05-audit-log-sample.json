@@ -1,0 +1,170 @@
+[
+  {
+    "id": 40,
+    "profileId": 5,
+    "versionId": 7,
+    "action": "PRODUCTION_PROMOTED",
+    "actorId": 16,
+    "actorUsername": "TEST_SUPERADMIN",
+    "actorRole": "SUPERADMIN",
+    "detail": {
+      "digest": "4236758f51ade4454377246da14ea1f86180d0efb39f36437f66cfd90b37aca2",
+      "versionNumber": 1
+    },
+    "createdAt": "2026-08-22T00:44:59.443Z"
+  },
+  {
+    "id": 39,
+    "profileId": 5,
+    "versionId": 7,
+    "action": "HARDWARE_VERIFIED",
+    "actorId": 17,
+    "actorUsername": "TEST_FIRMWARE_ADMIN",
+    "actorRole": "FIRMWARE_ADMIN",
+    "detail": {
+      "digest": "4236758f51ade4454377246da14ea1f86180d0efb39f36437f66cfd90b37aca2",
+      "passed": true
+    },
+    "createdAt": "2026-08-22T00:44:59.420Z"
+  },
+  {
+    "id": 38,
+    "profileId": 5,
+    "versionId": 7,
+    "action": "DEVELOPMENT_PUBLISHED",
+    "actorId": 17,
+    "actorUsername": "TEST_FIRMWARE_ADMIN",
+    "actorRole": "FIRMWARE_ADMIN",
+    "detail": {
+      "digest": "4236758f51ade4454377246da14ea1f86180d0efb39f36437f66cfd90b37aca2",
+      "summary": {
+        "partial": false,
+        "fieldCount": 1,
+        "limitations": [],
+        "mappingComplete": true,
+        "mappedFieldCount": 1,
+        "simulationStatus": {
+          "VERIFIED": 1
+        },
+        "implementationStatus": {
+          "IMPLEMENTED": 1
+        }
+      },
+      "versionNumber": 1
+    },
+    "createdAt": "2026-08-22T00:43:12.810Z"
+  },
+  {
+    "id": 37,
+    "profileId": 5,
+    "versionId": 7,
+    "action": "REVIEW_ACCEPTED",
+    "actorId": 18,
+    "actorUsername": "TEST_CLIENT_REVIEWER",
+    "actorRole": "CLIENT_REVIEWER",
+    "detail": {
+      "digest": "4236758f51ade4454377246da14ea1f86180d0efb39f36437f66cfd90b37aca2",
+      "reviewId": 7,
+      "rationale": ""
+    },
+    "createdAt": "2026-08-22T00:41:38.856Z"
+  },
+  {
+    "id": 36,
+    "profileId": 5,
+    "versionId": 7,
+    "action": "REVIEW_COMMENTED",
+    "actorId": 18,
+    "actorUsername": "TEST_CLIENT_REVIEWER",
+    "actorRole": "CLIENT_REVIEWER",
+    "detail": {
+      "digest": "4236758f51ade4454377246da14ea1f86180d0efb39f36437f66cfd90b37aca2",
+      "target": null,
+      "reviewId": 7
+    },
+    "createdAt": "2026-08-22T00:41:33.734Z"
+  },
+  {
+    "id": 35,
+    "profileId": 5,
+    "versionId": 7,
+    "action": "VALIDATION_RECORDED",
+    "actorId": 18,
+    "actorUsername": "TEST_CLIENT_REVIEWER",
+    "actorRole": "CLIENT_REVIEWER",
+    "detail": {
+      "kind": "SIMULATION",
+      "digest": "4236758f51ade4454377246da14ea1f86180d0efb39f36437f66cfd90b37aca2",
+      "passed": true
+    },
+    "createdAt": "2026-08-22T00:41:33.288Z"
+  },
+  {
+    "id": 34,
+    "profileId": 5,
+    "versionId": null,
+    "action": "DRAFT_SAVED",
+    "actorId": 17,
+    "actorUsername": "TEST_FIRMWARE_ADMIN",
+    "actorRole": "FIRMWARE_ADMIN",
+    "detail": {
+      "revision": 4
+    },
+    "createdAt": "2026-08-22T00:41:30.699Z"
+  },
+  {
+    "id": 33,
+    "profileId": 5,
+    "versionId": 7,
+    "action": "REVIEW_SUBMITTED",
+    "actorId": 17,
+    "actorUsername": "TEST_FIRMWARE_ADMIN",
+    "actorRole": "FIRMWARE_ADMIN",
+    "detail": {
+      "digest": "4236758f51ade4454377246da14ea1f86180d0efb39f36437f66cfd90b37aca2",
+      "reviewId": 7,
+      "versionNumber": 1
+    },
+    "createdAt": "2026-08-22T00:41:29.994Z"
+  },
+  {
+    "id": 32,
+    "profileId": 5,
+    "versionId": null,
+    "action": "DRAFT_SAVED",
+    "actorId": 17,
+    "actorUsername": "TEST_FIRMWARE_ADMIN",
+    "actorRole": "FIRMWARE_ADMIN",
+    "detail": {
+      "revision": 2
+    },
+    "createdAt": "2026-08-22T00:41:29.974Z"
+  },
+  {
+    "id": 31,
+    "profileId": 5,
+    "versionId": null,
+    "action": "DRAFT_SAVED",
+    "actorId": 17,
+    "actorUsername": "TEST_FIRMWARE_ADMIN",
+    "actorRole": "FIRMWARE_ADMIN",
+    "detail": {
+      "revision": 1
+    },
+    "createdAt": "2026-08-22T00:41:28.144Z"
+  },
+  {
+    "id": 30,
+    "profileId": 5,
+    "versionId": null,
+    "action": "PROFILE_CREATED",
+    "actorId": 17,
+    "actorUsername": "TEST_FIRMWARE_ADMIN",
+    "actorRole": "FIRMWARE_ADMIN",
+    "detail": {
+      "key": "verification-profile-reverification",
+      "name": "VERIFICATION TEST PROFILE — NOT PRODUCTION"
+    },
+    "createdAt": "2026-08-22T00:40:30.295Z"
+  }
+]

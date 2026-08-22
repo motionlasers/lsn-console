@@ -1,0 +1,19 @@
+{
+  "entries": [
+    {
+      "path": "fields[0].attribute",
+      "kind": "changed",
+      "class": "mapping",
+      "before": 4,
+      "after": 5
+    }
+  ],
+  "counts": {
+    "field": 0,
+    "mapping": 1,
+    "timing": 0,
+    "behavior": 0,
+    "other": 0
+  },
+  "hasChanges": true
+}

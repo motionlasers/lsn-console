@@ -1,0 +1,12 @@
+/tmp/lsn-reverify-package/LSN-Firmware-Interface-v0.1-gov1-4236758f51ad/README.md:8:- Governed digest: 4236758f51ade4454377246da14ea1f86180d0efb39f36437f66cfd90b37aca2
+/tmp/lsn-reverify-package/LSN-Firmware-Interface-v0.1-gov1-4236758f51ad/lsn_interface.md:14:## TimerState
+/tmp/lsn-reverify-package/LSN-Firmware-Interface-v0.1-gov1-4236758f51ad/lsn_interface.csv:2:"TimerState","LSN_TO_PC","uint32","READ","Get_Attribute_Single","112","1","4","{""inputAssembly"":101,""outputAssembly"":100}","0","0","state","IMPLEMENTED","VERIFIED","Return an artificial timer state for isolated verification.","Verification timer state.","Artificial verification-only timer state.","NOT A PRODUCTION MAPPING."
+/tmp/lsn-reverify-package/LSN-Firmware-Interface-v0.1-gov1-4236758f51ad/manifest.json:5:  "profileVersion": "0.9.0-verification",
+/tmp/lsn-reverify-package/LSN-Firmware-Interface-v0.1-gov1-4236758f51ad/manifest.json:10:    "digest": "4236758f51ade4454377246da14ea1f86180d0efb39f36437f66cfd90b37aca2"
+/tmp/lsn-reverify-package/LSN-Firmware-Interface-v0.1-gov1-4236758f51ad/lsn_protocol_types.h:25:    uint32_t timer_state; /* Canonical: TimerState */
+/tmp/lsn-reverify-package/LSN-Firmware-Interface-v0.1-gov1-4236758f51ad/lsn_protocol.h:26:/* Canonical field: TimerState */
+/tmp/lsn-reverify-package/LSN-Firmware-Interface-v0.1-gov1-4236758f51ad/lsn_protocol_profile.json:6:      "class": 112,
+/tmp/lsn-reverify-package/LSN-Firmware-Interface-v0.1-gov1-4236758f51ad/lsn_protocol_profile.json:15:      "instance": 1,
+/tmp/lsn-reverify-package/LSN-Firmware-Interface-v0.1-gov1-4236758f51ad/lsn_protocol_profile.json:16:      "attribute": 4,
+/tmp/lsn-reverify-package/LSN-Firmware-Interface-v0.1-gov1-4236758f51ad/lsn_protocol_profile.json:20:      "symbolicName": "TimerState",
+/tmp/lsn-reverify-package/LSN-Firmware-Interface-v0.1-gov1-4236758f51ad/lsn_protocol_profile.json:59:  "profileVersion": "0.9.0-verification",

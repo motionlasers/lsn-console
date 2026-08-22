@@ -1,0 +1,13 @@
+Archive:  verification-output/LSN-Profile-Workflow-Reverification/firmware-package/verification-development-profile-package.zip
+  Length      Date    Time    Name
+---------  ---------- -----   ----
+        0  08-22-2026 00:44   LSN-Firmware-Interface-v0.1-gov1-4236758f51ad/
+     1208  08-22-2026 00:44   LSN-Firmware-Interface-v0.1-gov1-4236758f51ad/lsn_protocol.h
+      736  08-22-2026 00:44   LSN-Firmware-Interface-v0.1-gov1-4236758f51ad/lsn_protocol_types.h
+     1703  08-22-2026 00:44   LSN-Firmware-Interface-v0.1-gov1-4236758f51ad/lsn_protocol_profile.json
+      555  08-22-2026 00:44   LSN-Firmware-Interface-v0.1-gov1-4236758f51ad/lsn_interface.csv
+     1026  08-22-2026 00:44   LSN-Firmware-Interface-v0.1-gov1-4236758f51ad/lsn_interface.md
+      448  08-22-2026 00:44   LSN-Firmware-Interface-v0.1-gov1-4236758f51ad/manifest.json
+     2294  08-22-2026 00:44   LSN-Firmware-Interface-v0.1-gov1-4236758f51ad/README.md
+---------                     -------
+     7970                     8 files

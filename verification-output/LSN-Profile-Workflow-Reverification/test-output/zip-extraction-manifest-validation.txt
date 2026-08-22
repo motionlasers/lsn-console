@@ -1,0 +1,2 @@
+PASS: archive extracted successfully and every entry listed in MANIFEST.sha256 verified.
+Validation method: unzip to a fresh temporary directory, then sha256sum -c MANIFEST.sha256.

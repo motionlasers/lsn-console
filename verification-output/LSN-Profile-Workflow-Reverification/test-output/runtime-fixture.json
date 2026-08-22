@@ -1,0 +1,16 @@
+{
+  "profileId": 5,
+  "key": "verification-profile-reverification",
+  "userIds": {
+    "TEST_SUPERADMIN": 16,
+    "TEST_FIRMWARE_ADMIN": 17,
+    "TEST_CLIENT_REVIEWER": 18,
+    "TEST_CLIENT_REVIEWER_2": 19
+  },
+  "initialRevision": 0,
+  "initialPermissionChecks": {
+    "clientReviewerDraftUpdate": 403,
+    "firmwareAdminManageUsers": 403,
+    "superadminManageUsers": 200
+  }
+}

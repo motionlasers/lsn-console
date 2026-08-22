@@ -1,0 +1,1036 @@
+
+> @workspace/api-server@0.0.0 test /home/runner/workspace/artifacts/api-server
+> vitest run
+
+
+ RUN  v4.1.10 /home/runner/workspace/artifacts/api-server
+
+[00:37:19.720] [32mINFO[39m (8985): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 1,
+      "method": "POST",
+      "url": "/api/auth/login"
+    }
+    [35mres[39m: {
+      "statusCode": 200
+    }
+    [35mresponseTime[39m: 17
+[00:37:19.731] [32mINFO[39m (8985): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 2,
+      "method": "POST",
+      "url": "/api/auth/login"
+    }
+    [35mres[39m: {
+      "statusCode": 200
+    }
+    [35mresponseTime[39m: 4
+[00:37:19.738] [32mINFO[39m (8985): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 3,
+      "method": "POST",
+      "url": "/api/auth/login"
+    }
+    [35mres[39m: {
+      "statusCode": 200
+    }
+    [35mresponseTime[39m: 3
+[00:37:19.745] [32mINFO[39m (8985): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 4,
+      "method": "GET",
+      "url": "/api/auth/session"
+    }
+    [35mres[39m: {
+      "statusCode": 200
+    }
+    [35mresponseTime[39m: 2
+[00:37:19.753] [32mINFO[39m (8985): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 5,
+      "method": "POST",
+      "url": "/api/profiles"
+    }
+    [35mres[39m: {
+      "statusCode": 403
+    }
+    [35mresponseTime[39m: 2
+[00:37:19.770] [32mINFO[39m (8985): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 6,
+      "method": "POST",
+      "url": "/api/profiles"
+    }
+    [35mres[39m: {
+      "statusCode": 201
+    }
+    [35mresponseTime[39m: 14
+[00:37:19.775] [32mINFO[39m (8985): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 7,
+      "method": "PUT",
+      "url": "/api/profiles/1/draft"
+    }
+    [35mres[39m: {
+      "statusCode": 403
+    }
+    [35mresponseTime[39m: 1
+[00:37:19.790] [32mINFO[39m (8985): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 8,
+      "method": "PUT",
+      "url": "/api/profiles/1/draft"
+    }
+    [35mres[39m: {
+      "statusCode": 200
+    }
+    [35mresponseTime[39m: 11
+[00:37:19.797] [32mINFO[39m (8985): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 9,
+      "method": "PUT",
+      "url": "/api/profiles/1/draft"
+    }
+    [35mres[39m: {
+      "statusCode": 409
+    }
+    [35mresponseTime[39m: 4
+[00:37:19.803] [32mINFO[39m (8985): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 10,
+      "method": "GET",
+      "url": "/api/profiles/1/draft"
+    }
+    [35mres[39m: {
+      "statusCode": 200
+    }
+    [35mresponseTime[39m: 3
+[00:37:19.821] [32mINFO[39m (8985): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 11,
+      "method": "PUT",
+      "url": "/api/profiles/1/draft"
+    }
+    [35mres[39m: {
+      "statusCode": 200
+    }
+    [35mresponseTime[39m: 14
+[00:37:19.832] [32mINFO[39m (8985): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 12,
+      "method": "PUT",
+      "url": "/api/profiles/1/draft"
+    }
+    [35mres[39m: {
+      "statusCode": 409
+    }
+    [35mresponseTime[39m: 24
+[00:37:19.854] [32mINFO[39m (8985): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 13,
+      "method": "POST",
+      "url": "/api/profiles"
+    }
+    [35mres[39m: {
+      "statusCode": 201
+    }
+    [35mresponseTime[39m: 15
+[00:37:20.030] [32mINFO[39m (8985): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 14,
+      "method": "POST",
+      "url": "/api/profiles/2/submit"
+    }
+    [35mres[39m: {
+      "statusCode": 201
+    }
+    [35mresponseTime[39m: 96
+[00:37:20.032] [32mINFO[39m (8985): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 15,
+      "method": "POST",
+      "url": "/api/profiles/2/submit"
+    }
+    [35mres[39m: {
+      "statusCode": 409
+    }
+    [35mresponseTime[39m: 86
+[00:37:20.043] [32mINFO[39m (8985): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 16,
+      "method": "GET",
+      "url": "/api/profiles/2/reviews"
+    }
+    [35mres[39m: {
+      "statusCode": 200
+    }
+    [35mresponseTime[39m: 6
+[00:37:20.051] [32mINFO[39m (8985): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 17,
+      "method": "GET",
+      "url": "/api/profiles/1/draft"
+    }
+    [35mres[39m: {
+      "statusCode": 200
+    }
+    [35mresponseTime[39m: 3
+[00:37:20.062] [32mINFO[39m (8985): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 18,
+      "method": "PUT",
+      "url": "/api/profiles/1/draft"
+    }
+    [35mres[39m: {
+      "statusCode": 200
+    }
+    [35mresponseTime[39m: 8
+[00:37:20.069] [32mINFO[39m (8985): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 19,
+      "method": "POST",
+      "url": "/api/profiles/1/submit"
+    }
+    [35mres[39m: {
+      "statusCode": 409
+    }
+    [35mresponseTime[39m: 4
+[00:37:20.074] [32mINFO[39m (8985): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 20,
+      "method": "GET",
+      "url": "/api/profiles/1/draft"
+    }
+    [35mres[39m: {
+      "statusCode": 200
+    }
+    [35mresponseTime[39m: 3
+[00:37:20.095] [32mINFO[39m (8985): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 21,
+      "method": "POST",
+      "url": "/api/profiles/1/submit"
+    }
+    [35mres[39m: {
+      "statusCode": 201
+    }
+    [35mresponseTime[39m: 18
+[00:37:20.103] [32mINFO[39m (8985): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 22,
+      "method": "GET",
+      "url": "/api/profiles/reviews/2"
+    }
+    [35mres[39m: {
+      "statusCode": 200
+    }
+    [35mresponseTime[39m: 6
+[00:37:20.114] [32mINFO[39m (8985): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 23,
+      "method": "POST",
+      "url": "/api/profiles/reviews/2/comments"
+    }
+    [35mres[39m: {
+      "statusCode": 201
+    }
+    [35mresponseTime[39m: 8
+[00:37:20.125] [32mINFO[39m (8985): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 24,
+      "method": "POST",
+      "url": "/api/profiles/reviews/2/comments"
+    }
+    [35mres[39m: {
+      "statusCode": 201
+    }
+    [35mresponseTime[39m: 8
+[00:37:20.129] [32mINFO[39m (8985): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 25,
+      "method": "POST",
+      "url": "/api/profiles/reviews/2/decision"
+    }
+    [35mres[39m: {
+      "statusCode": 403
+    }
+    [35mresponseTime[39m: 1
+[00:37:20.141] [32mINFO[39m (8985): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 26,
+      "method": "POST",
+      "url": "/api/profiles/reviews/2/decision"
+    }
+    [35mres[39m: {
+      "statusCode": 201
+    }
+    [35mresponseTime[39m: 10
+[00:37:20.145] [32mINFO[39m (8985): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 27,
+      "method": "GET",
+      "url": "/api/profiles/versions/2"
+    }
+    [35mres[39m: {
+      "statusCode": 200
+    }
+    [35mresponseTime[39m: 2
+[00:37:20.151] [32mINFO[39m (8985): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 28,
+      "method": "POST",
+      "url": "/api/profiles/reviews/2/decision"
+    }
+    [35mres[39m: {
+      "statusCode": 409
+    }
+    [35mresponseTime[39m: 3
+[00:37:20.155] [32mINFO[39m (8985): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 29,
+      "method": "POST",
+      "url": "/api/profiles/versions/2/publish"
+    }
+    [35mres[39m: {
+      "statusCode": 403
+    }
+    [35mresponseTime[39m: 2
+[00:37:20.168] [32mINFO[39m (8985): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 30,
+      "method": "POST",
+      "url": "/api/profiles/versions/2/publish"
+    }
+    [35mres[39m: {
+      "statusCode": 201
+    }
+    [35mresponseTime[39m: 11
+[00:37:20.173] [32mINFO[39m (8985): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 31,
+      "method": "GET",
+      "url": "/api/profiles/1/publications"
+    }
+    [35mres[39m: {
+      "statusCode": 200
+    }
+    [35mresponseTime[39m: 2
+[00:37:20.184] [32mINFO[39m (8985): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 32,
+      "method": "PUT",
+      "url": "/api/profiles/1/draft"
+    }
+    [35mres[39m: {
+      "statusCode": 200
+    }
+    [35mresponseTime[39m: 8
+[00:37:20.197] [32mINFO[39m (8985): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 33,
+      "method": "POST",
+      "url": "/api/profiles/1/submit"
+    }
+    [35mres[39m: {
+      "statusCode": 201
+    }
+    [35mresponseTime[39m: 11
+[00:37:20.209] [32mINFO[39m (8985): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 34,
+      "method": "POST",
+      "url": "/api/profiles/reviews/3/decision"
+    }
+    [35mres[39m: {
+      "statusCode": 201
+    }
+    [35mresponseTime[39m: 10
+[00:37:20.220] [32mINFO[39m (8985): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 35,
+      "method": "POST",
+      "url": "/api/profiles/versions/3/publish"
+    }
+    [35mres[39m: {
+      "statusCode": 201
+    }
+    [35mresponseTime[39m: 9
+[00:37:20.226] [32mINFO[39m (8985): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 36,
+      "method": "GET",
+      "url": "/api/profiles/diff"
+    }
+    [35mres[39m: {
+      "statusCode": 200
+    }
+    [35mresponseTime[39m: 3
+[00:37:20.239] [32mINFO[39m (8985): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 37,
+      "method": "POST",
+      "url": "/api/profiles/1/rollback"
+    }
+    [35mres[39m: {
+      "statusCode": 200
+    }
+    [35mresponseTime[39m: 10
+[00:37:20.244] [32mINFO[39m (8985): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 38,
+      "method": "GET",
+      "url": "/api/profiles/1/publications"
+    }
+    [35mres[39m: {
+      "statusCode": 200
+    }
+    [35mresponseTime[39m: 2
+[00:37:20.254] [32mINFO[39m (8985): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 39,
+      "method": "PUT",
+      "url": "/api/profiles/1/draft"
+    }
+    [35mres[39m: {
+      "statusCode": 200
+    }
+    [35mresponseTime[39m: 7
+[00:37:20.266] [32mINFO[39m (8985): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 40,
+      "method": "POST",
+      "url": "/api/profiles/1/submit"
+    }
+    [35mres[39m: {
+      "statusCode": 201
+    }
+    [35mresponseTime[39m: 10
+[00:37:20.278] [32mINFO[39m (8985): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 41,
+      "method": "POST",
+      "url": "/api/profiles/reviews/4/decision"
+    }
+    [35mres[39m: {
+      "statusCode": 201
+    }
+    [35mresponseTime[39m: 10
+[00:37:20.285] [32mINFO[39m (8985): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 42,
+      "method": "POST",
+      "url": "/api/profiles/1/rollback"
+    }
+    [35mres[39m: {
+      "statusCode": 409
+    }
+    [35mresponseTime[39m: 5
+[00:37:20.296] [32mINFO[39m (8985): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 43,
+      "method": "POST",
+      "url": "/api/profiles"
+    }
+    [35mres[39m: {
+      "statusCode": 201
+    }
+    [35mresponseTime[39m: 8
+[00:37:20.310] [32mINFO[39m (8985): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 44,
+      "method": "POST",
+      "url": "/api/profiles/3/submit"
+    }
+    [35mres[39m: {
+      "statusCode": 201
+    }
+    [35mresponseTime[39m: 12
+[00:37:20.321] [32mINFO[39m (8985): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 45,
+      "method": "POST",
+      "url": "/api/profiles/versions/5/verify-hardware"
+    }
+    [35mres[39m: {
+      "statusCode": 409
+    }
+    [35mresponseTime[39m: 6
+[00:37:20.332] [32mINFO[39m (8985): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 46,
+      "method": "POST",
+      "url": "/api/profiles/versions/5/promote"
+    }
+    [35mres[39m: {
+      "statusCode": 409
+    }
+    [35mresponseTime[39m: 8
+[00:37:20.349] [32mINFO[39m (8985): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 47,
+      "method": "POST",
+      "url": "/api/profiles"
+    }
+    [35mres[39m: {
+      "statusCode": 201
+    }
+    [35mresponseTime[39m: 14
+[00:37:20.363] [32mINFO[39m (8985): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 48,
+      "method": "POST",
+      "url": "/api/profiles/4/submit"
+    }
+    [35mres[39m: {
+      "statusCode": 201
+    }
+    [35mresponseTime[39m: 13
+[00:37:20.374] [32mINFO[39m (8985): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 49,
+      "method": "POST",
+      "url": "/api/profiles/reviews/6/decision"
+    }
+    [35mres[39m: {
+      "statusCode": 201
+    }
+    [35mresponseTime[39m: 9
+[00:37:20.380] [32mINFO[39m (8985): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 50,
+      "method": "POST",
+      "url": "/api/profiles/versions/6/verify-hardware"
+    }
+    [35mres[39m: {
+      "statusCode": 409
+    }
+    [35mresponseTime[39m: 3
+[00:37:20.385] [32mINFO[39m (8985): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 51,
+      "method": "POST",
+      "url": "/api/profiles/versions/6/promote"
+    }
+    [35mres[39m: {
+      "statusCode": 409
+    }
+    [35mresponseTime[39m: 2
+[00:37:20.399] [32mINFO[39m (8985): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 52,
+      "method": "POST",
+      "url": "/api/profiles/versions/2/verify-hardware"
+    }
+    [35mres[39m: {
+      "statusCode": 201
+    }
+    [35mresponseTime[39m: 11
+[00:37:20.404] [32mINFO[39m (8985): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 53,
+      "method": "GET",
+      "url": "/api/profiles/versions/2"
+    }
+    [35mres[39m: {
+      "statusCode": 200
+    }
+    [35mresponseTime[39m: 2
+[00:37:20.408] [32mINFO[39m (8985): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 54,
+      "method": "POST",
+      "url": "/api/profiles/versions/2/promote"
+    }
+    [35mres[39m: {
+      "statusCode": 403
+    }
+    [35mresponseTime[39m: 2
+[00:37:20.421] [32mINFO[39m (8985): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 55,
+      "method": "POST",
+      "url": "/api/profiles/versions/2/promote"
+    }
+    [35mres[39m: {
+      "statusCode": 201
+    }
+    [35mresponseTime[39m: 11
+[00:37:20.427] [32mINFO[39m (8985): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 56,
+      "method": "GET",
+      "url": "/api/profiles/versions/2"
+    }
+    [35mres[39m: {
+      "statusCode": 200
+    }
+    [35mresponseTime[39m: 3
+[00:37:20.435] [32mINFO[39m (8985): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 57,
+      "method": "POST",
+      "url": "/api/profiles/versions/3/promote"
+    }
+    [35mres[39m: {
+      "statusCode": 409
+    }
+    [35mresponseTime[39m: 5
+[00:37:20.446] [32mINFO[39m (8985): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 58,
+      "method": "POST",
+      "url": "/api/profiles/versions/2/simulation"
+    }
+    [35mres[39m: {
+      "statusCode": 201
+    }
+    [35mresponseTime[39m: 8
+[00:37:20.450] [32mINFO[39m (8985): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 59,
+      "method": "GET",
+      "url": "/api/profiles/versions/2/validations"
+    }
+    [35mres[39m: {
+      "statusCode": 200
+    }
+    [35mresponseTime[39m: 2
+[00:37:20.456] [32mINFO[39m (8985): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 60,
+      "method": "POST",
+      "url": "/api/profiles/versions/2/simulation"
+    }
+    [35mres[39m: {
+      "statusCode": 409
+    }
+    [35mresponseTime[39m: 3
+[00:37:20.467] [32mINFO[39m (8985): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 61,
+      "method": "POST",
+      "url": "/api/profiles/versions/2/simulation"
+    }
+    [35mres[39m: {
+      "statusCode": 201
+    }
+    [35mresponseTime[39m: 9
+[00:37:20.473] [32mINFO[39m (8985): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 62,
+      "method": "GET",
+      "url": "/api/profiles/1/audit"
+    }
+    [35mres[39m: {
+      "statusCode": 200
+    }
+    [35mresponseTime[39m: 3
+[00:37:20.479] [32mINFO[39m (8985): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 63,
+      "method": "GET",
+      "url": "/api/profiles/versions/2/download"
+    }
+    [35mres[39m: {
+      "statusCode": 200
+    }
+    [35mresponseTime[39m: 3
+[00:37:20.483] [32mINFO[39m (8985): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 64,
+      "method": "GET",
+      "url": "/api/profiles/1/draft"
+    }
+    [35mres[39m: {
+      "statusCode": 403
+    }
+    [35mresponseTime[39m: 1
+[00:37:20.505] [32mINFO[39m (8985): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 65,
+      "method": "GET",
+      "url": "/api/profiles/1"
+    }
+    [35mres[39m: {
+      "statusCode": 200
+    }
+    [35mresponseTime[39m: 18
+[00:37:20.511] [32mINFO[39m (8985): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 66,
+      "method": "GET",
+      "url": "/api/profiles/1/audit"
+    }
+    [35mres[39m: {
+      "statusCode": 403
+    }
+    [35mresponseTime[39m: 3
+[00:37:20.516] [32mINFO[39m (8985): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 67,
+      "method": "GET",
+      "url": "/api/profiles/1/audit"
+    }
+    [35mres[39m: {
+      "statusCode": 403
+    }
+    [35mresponseTime[39m: 2
+[00:37:20.521] [32mINFO[39m (8985): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 68,
+      "method": "GET",
+      "url": "/api/profiles/1/audit"
+    }
+    [35mres[39m: {
+      "statusCode": 200
+    }
+    [35mresponseTime[39m: 3
+[00:37:20.525] [32mINFO[39m (8985): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 69,
+      "method": "GET",
+      "url": "/api/profiles/versions/2/validations"
+    }
+    [35mres[39m: {
+      "statusCode": 403
+    }
+    [35mresponseTime[39m: 2
+[00:37:20.529] [32mINFO[39m (8985): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 70,
+      "method": "GET",
+      "url": "/api/profiles/1/publications"
+    }
+    [35mres[39m: {
+      "statusCode": 403
+    }
+    [35mresponseTime[39m: 1
+[00:37:20.536] [32mINFO[39m (8985): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 71,
+      "method": "GET",
+      "url": "/api/profiles/diff"
+    }
+    [35mres[39m: {
+      "statusCode": 403
+    }
+    [35mresponseTime[39m: 4
+[00:37:20.542] [32mINFO[39m (8985): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 72,
+      "method": "GET",
+      "url": "/api/profiles/1/versions"
+    }
+    [35mres[39m: {
+      "statusCode": 200
+    }
+    [35mresponseTime[39m: 4
+[00:37:20.548] [32mINFO[39m (8985): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 73,
+      "method": "GET",
+      "url": "/api/profiles/versions/2"
+    }
+    [35mres[39m: {
+      "statusCode": 200
+    }
+    [35mresponseTime[39m: 3
+[00:37:20.554] [32mINFO[39m (8985): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 74,
+      "method": "GET",
+      "url": "/api/profiles/versions/2000000000"
+    }
+    [35mres[39m: {
+      "statusCode": 403
+    }
+    [35mresponseTime[39m: 3
+[00:37:20.557] [32mINFO[39m (8985): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 75,
+      "method": "GET",
+      "url": "/api/profiles/versions/not-a-number"
+    }
+    [35mres[39m: {
+      "statusCode": 400
+    }
+    [35mresponseTime[39m: 1
+[00:37:20.561] [32mINFO[39m (8985): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 76,
+      "method": "GET",
+      "url": "/api/profiles/not-a-number/draft"
+    }
+    [35mres[39m: {
+      "statusCode": 403
+    }
+    [35mresponseTime[39m: 1
+[00:37:20.564] [32mINFO[39m (8985): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 77,
+      "method": "PUT",
+      "url": "/api/profiles/1/draft"
+    }
+    [35mres[39m: {
+      "statusCode": 403
+    }
+    [35mresponseTime[39m: 1
+[00:37:20.568] [32mINFO[39m (8985): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 78,
+      "method": "POST",
+      "url": "/api/profiles/1/submit"
+    }
+    [35mres[39m: {
+      "statusCode": 403
+    }
+    [35mresponseTime[39m: 1
+[00:37:20.572] [32mINFO[39m (8985): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 79,
+      "method": "POST",
+      "url": "/api/profiles/versions/2/publish"
+    }
+    [35mres[39m: {
+      "statusCode": 403
+    }
+    [35mresponseTime[39m: 1
+[00:37:20.577] [32mINFO[39m (8985): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 80,
+      "method": "POST",
+      "url": "/api/profiles/versions/2/verify-hardware"
+    }
+    [35mres[39m: {
+      "statusCode": 403
+    }
+    [35mresponseTime[39m: 2
+[00:37:20.581] [32mINFO[39m (8985): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 81,
+      "method": "POST",
+      "url": "/api/profiles/1/rollback"
+    }
+    [35mres[39m: {
+      "statusCode": 403
+    }
+    [35mresponseTime[39m: 1
+[00:37:20.585] [32mINFO[39m (8985): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 82,
+      "method": "POST",
+      "url": "/api/profiles/versions/2/promote"
+    }
+    [35mres[39m: {
+      "statusCode": 403
+    }
+    [35mresponseTime[39m: 1
+[00:37:20.599] [32mINFO[39m (8985): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 83,
+      "method": "PUT",
+      "url": "/api/profiles/1/sandbox"
+    }
+    [35mres[39m: {
+      "statusCode": 200
+    }
+    [35mresponseTime[39m: 10
+[00:37:20.605] [32mINFO[39m (8985): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 84,
+      "method": "GET",
+      "url": "/api/profiles/1/sandbox"
+    }
+    [35mres[39m: {
+      "statusCode": 200
+    }
+    [35mresponseTime[39m: 3
+[00:37:20.612] [32mINFO[39m (8985): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 85,
+      "method": "GET",
+      "url": "/api/profiles/1/sandbox"
+    }
+    [35mres[39m: {
+      "statusCode": 200
+    }
+    [35mresponseTime[39m: 3
+[00:37:20.618] [32mINFO[39m (8985): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 86,
+      "method": "PUT",
+      "url": "/api/profiles/1/sandbox"
+    }
+    [35mres[39m: {
+      "statusCode": 409
+    }
+    [35mresponseTime[39m: 2
+[00:37:20.622] [32mINFO[39m (8985): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 87,
+      "method": "GET",
+      "url": "/api/profiles/1/draft"
+    }
+    [35mres[39m: {
+      "statusCode": 200
+    }
+    [35mresponseTime[39m: 2
+[00:37:20.636] [32mINFO[39m (8985): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 88,
+      "method": "DELETE",
+      "url": "/api/profiles/1/sandbox"
+    }
+    [35mres[39m: {
+      "statusCode": 200
+    }
+    [35mresponseTime[39m: 11
+[00:37:20.642] [32mINFO[39m (8985): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 89,
+      "method": "GET",
+      "url": "/api/profiles/1/sandbox"
+    }
+    [35mres[39m: {
+      "statusCode": 200
+    }
+    [35mresponseTime[39m: 3
+[00:37:20.651] [32mINFO[39m (8985): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 90,
+      "method": "GET",
+      "url": "/api/desktop/profile-channel"
+    }
+    [35mres[39m: {
+      "statusCode": 200
+    }
+    [35mresponseTime[39m: 4
+[00:37:20.655] [32mINFO[39m (8985): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 91,
+      "method": "GET",
+      "url": "/api/desktop/profile-channel/artifact/2"
+    }
+    [35mres[39m: {
+      "statusCode": 200
+    }
+    [35mresponseTime[39m: 2
+[00:37:20.659] [32mINFO[39m (8985): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 92,
+      "method": "GET",
+      "url": "/api/desktop/profile-channel"
+    }
+    [35mres[39m: {
+      "statusCode": 401
+    }
+    [35mresponseTime[39m: 1
+[00:37:21.692] [32mINFO[39m (9005): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 1,
+      "method": "POST",
+      "url": "/api/auth/login"
+    }
+    [35mres[39m: {
+      "statusCode": 200
+    }
+    [35mresponseTime[39m: 16
+[00:37:21.713] [32mINFO[39m (9005): [36mMigrated legacy user roles to canonical governance roles[39m
+    [35msuperadmins[39m: 1
+    [35mclientReviewers[39m: 0
+[00:37:22.102] [32mINFO[39m (9005): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 2,
+      "method": "POST",
+      "url": "/api/admin/users"
+    }
+    [35mres[39m: {
+      "statusCode": 201
+    }
+    [35mresponseTime[39m: 384
+[00:37:22.448] [32mINFO[39m (9005): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 3,
+      "method": "POST",
+      "url": "/api/admin/users"
+    }
+    [35mres[39m: {
+      "statusCode": 201
+    }
+    [35mresponseTime[39m: 339
+[00:37:22.455] [32mINFO[39m (9005): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 4,
+      "method": "POST",
+      "url": "/api/admin/users"
+    }
+    [35mres[39m: {
+      "statusCode": 400
+    }
+    [35mresponseTime[39m: 2
+[00:37:22.470] [32mINFO[39m (9005): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 5,
+      "method": "PUT",
+      "url": "/api/admin/users/12"
+    }
+    [35mres[39m: {
+      "statusCode": 200
+    }
+    [35mresponseTime[39m: 9
+[00:37:22.492] [32mINFO[39m (9005): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 6,
+      "method": "POST",
+      "url": "/api/auth/login"
+    }
+    [35mres[39m: {
+      "statusCode": 200
+    }
+    [35mresponseTime[39m: 4
+[00:37:22.506] [32mINFO[39m (9005): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 7,
+      "method": "PUT",
+      "url": "/api/admin/users/14"
+    }
+    [35mres[39m: {
+      "statusCode": 409
+    }
+    [35mresponseTime[39m: 3
+[00:37:22.527] [32mINFO[39m (9005): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 8,
+      "method": "POST",
+      "url": "/api/auth/login"
+    }
+    [35mres[39m: {
+      "statusCode": 200
+    }
+    [35mresponseTime[39m: 3
+[00:37:22.537] [32mINFO[39m (9005): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 9,
+      "method": "DELETE",
+      "url": "/api/admin/users/14"
+    }
+    [35mres[39m: {
+      "statusCode": 200
+    }
+    [35mresponseTime[39m: 7
+[00:37:22.550] [32mINFO[39m (9005): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 10,
+      "method": "DELETE",
+      "url": "/api/admin/users/15"
+    }
+    [35mres[39m: {
+      "statusCode": 409
+    }
+    [35mresponseTime[39m: 2
+
+ Test Files  5 passed (5)
+      Tests  85 passed (85)
+   Start at  00:37:18
+   Duration  5.08s (transform 339ms, setup 0ms, import 1.73s, tests 2.44s, environment 0ms)
+

@@ -1,0 +1,16 @@
+{
+  "profileId": 5,
+  "browserChecks": {
+    "mappingPersistedAfterReload": true,
+    "reviewSubmitted": true,
+    "clientSandboxPassed": true,
+    "reviewAccepted": true,
+    "developmentPublished": true,
+    "publishedPackageDownloaded": true,
+    "superadminGovernanceVisible": true,
+    "auditVisible": true
+  },
+  "versionId": 7,
+  "alreadyPublished": true,
+  "firmwarePackagePath": "/home/runner/workspace/verification-output/LSN-Profile-Workflow-Reverification/firmware-package/verification-development-profile-package.zip"
+}

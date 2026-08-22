@@ -1,0 +1,10 @@
+role,operation,http_status,result
+"CLIENT_REVIEWER","edit shared Draft","403","DENIED"
+"CLIENT_REVIEWER","publish Development","403","DENIED"
+"CLIENT_REVIEWER","promote Production","403","DENIED"
+"CLIENT_REVIEWER","read audit","403","DENIED"
+"FIRMWARE_ADMIN","manage users","403","DENIED"
+"FIRMWARE_ADMIN","assign roles","403","DENIED"
+"FIRMWARE_ADMIN","promote Production","403","DENIED"
+"SUPERADMIN","manage users","200","ALLOWED"
+"SUPERADMIN","read audit","200","ALLOWED"

@@ -1,0 +1,17 @@
+
+> @workspace/lsn-engineering-console@0.2.1 test:browser /home/runner/workspace/artifacts/lsn-engineering-console
+> node tests/browser/tour-browser.mjs && node tests/browser/downloads-warning-browser.mjs && node tests/browser/role-workflows-browser.mjs
+
+[tour-browser] dev server owned by test on port 46199 (pid 9266)
+
+1180 checks, 0 failures
+Guided tour browser regression check PASSED
+[downloads-warning-browser] dev server owned by test on port 45221 (pid 9631)
+
+25 checks, 0 failures
+Downloads warning browser regression check PASSED
+[role-workflows-browser] real denial server owned by test on port 36449 (pid 9895)
+[role-workflows-browser] dev server owned by test on port 39371 (pid 9902)
+
+44 checks, 0 failures
+Role workflows browser regression check PASSED

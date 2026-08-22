@@ -1,0 +1,58 @@
+{
+  "fields": [
+    {
+      "class": null,
+      "notes": "NOT A PRODUCTION MAPPING.",
+      "access": "READ",
+      "assembly": null,
+      "dataType": "uint32",
+      "instance": null,
+      "attribute": null,
+      "direction": "LSN_TO_PC",
+      "cipService": "Get_Attribute_Single",
+      "description": "Artificial verification-only timer state.",
+      "symbolicName": "TimerState",
+      "simulationStatus": "PLANNED",
+      "implementationStatus": "TBD",
+      "expectedFirmwareBehavior": "Return an artificial timer state for isolated verification.",
+      "expectedReportedResponse": "Verification timer state."
+    }
+  ],
+  "timing": {
+    "runtimeToleranceMs": 100,
+    "reconnectIntervalMs": 500,
+    "explicitMessageTimeoutMs": 500
+  },
+  "$schema": "../schemas/device-profile.schema.json",
+  "identity": {
+    "vendorId": null,
+    "deviceType": null,
+    "productCode": null,
+    "productName": "Verification fixture",
+    "mappingState": "TBD"
+  },
+  "displayName": "VERIFICATION TEST PROFILE — NOT PRODUCTION",
+  "capabilities": {
+    "sensors": {
+      "phase": "future",
+      "enabled": false,
+      "description": "Verification fixture."
+    },
+    "interlock": {
+      "phase": "future",
+      "enabled": false,
+      "description": "Verification fixture."
+    },
+    "remoteStop": {
+      "phase": "future",
+      "enabled": false,
+      "description": "Verification fixture."
+    }
+  },
+  "hardwareFamily": "WT32-ETH01",
+  "profileVersion": "0.9.0-verification",
+  "protocolVersion": "LSN v0.1",
+  "supportedFirmware": [
+    "0.2.x-development"
+  ]
+}

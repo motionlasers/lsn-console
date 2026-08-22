@@ -1,0 +1,32 @@
+{
+  "result": "NOT VERIFIED",
+  "overallBlocking": true,
+  "verifiedCommit": "c7fe430ced3a68e7ad991ec9e8ee076a68bf0c89",
+  "task52Commit": "702f9fd5be94720c0e88accf9d64d4fe11b1f871",
+  "currentRunFound": false,
+  "reason": "GitHub Actions has no lsn-console-windows workflow run at the Task 52 or current commit. The Linux workspace cannot execute the Win32-only installed smoke.",
+  "linuxCompatibleTests": {
+    "result": "PASS",
+    "tests": 106,
+    "evidence": "test-output/windows-profile-tests.txt"
+  },
+  "installedChecks": {
+    "newProfileAvailable": "NOT VERIFIED",
+    "mappingDiff": "NOT VERIFIED",
+    "explicitApply": "NOT VERIFIED",
+    "runtimeMappingChanged": "NOT VERIFIED",
+    "executableHashUnchanged": "NOT VERIFIED",
+    "executableVersionUnchanged": "NOT VERIFIED",
+    "processIdentityRecorded": "NOT VERIFIED",
+    "corruptProfileRejected": "NOT VERIFIED",
+    "incompatibleProfileRejected": "NOT VERIFIED",
+    "lastKnownGoodRollback": "NOT VERIFIED",
+    "localElectronAudit": "NOT VERIFIED"
+  },
+  "historicalRun": {
+    "id": 32467377408,
+    "conclusion": "success",
+    "limitation": "Predates Task 52 profile-only installed smoke and cannot prove the current implementation."
+  },
+  "requiredNextEvidence": "Run .github/workflows/lsn-console-windows.yml from the current verified commit on windows-latest and retain the profile-update smoke JSON, screenshots, executable before/after identity, runtime mapping evidence, rejection cases, rollback evidence, and redacted local audit."
+}

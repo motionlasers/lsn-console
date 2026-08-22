@@ -54,3 +54,17 @@ mtime_ms = 1787354773690
 storage_uri = "gcs://replit-rams-assets-riker/rams/assets/repl:d540ce7c-4f47-47ea-89b2-ea532e7878c3/9f08e475-cdbf-4cd6-8cc0-85852cfddaa8/56ad56d3-01ee-4d81-ba1f-bf58ec3794c7"
 storage_version_token = "1787354795833100"
 content_type = "application/octet-stream"
+
+[[outputs]]
+id = "VVgIELTvRJUaHKVk6X06V"
+uri = "file://verification-output/LSN-Profile-Workflow-Reverification.zip"
+type = "unspecified"
+title = "LSN Profile Workflow Re-verification"
+description = "Complete post-remediation evidence bundle. Overall conclusion: NOT READY because no current installed-Windows profile propagation run exists; database, role governance, immutable review/publication/package, runtime API, browser, and cleanup evidence are included."
+logical_id = "c0ef09ec-d18f-49d6-9d8b-ddc326a5b7d0"
+content_hash = "sha256:99e1260eb321bb76ff3c4e27b3b72f6f16ce1a9ab9a8bb1e5e1ac2e11bc5faf1"
+size = 3350223
+mtime_ms = 1787359695216
+storage_uri = "gcs://replit-rams-assets-riker/rams/assets/repl:d540ce7c-4f47-47ea-89b2-ea532e7878c3/c0ef09ec-d18f-49d6-9d8b-ddc326a5b7d0/41c5065f-247b-47c3-b44f-af50b0b00a04"
+storage_version_token = "1787359701743066"
+content_type = "application/octet-stream"

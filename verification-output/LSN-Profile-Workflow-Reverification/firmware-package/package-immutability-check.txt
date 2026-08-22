@@ -1,0 +1,1 @@
+PASS: package contains immutable published Attribute 4 and excludes later Draft Attribute 5

@@ -1,0 +1,76 @@
+{
+  "id": 2,
+  "profileId": 5,
+  "ownerId": 18,
+  "document": {
+    "fields": [
+      {
+        "bit": 0,
+        "byte": 0,
+        "class": 112,
+        "notes": "NOT A PRODUCTION MAPPING.",
+        "units": "state",
+        "access": "READ",
+        "assembly": {
+          "inputAssembly": 101,
+          "outputAssembly": 100
+        },
+        "dataType": "uint32",
+        "instance": 1,
+        "attribute": 4,
+        "direction": "LSN_TO_PC",
+        "cipService": "Get_Attribute_Single",
+        "description": "Artificial verification-only timer state.",
+        "symbolicName": "TimerState",
+        "simulationStatus": "VERIFIED",
+        "implementationStatus": "IMPLEMENTED",
+        "expectedFirmwareBehavior": "Return an artificial timer state for isolated verification.",
+        "expectedReportedResponse": "Verification sandbox response within 750 ms"
+      }
+    ],
+    "timing": {
+      "runtimeToleranceMs": 100,
+      "reconnectIntervalMs": 500,
+      "explicitMessageTimeoutMs": 750,
+      "requestedPacketIntervalMs": 500
+    },
+    "$schema": "../schemas/device-profile.schema.json",
+    "identity": {
+      "vendorId": null,
+      "deviceType": null,
+      "productCode": null,
+      "productName": "Verification fixture",
+      "mappingState": "TBD"
+    },
+    "displayName": "VERIFICATION TEST PROFILE — NOT PRODUCTION",
+    "capabilities": {
+      "sensors": {
+        "phase": "future",
+        "enabled": false,
+        "description": "Verification fixture."
+      },
+      "interlock": {
+        "phase": "future",
+        "enabled": false,
+        "description": "Verification fixture."
+      },
+      "remoteStop": {
+        "phase": "future",
+        "enabled": false,
+        "description": "Verification fixture."
+      }
+    },
+    "hardwareFamily": "WT32-ETH01",
+    "profileVersion": "0.9.0-verification",
+    "__reviewBinding": {
+      "digest": "4236758f51ade4454377246da14ea1f86180d0efb39f36437f66cfd90b37aca2",
+      "reviewId": 7,
+      "versionId": 7
+    },
+    "protocolVersion": "LSN v0.1",
+    "supportedFirmware": [
+      "0.2.x-development"
+    ]
+  },
+  "updatedAt": "2026-08-22T00:41:33.175Z"
+}

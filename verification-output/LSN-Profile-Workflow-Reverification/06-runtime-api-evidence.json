@@ -1,0 +1,221 @@
+{
+  "profileId": 5,
+  "versionId": 7,
+  "reviewId": 7,
+  "digest": "4236758f51ade4454377246da14ea1f86180d0efb39f36437f66cfd90b37aca2",
+  "immutableReviewAttribute": 4,
+  "laterDraftAttribute": 5,
+  "sandboxIsolation": {
+    "reviewerOneContains750ms": true,
+    "reviewerTwoContains750ms": false
+  },
+  "duplicateDecisionStatus": 409,
+  "changesRequested": {
+    "profileId": 7,
+    "reviewId": 9,
+    "state": "CHANGES_REQUESTED"
+  },
+  "developmentPublication": [
+    {
+      "id": 6,
+      "profileId": 5,
+      "versionId": 7,
+      "channel": "PRODUCTION",
+      "digest": "4236758f51ade4454377246da14ea1f86180d0efb39f36437f66cfd90b37aca2",
+      "active": true,
+      "summary": {
+        "partial": false,
+        "fieldCount": 1,
+        "limitations": [],
+        "mappingComplete": true,
+        "mappedFieldCount": 1,
+        "simulationStatus": {
+          "VERIFIED": 1
+        },
+        "implementationStatus": {
+          "IMPLEMENTED": 1
+        }
+      },
+      "publishedBy": 16,
+      "publishedAt": "2026-08-22T00:44:59.443Z",
+      "supersededAt": null
+    },
+    {
+      "id": 5,
+      "profileId": 5,
+      "versionId": 7,
+      "channel": "DEVELOPMENT",
+      "digest": "4236758f51ade4454377246da14ea1f86180d0efb39f36437f66cfd90b37aca2",
+      "active": true,
+      "summary": {
+        "partial": false,
+        "fieldCount": 1,
+        "limitations": [],
+        "mappingComplete": true,
+        "mappedFieldCount": 1,
+        "simulationStatus": {
+          "VERIFIED": 1
+        },
+        "implementationStatus": {
+          "IMPLEMENTED": 1
+        }
+      },
+      "publishedBy": 17,
+      "publishedAt": "2026-08-22T00:43:12.810Z",
+      "supersededAt": null
+    }
+  ],
+  "simulatedHardwareEvidence": {
+    "id": 5,
+    "profileId": 5,
+    "versionId": 7,
+    "digest": "4236758f51ade4454377246da14ea1f86180d0efb39f36437f66cfd90b37aca2",
+    "kind": "HARDWARE",
+    "passed": true,
+    "evidence": {
+      "note": "Governance transition exercise only; no ESP32/WT32 hardware was connected.",
+      "source": "SIMULATED_FIXTURE_ONLY",
+      "connectionPath": "NOT VERIFIED",
+      "deviceIdentity": "NOT VERIFIED",
+      "physicalHardware": false
+    },
+    "recordedBy": 17,
+    "recordedAt": "2026-08-22T00:44:59.420Z"
+  },
+  "productionPromotion": {
+    "id": 6,
+    "profileId": 5,
+    "versionId": 7,
+    "channel": "PRODUCTION",
+    "digest": "4236758f51ade4454377246da14ea1f86180d0efb39f36437f66cfd90b37aca2",
+    "active": true,
+    "summary": {
+      "partial": false,
+      "fieldCount": 1,
+      "limitations": [],
+      "mappingComplete": true,
+      "mappedFieldCount": 1,
+      "simulationStatus": {
+        "VERIFIED": 1
+      },
+      "implementationStatus": {
+        "IMPLEMENTED": 1
+      }
+    },
+    "publishedBy": 16,
+    "publishedAt": "2026-08-22T00:44:59.443Z",
+    "supersededAt": null
+  },
+  "validations": [
+    {
+      "id": 5,
+      "profileId": 5,
+      "versionId": 7,
+      "digest": "4236758f51ade4454377246da14ea1f86180d0efb39f36437f66cfd90b37aca2",
+      "kind": "HARDWARE",
+      "passed": true,
+      "evidence": {
+        "note": "Governance transition exercise only; no ESP32/WT32 hardware was connected.",
+        "source": "SIMULATED_FIXTURE_ONLY",
+        "connectionPath": "NOT VERIFIED",
+        "deviceIdentity": "NOT VERIFIED",
+        "physicalHardware": false
+      },
+      "recordedBy": 17,
+      "recordedAt": "2026-08-22T00:44:59.420Z"
+    },
+    {
+      "id": 4,
+      "profileId": 5,
+      "versionId": 7,
+      "digest": "4236758f51ade4454377246da14ea1f86180d0efb39f36437f66cfd90b37aca2",
+      "kind": "SIMULATION",
+      "passed": true,
+      "evidence": {
+        "note": "Deterministic local sandbox evaluation of isolated reviewer inputs; does not implement or verify firmware or hardware.",
+        "inputs": {
+          "timeoutMs": 750,
+          "toleranceMs": 100,
+          "representativeField": "TimerState",
+          "expectedResponseOverride": "Verification sandbox response within 750 ms",
+          "requestedPacketIntervalMs": 500
+        },
+        "result": {
+          "checks": [
+            {
+              "id": "rpi-range",
+              "label": "Requested packet interval within supported window",
+              "detail": "RPI 500ms vs allowed 1–3200ms",
+              "passed": true
+            },
+            {
+              "id": "timeout-vs-rpi",
+              "label": "Timeout exceeds requested packet interval",
+              "detail": "Timeout 750ms must be > RPI 500ms and ≥ 1ms",
+              "passed": true
+            },
+            {
+              "id": "tolerance-range",
+              "label": "Tolerance non-negative and within one packet interval",
+              "detail": "Tolerance 100ms must be between 0ms and RPI 500ms",
+              "passed": true
+            },
+            {
+              "id": "field-exists",
+              "label": "Representative field resolves in snapshot",
+              "detail": "Resolved \"TimerState\" (LSN_TO_PC)",
+              "passed": true
+            },
+            {
+              "id": "expected-response",
+              "label": "Expected reported response is defined",
+              "detail": "Override response: \"Verification sandbox response within 750 ms\"",
+              "passed": true
+            }
+          ],
+          "passed": true,
+          "summary": "All 5 deterministic checks passed for the isolated sandbox inputs."
+        },
+        "source": "client-review-sandbox",
+        "isolated": true,
+        "reviewId": 7,
+        "profileId": 5,
+        "versionId": 7,
+        "recordedAt": "2026-08-22T00:41:33.284Z",
+        "reviewDigest": "4236758f51ade4454377246da14ea1f86180d0efb39f36437f66cfd90b37aca2",
+        "versionDigest": "4236758f51ade4454377246da14ea1f86180d0efb39f36437f66cfd90b37aca2",
+        "implementation": "simulation-only"
+      },
+      "recordedBy": 18,
+      "recordedAt": "2026-08-22T00:41:33.288Z"
+    }
+  ],
+  "desktopChannel": {
+    "available": true,
+    "profileId": 5,
+    "versionId": 7,
+    "profileVersion": "0.9.0-verification",
+    "digest": "4236758f51ade4454377246da14ea1f86180d0efb39f36437f66cfd90b37aca2",
+    "state": "PRODUCTION_FROZEN",
+    "artifactPath": "/api/desktop/profile-channel/artifact/7",
+    "releaseName": "0.9.0-verification",
+    "summary": {
+      "partial": false,
+      "fieldCount": 1,
+      "limitations": [],
+      "mappingComplete": true,
+      "mappedFieldCount": 1,
+      "simulationStatus": {
+        "VERIFIED": 1
+      },
+      "implementationStatus": {
+        "IMPLEMENTED": 1
+      }
+    }
+  },
+  "frozenState": "PRODUCTION_FROZEN",
+  "packageDownloadHeaders": {
+    "digest": "4236758f51ade4454377246da14ea1f86180d0efb39f36437f66cfd90b37aca2",
+    "etag": "\"4236758f51ade4454377246da14ea1f86180d0efb39f36437f66cfd90b37aca2\""
+  }
+}

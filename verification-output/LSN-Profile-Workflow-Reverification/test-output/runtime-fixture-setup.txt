@@ -1,0 +1,89 @@
+
+ RUN  v4.1.10 /home/runner/workspace/artifacts/api-server
+
+[00:40:30.270] [32mINFO[39m (10444): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 1,
+      "method": "POST",
+      "url": "/api/auth/login"
+    }
+    [35mres[39m: {
+      "statusCode": 200
+    }
+    [35mresponseTime[39m: 15
+[00:40:30.281] [32mINFO[39m (10444): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 2,
+      "method": "POST",
+      "url": "/api/auth/login"
+    }
+    [35mres[39m: {
+      "statusCode": 200
+    }
+    [35mresponseTime[39m: 4
+[00:40:30.288] [32mINFO[39m (10444): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 3,
+      "method": "POST",
+      "url": "/api/auth/login"
+    }
+    [35mres[39m: {
+      "statusCode": 200
+    }
+    [35mresponseTime[39m: 3
+[00:40:30.306] [32mINFO[39m (10444): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 4,
+      "method": "POST",
+      "url": "/api/profiles"
+    }
+    [35mres[39m: {
+      "statusCode": 201
+    }
+    [35mresponseTime[39m: 14
+[00:40:30.312] [32mINFO[39m (10444): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 5,
+      "method": "PUT",
+      "url": "/api/profiles/5/draft"
+    }
+    [35mres[39m: {
+      "statusCode": 403
+    }
+    [35mresponseTime[39m: 3
+[00:40:30.317] [32mINFO[39m (10444): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 6,
+      "method": "GET",
+      "url": "/api/admin/users"
+    }
+    [35mres[39m: {
+      "statusCode": 403
+    }
+    [35mresponseTime[39m: 2
+[00:40:30.324] [32mINFO[39m (10444): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 7,
+      "method": "GET",
+      "url": "/api/admin/users"
+    }
+    [35mres[39m: {
+      "statusCode": 200
+    }
+    [35mresponseTime[39m: 5
+[00:40:30.331] [32mINFO[39m (10444): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 8,
+      "method": "GET",
+      "url": "/api/profiles/5/draft"
+    }
+    [35mres[39m: {
+      "statusCode": 200
+    }
+    [35mresponseTime[39m: 4
+
+ Test Files  1 passed (1)
+      Tests  1 passed (1)
+   Start at  00:40:28
+   Duration  1.40s (transform 254ms, setup 0ms, import 750ms, tests 497ms, environment 0ms)
+
