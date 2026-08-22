@@ -254,7 +254,7 @@ async function main() {
       stagedState.staged?.digest !== digest ||
       readyDiff?.changeType !== 'changed' ||
       attributeDiff?.from !== 'UNRESOLVED' ||
-      attributeDiff?.to !== 42
+      attributeDiff?.to !== '42'
     ) {
       throw new Error(`Staged mapping diff was incorrect: ${JSON.stringify(stagedState)}`);
     }
