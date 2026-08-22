@@ -6,8 +6,14 @@ import { Button } from '@/components/ui/button';
 import {
   Download, PackageOpen, Monitor, FileJson,
   FileCode2, FileText, ChevronDown, ChevronRight,
-  AlertTriangle, Table, Info, ListTree, Loader2, CheckCircle2, Server
+  AlertTriangle, Table, Info, ListTree, Loader2, CheckCircle2, Server, Copy, Check
 } from 'lucide-react';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { createFirmwareIntegrationPackage, summarizeFirmwarePackage } from '@/lib/firmware-package';
 import { downloadBlob, downloadFile } from '@/lib/exports';
 import { ChangelogDialog, ReleaseEntry } from '@/components/ReleaseInfo';
@@ -47,10 +53,21 @@ export default function Downloads() {
   const [zipState, setZipState] = useState<'idle' | 'generating' | 'ready' | 'error'>('idle');
   const [zipHash, setZipHash] = useState<string | null>(null);
   const [zipError, setZipError] = useState<string | null>(null);
+  const [checksumCopyState, setChecksumCopyState] = useState<'idle' | 'copied' | 'error'>('idle');
 
   const isDesktop = Boolean(getDesktopBridge());
+  const installerChecksumPreview = `${WINDOWS_ARTIFACTS.installerSha256.slice(0, 8)}…${WINDOWS_ARTIFACTS.installerSha256.slice(-8)}`;
   const getDownloadUrl = (asset: 'installer' | 'portable' | 'checksums', filename: string) => {
     return isDesktop ? releaseAssetUrl(filename) : `/api/activity/download/${asset}`;
+  };
+  const copyInstallerChecksum = async () => {
+    try {
+      await navigator.clipboard.writeText(WINDOWS_ARTIFACTS.installerSha256);
+      setChecksumCopyState('copied');
+      window.setTimeout(() => setChecksumCopyState('idle'), 2000);
+    } catch {
+      setChecksumCopyState('error');
+    }
   };
 
   const { data: primaryProfileId } = useQuery({
@@ -453,7 +470,7 @@ export default function Downloads() {
             </CardHeader>
             <CardContent className="pt-6 flex flex-col gap-6">
 
-              <div className="border border-border/50 p-5 bg-black/30 rounded-sm">
+              <div className="border border-border/50 p-5 bg-black/30 rounded-sm" data-testid="card-windows-console-release">
                 <div className="flex flex-col gap-2 mb-4 border-b border-border/50 pb-4">
                   <div className="flex justify-between items-start">
                     <div className="font-mono text-sm font-bold text-foreground">Windows Console</div>
@@ -464,8 +481,42 @@ export default function Downloads() {
                   <div className="text-[10px] text-muted-foreground font-mono">
                     {WINDOWS_ARTIFACTS.installer}
                   </div>
-                  <div className="text-[9px] text-success font-mono" data-testid="text-verified-windows-release">
-                    VERIFIED {WINDOWS_ARTIFACTS.verifiedAt} · SHA-256 {WINDOWS_ARTIFACTS.installerSha256}
+                  <div
+                    className="flex min-w-0 max-w-full flex-wrap items-center gap-x-1.5 gap-y-1 text-[9px] text-success font-mono"
+                    data-testid="text-verified-windows-release"
+                  >
+                    <span className="basis-full">VERIFIED {WINDOWS_ARTIFACTS.verifiedAt} · SHA-256</span>
+                    <span className="flex min-w-0 max-w-full items-center gap-1.5">
+                      <code className="min-w-0 truncate tabular-nums" data-testid="text-installer-checksum-preview">
+                        {installerChecksumPreview}
+                      </code>
+                      <TooltipProvider delayDuration={200}>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <button
+                              type="button"
+                              onClick={copyInstallerChecksum}
+                              aria-label={`Copy full SHA-256 checksum ${WINDOWS_ARTIFACTS.installerSha256}`}
+                              className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-sm border border-success/30 bg-success/10 text-success transition-colors hover:bg-success/20 focus:outline-none focus:ring-2 focus:ring-success/60"
+                              data-testid="button-copy-installer-checksum"
+                            >
+                              {checksumCopyState === 'copied'
+                                ? <Check className="h-3.5 w-3.5" aria-hidden="true" />
+                                : <Copy className="h-3.5 w-3.5" aria-hidden="true" />}
+                            </button>
+                          </TooltipTrigger>
+                          <TooltipContent side="top" className="max-w-[min(32rem,calc(100vw-2rem))] break-all font-mono text-[10px]">
+                            {checksumCopyState === 'copied'
+                              ? 'Full SHA-256 checksum copied'
+                              : `Copy full SHA-256: ${WINDOWS_ARTIFACTS.installerSha256}`}
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    </span>
+                    <span className="sr-only" role="status" aria-live="polite" data-testid="text-checksum-copy-status">
+                      {checksumCopyState === 'copied' && 'Full SHA-256 checksum copied'}
+                      {checksumCopyState === 'error' && 'Unable to copy the SHA-256 checksum'}
+                    </span>
                   </div>
                 </div>
 

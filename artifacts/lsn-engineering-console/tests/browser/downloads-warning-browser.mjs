@@ -187,6 +187,14 @@ async function downloadsWarningChecks(context) {
         return () => updateListeners.delete(listener);
       },
     };
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: {
+        writeText: async (text) => {
+          window.__copiedChecksum = text;
+        },
+      },
+    });
     window.__lsnUpdateTest = { publishUpdateState };
   });
 
@@ -194,6 +202,58 @@ async function downloadsWarningChecks(context) {
   // on every field, so tbdFieldCount > 0 without any additional seeding — the
   // warning renders out of the box.
   await page.goto(BASE + '/downloads');
+
+  // ── Compact release checksum stays contained and copies the full value ─────
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.getByTestId('button-toggle-navigation').click();
+  await waitFor(
+    () => page.locator('aside[data-collapsed="true"]').count(),
+    `${label}: navigation collapses for phone-width checksum verification`,
+  );
+  const releaseCard = page.getByTestId('card-windows-console-release');
+  const verifiedLine = page.getByTestId('text-verified-windows-release');
+  const checksumPreview = page.getByTestId('text-installer-checksum-preview');
+  const copyChecksum = page.getByTestId('button-copy-installer-checksum');
+  await waitFor(
+    () => releaseCard.isVisible().catch(() => false),
+    `${label}: Console Release card visible at phone width`,
+  );
+  const fullChecksum = 'cffb64f3b6f18524a77090a3f3ecce8a823272902bbbc1223d0b6224cb25b8eb';
+  const previewText = (await checksumPreview.textContent())?.trim() ?? '';
+  check(previewText === 'cffb64f3…cb25b8eb', `${label}: checksum uses a compact leading/trailing preview`);
+  check(
+    !(await verifiedLine.textContent()).includes(fullChecksum),
+    `${label}: full checksum is not permanently rendered in the release line`,
+  );
+  const cardBox = await releaseCard.boundingBox();
+  const lineBox = await verifiedLine.boundingBox();
+  check(
+    !!cardBox &&
+      !!lineBox &&
+      lineBox.x >= cardBox.x &&
+      lineBox.x + lineBox.width <= cardBox.x + cardBox.width,
+    `${label}: verified checksum line stays inside the release card at phone width (${JSON.stringify(lineBox)} vs ${JSON.stringify(cardBox)})`,
+  );
+  await copyChecksum.hover();
+  const checksumTooltip = page.getByRole('tooltip');
+  await waitFor(
+    () => checksumTooltip.isVisible().catch(() => false),
+    `${label}: full checksum tooltip visible on hover`,
+  );
+  check(
+    (await checksumTooltip.textContent()).includes(fullChecksum),
+    `${label}: tooltip reveals the complete checksum`,
+  );
+  await copyChecksum.click();
+  check(
+    await page.evaluate(() => window.__copiedChecksum) === fullChecksum,
+    `${label}: copy control writes the complete checksum`,
+  );
+  check(
+    (await page.getByTestId('text-checksum-copy-status').textContent()).includes('copied'),
+    `${label}: copy success is announced`,
+  );
+  await page.setViewportSize({ width: 1280, height: 800 });
 
   // ── 1. Warning box is visible ──────────────────────────────────────────────
   const warningHeading = page.locator('text=UNRESOLVED MAPPINGS DETECTED');
