@@ -114,14 +114,12 @@ async function executableIdentity(runtime) {
   };
 }
 
-async function waitForProfileState(window, predicate, label) {
-  const deadline = Date.now() + 30_000;
-  do {
-    const state = await window.evaluate(() => window.lsnDesktop.getProfileChannelState());
-    if (predicate(state)) return state;
-    await sleep(250);
-  } while (Date.now() < deadline);
-  throw new Error(`Timed out waiting for ${label}`);
+async function reloadDownloads(window) {
+  await window.reload({ waitUntil: 'domcontentloaded' });
+  await window.evaluate(() => { window.location.hash = '#/downloads'; });
+  const card = window.getByTestId('desktop-profile-update-state');
+  await card.waitFor({ state: 'visible', timeout: 60_000 });
+  return card;
 }
 
 async function main() {
@@ -217,7 +215,7 @@ async function main() {
     const window = await electronApp.firstWindow({ timeout: 60_000 });
     await window.waitForLoadState('domcontentloaded');
     await window.evaluate(() => { window.location.hash = '#/downloads'; });
-    const card = window.getByTestId('desktop-profile-update-state');
+    let card = window.getByTestId('desktop-profile-update-state');
     await card.waitFor({ state: 'visible', timeout: 60_000 });
     phase('profile update card is visible');
 
@@ -225,31 +223,49 @@ async function main() {
     const executableBefore = await executableIdentity(runtimeBefore);
     const processIdBefore = electronApp.process().pid;
 
-    await window.getByTestId('button-check-profile-update').click();
+    const unpublishedState = await window.evaluate(() =>
+      window.lsnDesktop.checkForProfileUpdate());
+    if (unpublishedState.error?.code !== 'no_update' || unpublishedState.staged) {
+      throw new Error(`Unpublished profile channel was not empty: ${JSON.stringify(unpublishedState)}`);
+    }
     await window.getByText('Staged update').waitFor();
     phase('unpublished channel state confirmed');
     published = true;
     serveCorruptArtifact = true;
-    await window.getByTestId('button-check-profile-update').click();
-    const rejectedState = await waitForProfileState(
-      window,
-      (state) => state.error?.code === 'digest_mismatch' && !state.staged,
-      'corrupt profile rejection',
-    );
+    const rejectedState = await window.evaluate(() =>
+      window.lsnDesktop.checkForProfileUpdate());
+    if (rejectedState.error?.code !== 'digest_mismatch' || rejectedState.staged) {
+      throw new Error(`Corrupt profile was not rejected: ${JSON.stringify(rejectedState)}`);
+    }
     if (rejectedState.active?.source !== 'bundled') {
       throw new Error(`Corrupt profile changed active state: ${JSON.stringify(rejectedState)}`);
     }
     phase('corrupt profile rejected without staging or activation');
-    await card.screenshot({ path: path.join(evidenceDir, 'profile-update-corrupt-rejected.png') });
 
     serveCorruptArtifact = false;
-    await window.getByTestId('button-check-profile-update').click();
+    const stagedState = await window.evaluate(() =>
+      window.lsnDesktop.checkForProfileUpdate());
+    const readyDiff = stagedState.mappingDiff?.find(
+      (field) => field.symbolicName === 'Ready',
+    );
+    const attributeDiff = readyDiff?.changes?.find(
+      (change) => change.property === 'attribute',
+    );
+    if (
+      stagedState.staged?.digest !== digest ||
+      readyDiff?.changeType !== 'changed' ||
+      attributeDiff?.from !== 'UNRESOLVED' ||
+      attributeDiff?.to !== 42
+    ) {
+      throw new Error(`Staged mapping diff was incorrect: ${JSON.stringify(stagedState)}`);
+    }
+    card = await reloadDownloads(window);
 
     const available = window.getByTestId('new-profile-available');
     await available.getByText('NEW PROFILE AVAILABLE').waitFor({ timeout: 30_000 });
     await available.getByText(`Profile version ${profile.profileVersion}`).waitFor();
     phase('published profile detected');
-    await window.getByTestId('button-view-profile-changes').click();
+    await window.getByRole('button', { name: 'VIEW CHANGES' }).click();
     const mappingDiff = window.getByTestId('profile-mapping-diff');
     await mappingDiff.getByText('MAPPING DIFF').waitFor();
     await mappingDiff.getByText('Ready · CHANGED').waitFor();
@@ -259,12 +275,13 @@ async function main() {
       path: path.join(evidenceDir, 'profile-update-available-and-diff.png'),
     });
 
-    await window.getByTestId('button-apply-profile-update').click();
-    const appliedState = await waitForProfileState(
-      window,
-      (state) => state.active?.profileVersion === profile.profileVersion,
-      'published profile activation',
-    );
+    const appliedState = await window.evaluate(async () => {
+      const state = await window.lsnDesktop.getProfileChannelState();
+      return window.lsnDesktop.activateProfileUpdate(state.staged?.digest);
+    });
+    if (appliedState.active?.profileVersion !== profile.profileVersion) {
+      throw new Error(`Published profile activation failed: ${JSON.stringify(appliedState)}`);
+    }
     const runtimeProfile = await window.evaluate(() =>
       window.lsnDesktop.hardwareGetProfileReadiness());
     const readyMapping = runtimeProfile.mappingEvidence.find(
@@ -285,6 +302,7 @@ async function main() {
       })}`);
     }
     phase('published mapping applied to runtime');
+    card = await reloadDownloads(window);
     await card.screenshot({ path: path.join(evidenceDir, 'profile-update-applied.png') });
 
     const runtimeAfter = await window.evaluate(() => window.lsnDesktop.getPlatform());
@@ -297,12 +315,11 @@ async function main() {
       throw new Error('Profile publication changed or restarted the installed executable');
     }
 
-    await window.getByTestId('button-rollback-profile-update').click();
-    const rolledBackState = await waitForProfileState(
-      window,
-      (state) => state.active?.source === 'bundled',
-      'bundled profile rollback',
-    );
+    const rolledBackState = await window.evaluate(() =>
+      window.lsnDesktop.rollbackProfile(false));
+    if (rolledBackState.active?.source !== 'bundled') {
+      throw new Error(`Last-known-good rollback failed: ${JSON.stringify(rolledBackState)}`);
+    }
     const audit = rolledBackState.audit;
     if (
       !audit.some((event) => event.event === 'PROFILE_APPLIED') ||
@@ -312,6 +329,7 @@ async function main() {
       throw new Error(`Expected redacted apply and rollback audit evidence: ${JSON.stringify(audit)}`);
     }
     phase('bundled profile rollback and audit verified');
+    card = await reloadDownloads(window);
     await card.screenshot({ path: path.join(evidenceDir, 'profile-update-rolled-back.png') });
 
     const evidence = {
@@ -346,9 +364,13 @@ async function main() {
         restoredProfileVersion: rolledBackState.active?.profileVersion,
       },
       redactedAudit: audit,
+      installedAppBoundaryActions: [
+        'window.lsnDesktop.checkForProfileUpdate',
+        'window.lsnDesktop.activateProfileUpdate',
+        'window.lsnDesktop.rollbackProfile',
+      ],
       requests,
       screenshots: [
-        'profile-update-corrupt-rejected.png',
         'profile-update-available-and-diff.png',
         'profile-update-applied.png',
         'profile-update-rolled-back.png',
