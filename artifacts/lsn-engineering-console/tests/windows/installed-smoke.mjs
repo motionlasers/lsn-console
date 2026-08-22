@@ -1,4 +1,6 @@
 import fs from 'node:fs/promises';
+import { createReadStream } from 'node:fs';
+import { createHash } from 'node:crypto';
 import path from 'node:path';
 import console from 'node:console';
 import process from 'node:process';
@@ -11,6 +13,17 @@ const expectPhysicalTransport =
   process.env.LSN_WINDOWS_EXPECT_PHYSICAL_TRANSPORT !== 'false';
 const expectUpdater = process.env.LSN_WINDOWS_EXPECT_UPDATER !== 'false';
 
+async function sha256File(filePath) {
+  const hash = createHash('sha256');
+  await new Promise((resolve, reject) => {
+    const stream = createReadStream(filePath);
+    stream.on('data', (chunk) => hash.update(chunk));
+    stream.on('error', reject);
+    stream.on('end', resolve);
+  });
+  return hash.digest('hex');
+}
+
 async function main() {
   if (process.platform !== 'win32') {
     throw new Error('Installed Windows smoke test must run on Windows');
@@ -21,6 +34,8 @@ async function main() {
 
   await fs.access(executablePath);
   await fs.mkdir(evidenceDir, { recursive: true });
+  const executableStat = await fs.stat(executablePath);
+  const executableSha256 = await sha256File(executablePath);
 
   const electronApp = await electron.launch({
     executablePath,
@@ -94,6 +109,12 @@ async function main() {
     const evidence = {
       runLabel,
       executablePath,
+      executableIdentity: {
+        appVersion: runtime.appVersion,
+        sha256: executableSha256,
+        size: executableStat.size,
+        modifiedAt: executableStat.mtime.toISOString(),
+      },
       title,
       runtime,
       hardware: hardwareState,
