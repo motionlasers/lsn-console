@@ -180,17 +180,17 @@ async function main() {
     new Promise((resolve, reject) => {
       const onError = (error) => reject(error);
       server.once('error', onError);
-      server.listen(0, '127.0.0.1', () => {
+      server.listen(0, 'localhost', () => {
         server.off('error', onError);
         resolve();
       });
     }),
     sleep(15_000, undefined, { ref: false }).then(() => {
-      throw new Error('Timed out starting the mock publication server on 127.0.0.1');
+      throw new Error('Timed out starting the mock publication server on localhost');
     }),
   ]);
   const address = server.address();
-  const apiOrigin = `https://127.0.0.1:${address.port}`;
+  const apiOrigin = `https://localhost:${address.port}`;
   const userDataDir = path.join(evidenceDir, 'profile-smoke-user-data');
   phase('mock publication server listening');
   const electronApp = await electron.launch({
@@ -290,7 +290,7 @@ async function main() {
 
     const evidence = {
       proof: 'profile-only-publication-on-unchanged-installed-windows-executable',
-      apiOrigin: 'https://127.0.0.1:<ephemeral>',
+      apiOrigin: 'https://localhost:<ephemeral>',
       executableBefore,
       executableAfter,
       sameExecutableHash: executableBefore.sha256 === executableAfter.sha256,

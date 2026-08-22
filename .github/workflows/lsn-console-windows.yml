@@ -235,12 +235,14 @@ jobs:
           & openssl req -x509 -newkey rsa:2048 -sha256 -nodes `
             -keyout $privateKey -out $certificate -days 1 `
             -subj '/CN=LSN Windows Profile Smoke' `
-            -addext 'subjectAltName=DNS:localhost,IP:127.0.0.1'
+            -addext 'subjectAltName=DNS:localhost'
           if ($LASTEXITCODE -ne 0) {
             throw 'Unable to generate profile smoke HTTPS certificate.'
           }
-          & certutil -addstore -user Root $certificate
-          if ($LASTEXITCODE -ne 0) {
+          $trustedCertificate = Import-Certificate `
+            -FilePath $certificate `
+            -CertStoreLocation 'Cert:\CurrentUser\Root'
+          if (-not $trustedCertificate) {
             throw 'Unable to trust profile smoke HTTPS certificate.'
           }
           try {
@@ -251,7 +253,9 @@ jobs:
               throw 'Installed profile-only publication smoke failed.'
             }
           } finally {
-            & certutil -delstore -user Root 'LSN Windows Profile Smoke'
+            Remove-Item `
+              -LiteralPath "Cert:\CurrentUser\Root\$($trustedCertificate.Thumbprint)" `
+              -Force -ErrorAction SilentlyContinue
             Remove-Item -LiteralPath $certificateDir -Recurse -Force
           }
       - uses: actions/upload-artifact@v4
