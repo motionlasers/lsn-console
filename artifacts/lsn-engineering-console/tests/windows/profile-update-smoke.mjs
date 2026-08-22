@@ -18,6 +18,32 @@ function sha256(bytes) {
   return crypto.createHash('sha256').update(bytes).digest('hex');
 }
 
+function phase(message) {
+  console.log(`[profile-update-smoke] ${message}`);
+}
+
+async function closeElectronApp(electronApp) {
+  const appProcess = electronApp.process();
+  const closed = await Promise.race([
+    electronApp.close().then(() => true, () => false),
+    sleep(15_000, false, { ref: false }),
+  ]);
+  if (!closed && appProcess && !appProcess.killed) {
+    phase('Electron did not close within 15 seconds; terminating it');
+    appProcess.kill('SIGKILL');
+  }
+}
+
+async function closeServer(server) {
+  await Promise.race([
+    new Promise((resolve) => {
+      server.close(resolve);
+      server.closeAllConnections?.();
+    }),
+    sleep(5_000, undefined, { ref: false }),
+  ]);
+}
+
 function makePublishedProfile() {
   const readField = (symbolicName, attribute) => ({
     symbolicName,
@@ -152,12 +178,14 @@ async function main() {
   const address = server.address();
   const apiOrigin = `https://localhost:${address.port}`;
   const userDataDir = path.join(evidenceDir, 'profile-smoke-user-data');
+  phase('mock publication server listening');
   const electronApp = await electron.launch({
     executablePath,
     args: ['--disable-gpu', `--user-data-dir=${userDataDir}`],
     env: { ...process.env, LSN_API_BASE_URL: apiOrigin },
     timeout: 60_000,
   });
+  phase('installed Electron application launched');
 
   try {
     const window = await electronApp.firstWindow({ timeout: 60_000 });
@@ -165,6 +193,7 @@ async function main() {
     await window.evaluate(() => { window.location.hash = '#/downloads'; });
     const card = window.getByTestId('desktop-profile-update-state');
     await card.waitFor({ state: 'visible', timeout: 60_000 });
+    phase('profile update card is visible');
 
     const runtimeBefore = await window.evaluate(() => window.lsnDesktop.getPlatform());
     const executableBefore = await executableIdentity(runtimeBefore);
@@ -172,17 +201,20 @@ async function main() {
 
     await window.getByTestId('button-check-profile-update').click();
     await window.getByText('Staged update').waitFor();
+    phase('unpublished channel state confirmed');
     published = true;
     await window.getByTestId('button-check-profile-update').click();
 
     const available = window.getByTestId('new-profile-available');
     await available.getByText('NEW PROFILE AVAILABLE').waitFor({ timeout: 30_000 });
     await available.getByText(`Profile version ${profile.profileVersion}`).waitFor();
+    phase('published profile detected');
     await window.getByTestId('button-view-profile-changes').click();
     const mappingDiff = window.getByTestId('profile-mapping-diff');
     await mappingDiff.getByText('MAPPING DIFF').waitFor();
     await mappingDiff.getByText('Ready · CHANGED').waitFor();
     await mappingDiff.getByText(/attribute: UNRESOLVED → 42/).waitFor();
+    phase('mapping diff verified');
     await card.screenshot({
       path: path.join(evidenceDir, 'profile-update-available-and-diff.png'),
     });
@@ -212,6 +244,7 @@ async function main() {
         runtimeProfile,
       })}`);
     }
+    phase('published mapping applied to runtime');
     await card.screenshot({ path: path.join(evidenceDir, 'profile-update-applied.png') });
 
     const runtimeAfter = await window.evaluate(() => window.lsnDesktop.getPlatform());
@@ -238,6 +271,7 @@ async function main() {
     ) {
       throw new Error(`Expected redacted apply and rollback audit evidence: ${JSON.stringify(audit)}`);
     }
+    phase('bundled profile rollback and audit verified');
     await card.screenshot({ path: path.join(evidenceDir, 'profile-update-rolled-back.png') });
 
     const evidence = {
@@ -271,15 +305,19 @@ async function main() {
       path.join(evidenceDir, 'profile-only-publication-smoke.json'),
       `${JSON.stringify(evidence, null, 2)}\n`,
     );
+    phase('evidence written');
     console.log(JSON.stringify(evidence, null, 2));
   } finally {
-    await electronApp.close().catch(() => {});
-    await new Promise((resolve) => server.close(resolve));
+    await closeElectronApp(electronApp);
+    await closeServer(server);
     await fs.rm(userDataDir, { recursive: true, force: true }).catch(() => {});
   }
 }
 
-main().catch((error) => {
-  console.error(error);
-  process.exit(1);
-});
+main().then(
+  () => process.exit(0),
+  (error) => {
+    console.error(error);
+    process.exit(1);
+  },
+);
