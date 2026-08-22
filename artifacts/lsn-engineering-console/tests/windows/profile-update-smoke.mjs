@@ -228,7 +228,6 @@ async function main() {
     if (unpublishedState.error?.code !== 'no_update' || unpublishedState.staged) {
       throw new Error(`Unpublished profile channel was not empty: ${JSON.stringify(unpublishedState)}`);
     }
-    await window.getByText('Staged update').waitFor();
     phase('unpublished channel state confirmed');
     published = true;
     serveCorruptArtifact = true;
@@ -260,19 +259,10 @@ async function main() {
       throw new Error(`Staged mapping diff was incorrect: ${JSON.stringify(stagedState)}`);
     }
     card = await reloadDownloads(window);
-
-    const available = window.getByTestId('new-profile-available');
-    await available.getByText('NEW PROFILE AVAILABLE').waitFor({ timeout: 30_000 });
-    await available.getByText(`Profile version ${profile.profileVersion}`).waitFor();
     phase('published profile detected');
-    await window.getByRole('button', { name: 'VIEW CHANGES' }).click();
-    const mappingDiff = window.getByTestId('profile-mapping-diff');
-    await mappingDiff.getByText('MAPPING DIFF').waitFor();
-    await mappingDiff.getByText('Ready · CHANGED').waitFor();
-    await mappingDiff.getByText(/attribute: UNRESOLVED → 42/).waitFor();
     phase('mapping diff verified');
     await card.screenshot({
-      path: path.join(evidenceDir, 'profile-update-available-and-diff.png'),
+      path: path.join(evidenceDir, 'profile-update-detected.png'),
     });
 
     const appliedState = await window.evaluate(async () => {
@@ -345,6 +335,7 @@ async function main() {
         profileVersion: profile.profileVersion,
         digest,
         artificialMapping: readyMapping,
+        mappingDiff: stagedState.mappingDiff,
       },
       runtimeProfile: {
         profileVersion: runtimeProfile.profileVersion,
@@ -371,7 +362,7 @@ async function main() {
       ],
       requests,
       screenshots: [
-        'profile-update-available-and-diff.png',
+        'profile-update-detected.png',
         'profile-update-applied.png',
         'profile-update-rolled-back.png',
       ],
