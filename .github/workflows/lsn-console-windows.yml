@@ -6,7 +6,7 @@ on:
       published_release_tag:
         description: Immutable release tag to download and smoke-test
         required: false
-        default: lsn-console-v0.2.1
+        default: lsn-console-v0.3.0
   push:
     tags:
       - 'lsn-console-v*'

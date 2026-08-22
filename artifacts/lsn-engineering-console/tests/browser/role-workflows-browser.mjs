@@ -282,7 +282,7 @@ function seedInitScript() {
       'lsn-tour-preference-v1',
       JSON.stringify({ state: { hasSeenTour: true, isTourActive: false, currentStep: 0 }, version: 0 }),
     );
-    localStorage.setItem('lsn-whats-new-acknowledged-version', '0.2.1');
+    localStorage.setItem('lsn-whats-new-acknowledged-version', '0.3.0');
 
     const clone = (v) => JSON.parse(JSON.stringify(v));
     const isClient = session.role === 'CLIENT_REVIEWER';
@@ -573,7 +573,7 @@ function seedInitScript() {
     window.__mockAuthRequest = (path, method, body) => authRequest(path, method, body);
 
     window.lsnDesktop = {
-      getPlatform: async () => ({ platform: 'linux', packaged: false, appVersion: '0.2.1' }),
+      getPlatform: async () => ({ platform: 'linux', packaged: false, appVersion: '0.3.0' }),
       authRequest,
       getHardwareCapabilities: async () => ({
         controlTransport: 'AWAITING FIRMWARE IMPLEMENTATION',
@@ -593,10 +593,10 @@ function seedInitScript() {
       onHardwareState: () => () => {},
       selectFirmwarePackage: async () => null,
       saveFile: async () => ({ saved: false }),
-      getUpdateState: async () => ({ status: 'up-to-date', currentVersion: '0.2.1', message: 'Latest.', canRetry: true }),
-      checkForUpdates: async () => ({ status: 'up-to-date', currentVersion: '0.2.1', message: 'Latest.', canRetry: true }),
-      deferUpdate: async () => ({ status: 'deferred', currentVersion: '0.2.1', canRetry: true }),
-      installUpdate: async () => ({ status: 'installing', currentVersion: '0.2.1', canRetry: false }),
+      getUpdateState: async () => ({ status: 'up-to-date', currentVersion: '0.3.0', message: 'Latest.', canRetry: true }),
+      checkForUpdates: async () => ({ status: 'up-to-date', currentVersion: '0.3.0', message: 'Latest.', canRetry: true }),
+      deferUpdate: async () => ({ status: 'deferred', currentVersion: '0.3.0', canRetry: true }),
+      installUpdate: async () => ({ status: 'installing', currentVersion: '0.3.0', canRetry: false }),
       onUpdateState: () => () => {},
       getProfileChannelState: async () => ({ active: null, lastKnownGood: null, staged: null, bundled: null, checking: false, error: null }),
       checkForProfileUpdate: async () => ({ active: null, lastKnownGood: null, staged: null, bundled: null, checking: false, error: null }),

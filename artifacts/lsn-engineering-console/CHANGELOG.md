@@ -9,6 +9,40 @@ are unchanged unless a release entry explicitly states otherwise:
 - **Device Profile**: lsn-v0.1.0
 - **Firmware Interface Package**: LSN-Firmware-Interface-v0.1
 
+## 0.3.0 — Development Preview (2026-08-21)
+
+Release type: Windows Development Preview (unsigned, internal development use only).
+
+### Added
+
+- Governed Device Profile lifecycle with revision-safe Drafts, immutable review snapshots, Development publications, audit history, and role-scoped workflows.
+- Installed Windows profile-update workflow for detecting, reviewing, applying, and rolling back signed profile publications without rebuilding or reinstalling the Console.
+
+### Changed
+
+- Firmware Integration Packages are generated only from immutable Development-published profile versions and their governed digests.
+- Client Reviewers use isolated per-user sandboxes while shared Draft editing and publication remain restricted to authorized roles.
+
+### Fixed
+
+- Database reconciliation now applies the governed-profile schema non-interactively and verifies that no schema drift remains.
+- Review submission and decisions now preserve exact revision and digest bindings across concurrent Draft changes.
+
+### Known limitations
+
+- The Windows installer is unsigned; Microsoft Defender SmartScreen will warn on first run ("More info" → "Run anyway"). Internal development use only.
+- Physical ESP32/WT32 mapping validation remains a separate firmware-team and bench process; this Console release does not claim physical-device verification.
+- Publishing or applying a Device Profile changes Console runtime configuration only and does not rewrite ESP32/WT32 firmware.
+- Simulation evidence remains distinct from physical hardware evidence and never substitutes for hardware validation.
+
+### Protocol impact
+
+No protocol impact. LSN Protocol remains v0.1 and the external firmware interface is unchanged; no firmware action is required for this Console release.
+
+### Device Profile impact
+
+Device Profile version unchanged. The schema track remains lsn-v0.1.0 and the generated package remains LSN-Firmware-Interface-v0.1.zip.
+
 ## 0.2.1 — Development Preview (2026-08-14)
 
 Release type: Windows Development Preview patch (unsigned, internal development use only).

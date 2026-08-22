@@ -101,11 +101,11 @@ async function downloadsWarningChecks(context) {
         version: 0,
       }),
     );
-    localStorage.setItem('lsn-whats-new-acknowledged-version', '0.2.1');
+    localStorage.setItem('lsn-whats-new-acknowledged-version', '0.3.0');
     let updateState = {
       status: 'up-to-date',
-      currentVersion: '0.2.1',
-      message: 'Version 0.2.1 is the latest available release.',
+      currentVersion: '0.3.0',
+      message: 'Version 0.3.0 is the latest available release.',
       canRetry: true,
     };
     const updateListeners = new Set();
@@ -117,7 +117,7 @@ async function downloadsWarningChecks(context) {
       getPlatform: async () => ({
         platform: 'win32',
         packaged: true,
-        appVersion: '0.2.1',
+        appVersion: '0.3.0',
       }),
       authRequest: async (requestPath) => ({
         status: requestPath === '/api/auth/session' ? 200 : 204,
@@ -158,8 +158,8 @@ async function downloadsWarningChecks(context) {
       checkForUpdates: async () => {
         publishUpdateState({
           status: 'up-to-date',
-          currentVersion: '0.2.1',
-          message: 'Version 0.2.1 is the latest available release.',
+          currentVersion: '0.3.0',
+          message: 'Version 0.3.0 is the latest available release.',
           canRetry: true,
         });
         return updateState;
@@ -396,7 +396,7 @@ async function downloadsWarningChecks(context) {
   await page.evaluate(() => {
     window.__lsnUpdateTest.publishUpdateState({
       status: 'downloading',
-      currentVersion: '0.2.1',
+      currentVersion: '0.3.0',
       latestVersion: '0.2.2',
       receivedBytes: 42 * 1024 * 1024,
       totalBytes: 100 * 1024 * 1024,
@@ -422,7 +422,7 @@ async function downloadsWarningChecks(context) {
   await page.evaluate(() => {
     window.__lsnUpdateTest.publishUpdateState({
       status: 'ready',
-      currentVersion: '0.2.1',
+      currentVersion: '0.3.0',
       latestVersion: '0.2.2',
       releaseName: 'LSN Engineering Console v0.2.2',
       message: 'Version 0.2.2 is verified and ready to install.',
@@ -456,7 +456,7 @@ async function downloadsWarningChecks(context) {
   await page.evaluate(() => {
     window.__lsnUpdateTest.publishUpdateState({
       status: 'deferred',
-      currentVersion: '0.2.1',
+      currentVersion: '0.3.0',
       latestVersion: '0.2.2',
       releaseName: 'LSN Engineering Console v0.2.2',
       message: 'Version 0.2.2 is ready whenever you choose to install it.',
@@ -487,7 +487,7 @@ async function downloadsWarningChecks(context) {
   await page.evaluate(() => {
     window.__lsnUpdateTest.publishUpdateState({
       status: 'error',
-      currentVersion: '0.2.1',
+      currentVersion: '0.3.0',
       latestVersion: '0.2.2',
       message: 'The update failed. The installed version is unaffected.',
       errorCode: 'UPDATE_DOWNLOAD_FAILED',
