@@ -68,3 +68,17 @@ mtime_ms = 1787359695216
 storage_uri = "gcs://replit-rams-assets-riker/rams/assets/repl:d540ce7c-4f47-47ea-89b2-ea532e7878c3/c0ef09ec-d18f-49d6-9d8b-ddc326a5b7d0/41c5065f-247b-47c3-b44f-af50b0b00a04"
 storage_version_token = "1787359701743066"
 content_type = "application/octet-stream"
+
+[[outputs]]
+id = "-ztqksLjxnYSV46PqzL7J"
+uri = "file://verification-output/LSN-Engineering-Console-v0.3.0-READY.zip"
+type = "unspecified"
+title = "LSN Engineering Console v0.3.0 — READY Bundle"
+description = "Final Windows release verification bundle with published asset hashes, installed executable version/SHA-256 proof, install/reinstall evidence, governed profile rejection/apply/rollback evidence, run metadata, screenshots, and internal checksums."
+logical_id = "0712ceb2-2ac3-427c-b5b2-0ad024098a04"
+content_hash = "sha256:3605c29833a5f464513376b95fb73a0088d0082a24791f1dcc0a586510ec954c"
+size = 961067
+mtime_ms = 1787369258054
+storage_uri = "gcs://replit-rams-assets-riker/rams/assets/repl:d540ce7c-4f47-47ea-89b2-ea532e7878c3/0712ceb2-2ac3-427c-b5b2-0ad024098a04/74ee9650-f2f4-430f-a601-a399c5f9f068"
+storage_version_token = "1787369355255553"
+content_type = "application/octet-stream"
