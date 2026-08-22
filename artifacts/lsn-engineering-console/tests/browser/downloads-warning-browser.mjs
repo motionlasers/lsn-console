@@ -205,11 +205,19 @@ async function downloadsWarningChecks(context) {
 
   // ── Compact release checksum stays contained and copies the full value ─────
   await page.setViewportSize({ width: 390, height: 844 });
+  const sidebar = page.locator('aside[data-collapsed]');
   await page.getByTestId('button-toggle-navigation').click();
   await waitFor(
-    () => page.locator('aside[data-collapsed="true"]').count(),
-    `${label}: navigation collapses for phone-width checksum verification`,
+    async () => {
+      const collapsed = await sidebar.getAttribute('data-collapsed');
+      const box = await sidebar.boundingBox();
+      return collapsed === 'true' && !!box && Math.abs(box.width - 64) <= 1;
+    },
+    `${label}: navigation reaches its settled 64px collapsed width`,
   );
+  await page.evaluate(() => new Promise((resolve) => {
+    requestAnimationFrame(() => requestAnimationFrame(resolve));
+  }));
   const releaseCard = page.getByTestId('card-windows-console-release');
   const verifiedLine = page.getByTestId('text-verified-windows-release');
   const checksumPreview = page.getByTestId('text-installer-checksum-preview');
@@ -227,12 +235,17 @@ async function downloadsWarningChecks(context) {
   );
   const cardBox = await releaseCard.boundingBox();
   const lineBox = await verifiedLine.boundingBox();
+  const lineWidths = await verifiedLine.evaluate((element) => ({
+    clientWidth: element.clientWidth,
+    scrollWidth: element.scrollWidth,
+  }));
   check(
     !!cardBox &&
       !!lineBox &&
       lineBox.x >= cardBox.x &&
-      lineBox.x + lineBox.width <= cardBox.x + cardBox.width,
-    `${label}: verified checksum line stays inside the release card at phone width (${JSON.stringify(lineBox)} vs ${JSON.stringify(cardBox)})`,
+      lineBox.x + lineBox.width <= cardBox.x + cardBox.width &&
+      lineWidths.scrollWidth <= lineWidths.clientWidth,
+    `${label}: verified checksum line stays inside the release card at phone width (${JSON.stringify(lineBox)} vs ${JSON.stringify(cardBox)}; widths ${JSON.stringify(lineWidths)})`,
   );
   await copyChecksum.hover();
   const checksumTooltip = page.getByRole('tooltip');
