@@ -351,6 +351,8 @@ jobs:
       - name: Install and smoke-test published release
         timeout-minutes: 5
         shell: pwsh
+        env:
+          RELEASE_TAG: ${{ inputs.published_release_tag }}
         run: |
           $ErrorActionPreference = 'Stop'
           $installer = Get-ChildItem -Path 'published-release' `
@@ -391,8 +393,13 @@ jobs:
           $env:LSN_WINDOWS_SMOKE_EVIDENCE = Join-Path `
             $env:GITHUB_WORKSPACE 'published-release-smoke-evidence'
           $env:LSN_WINDOWS_SMOKE_LABEL = 'published-release'
-          $env:LSN_WINDOWS_EXPECT_PHYSICAL_TRANSPORT = 'false'
-          $env:LSN_WINDOWS_EXPECT_UPDATER = 'false'
+          if ($env:RELEASE_TAG -eq 'lsn-console-v0.2.1') {
+            $env:LSN_WINDOWS_EXPECT_PHYSICAL_TRANSPORT = 'false'
+            $env:LSN_WINDOWS_EXPECT_UPDATER = 'false'
+          } else {
+            $env:LSN_WINDOWS_EXPECT_PHYSICAL_TRANSPORT = 'true'
+            $env:LSN_WINDOWS_EXPECT_UPDATER = 'true'
+          }
           node artifacts/lsn-engineering-console/tests/windows/installed-smoke.mjs
       - uses: actions/upload-artifact@v4
         if: always()
