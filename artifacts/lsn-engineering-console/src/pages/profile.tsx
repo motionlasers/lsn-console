@@ -281,7 +281,7 @@ export default function Profile() {
              Govern device profile evolution. Edit working mappings, submit drafts for client review, and manage immutable publication history.
            </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2" data-tour="profile-governance-actions">
            <Button variant="outline" disabled={!canPersist || saveDraft.isPending} onClick={() => saveDraft.mutate()} className="font-mono text-xs" data-testid="button-save-governed-draft">
              {saveDraft.isPending ? "SAVING…" : "SAVE DRAFT"}
            </Button>

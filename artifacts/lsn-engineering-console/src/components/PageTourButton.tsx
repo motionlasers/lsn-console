@@ -8,9 +8,9 @@ export function PageTourButton() {
   const { isTourActive, startPageTour } = useTourStore();
   const [location] = useLocation();
 
-  if (!user?.isAdmin || isTourActive || !hasPageTour(location)) return null;
+  if (!user || isTourActive || !hasPageTour(location, user.role)) return null;
 
-  const firstStep = getDetailStepsForRoute(location)[0];
+  const firstStep = getDetailStepsForRoute(location, user.role)[0];
   const firstStepIndex = TOUR_STEPS.indexOf(firstStep);
   if (firstStepIndex < 0) return null;
 

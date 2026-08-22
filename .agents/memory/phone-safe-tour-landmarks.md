@@ -8,3 +8,5 @@ Guided-tour steps must target compact headings, action rows, or similarly bounde
 **Why:** On narrow screens with the console navigation expanded, tall or lower-page targets can remain offscreen or leave no valid coachmark placement, causing the dialog to overlap the highlight or the highlight to become meaningless.
 
 **How to apply:** For every new tour step, verify the target rectangle and coachmark have zero overlap at a phone viewport. Prefer a page heading or card header when the section body can grow vertically.
+
+On long pages, a compact target can still become unsafe while smooth scrolling if the coachmark animates its position behind the target's live geometry. Disable position interpolation for landmarks that require a long scroll, or otherwise ensure the coachmark tracks the target without lag.

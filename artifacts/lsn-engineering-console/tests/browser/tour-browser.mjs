@@ -23,7 +23,12 @@ import { setTimeout as sleep } from 'node:timers/promises';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { chromium } from 'playwright-core';
-import { TOUR_STEPS, OVERVIEW_NAV_PAGES, TOUR_OVERVIEW_COUNT } from '../../src/lib/tour-data.ts';
+import {
+  TOUR_STEPS,
+  getTourStepsForRole,
+  OVERVIEW_NAV_PAGES,
+  TOUR_OVERVIEW_COUNT,
+} from '../../src/lib/tour-data.ts';
 
 const ARTIFACT_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 const EXECUTABLE = process.env.REPLIT_PLAYWRIGHT_CHROMIUM_EXECUTABLE;
@@ -250,7 +255,10 @@ async function assertStepInvariants(state, step, label, reducedMotion) {
       h.left - MARGIN >= card.width + GAP ||
       viewport.width - h.right - MARGIN >= card.width + GAP;
     if (feasible) {
-      check(!rectsOverlap(h, card), `${label} ${step.id}: target highlight does not overlap coachmark`);
+      check(
+        !rectsOverlap(h, card),
+        `${label} ${step.id}: target highlight does not overlap coachmark (${JSON.stringify(h)} vs ${JSON.stringify(card)})`,
+      );
     }
     check(
       h.left >= -1 && h.top >= -1 && h.right <= viewport.width + 1 && h.bottom <= viewport.height + 1,
@@ -291,13 +299,24 @@ async function assertOverviewCoverage(page, label) {
 }
 
 async function traverse(page, label, reducedMotion) {
+  const role = await page.evaluate(() => {
+    if (document.querySelector('a[href$="/profile-review"]')) return 'CLIENT_REVIEWER';
+    if (document.querySelector('a[href$="/profile"]')) return 'SUPERADMIN';
+    return null;
+  });
+  const availableSteps = getTourStepsForRole(role);
   const before = await page.evaluate(() => ({
     pref: localStorage.getItem('lsn-tour-preference-v1'),
     conn: document.body.textContent?.includes('DISCONNECTED'),
   }));
-  for (let i = 0; i < TOUR_STEPS.length; i++) {
-    const step = TOUR_STEPS[i];
-    await waitForStep(page, step, label);
+  for (let i = 0; i < availableSteps.length; i++) {
+    const step = availableSteps[i];
+    try {
+      await waitForStep(page, step, label);
+    } catch (error) {
+      console.error(`[tour-browser] ${label} expected ${step.id}, actual state:`, await overlayState(page));
+      throw error;
+    }
     // Let target settle (scroll + focus timers) before geometry assertions:
     // wait until either the highlight or the fallback notice is rendered.
     await waitFor(async () => {
@@ -310,7 +329,7 @@ async function traverse(page, label, reducedMotion) {
     if (step.id === 'device-hardware-lock') {
       check(settled.highlight === null && !!settled.fallback, `${label}: hardware-lock step falls back safely in simulation mode`);
     }
-    if (i < TOUR_STEPS.length - 1) await page.click('[data-testid="button-tour-next"]');
+    if (i < availableSteps.length - 1) await page.click('[data-testid="button-tour-next"]');
   }
   // Finish on last step must close the overlay without persisting suppression.
   await page.click('[data-testid="button-tour-finish"]');

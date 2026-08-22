@@ -4,6 +4,7 @@ import { resolve } from 'node:path';
 import { useTourStore } from '../src/hooks/use-tour';
 import {
   getTourPageProgress,
+  getTourStepsForRole,
   OVERVIEW_NAV_PAGES,
   TOUR_OVERVIEW_COUNT,
   TOUR_PAGE_COUNT,
@@ -184,6 +185,7 @@ test('detailed definitions cover every primary route with stable unique targets'
     '/stress': 'stress.tsx',
     '/firmware': 'firmware.tsx',
     '/profile': 'profile.tsx',
+    '/profile-review': 'profile-review.tsx',
     '/modules': 'modules.tsx',
     '/logs': 'logs.tsx',
     '/help': 'help.tsx',
@@ -209,6 +211,28 @@ test('detailed definitions cover every primary route with stable unique targets'
       expect(step.description.length).toBeGreaterThan(60);
     }
   }
+});
+
+test('role-specific tours include only reachable profile governance pages', () => {
+  const firmwareRoutes = new Set(getTourStepsForRole('FIRMWARE_ADMIN').map(step => step.route));
+  const superadminRoutes = new Set(getTourStepsForRole('SUPERADMIN').map(step => step.route));
+  const reviewerRoutes = new Set(getTourStepsForRole('CLIENT_REVIEWER').map(step => step.route));
+
+  expect(firmwareRoutes.has('/profile')).toBe(true);
+  expect(firmwareRoutes.has('/profile-review')).toBe(false);
+  expect(superadminRoutes.has('/profile')).toBe(true);
+  expect(superadminRoutes.has('/profile-review')).toBe(false);
+  expect(reviewerRoutes.has('/profile')).toBe(false);
+  expect(reviewerRoutes.has('/profile-review')).toBe(true);
+});
+
+test('review workflow guidance preserves immutable, manual handoff, and safety boundaries', () => {
+  const source = readFileSync(resolve(process.cwd(), 'src/pages/help.tsx'), 'utf8');
+  expect(source).toContain('Firmware Admin must tell the client to open Review');
+  expect(source).toContain('immutable review snapshot');
+  expect(source).toContain('isolated sandbox');
+  expect(source).toContain('does not publish automatically');
+  expect(source).toContain('do not prove firmware implementation, hardware behavior, physical safety, or regulatory compliance');
 });
 
 // ─── Phase-aware progress reporting ───────────────────────────────────────

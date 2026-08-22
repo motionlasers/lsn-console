@@ -20,7 +20,8 @@ export default function Help() {
     { path: "/tests", icon: <ShieldCheck className="w-4 h-4"/>, desc: "Execute automated validation suites and log manual observations." },
     { path: "/stress", icon: <Activity className="w-4 h-4"/>, desc: "Saturate the logical interface with rapid state changes and simulated packet drops." },
     { path: "/firmware", icon: <Server className="w-4 h-4"/>, desc: "Upload simulated payloads and rehearse OTA recovery paths." },
-    { path: "/profile", icon: <FileJson className="w-4 h-4"/>, desc: "Browse CIP definitions and expected capability fields." },
+    { path: "/profile", icon: <FileJson className="w-4 h-4"/>, desc: "Firmware Admins validate and save the governed CIP draft, then submit an immutable version for client review." },
+    { path: "/profile-review", icon: <ShieldCheck className="w-4 h-4"/>, desc: "Client Reviewers inspect the immutable snapshot and diff, use an isolated sandbox, comment, and decide." },
     { path: "/modules", icon: <Settings className="w-4 h-4"/>, desc: "Confirm that no optional module capabilities are active in the Phase 1 profile." },
     { path: "/logs", icon: <Terminal className="w-4 h-4"/>, desc: "Inspect transactions and export logs, validation reports, and support bundles." },
   ];
@@ -204,6 +205,20 @@ export default function Help() {
               <strong className="text-primary block mb-1">Do not invent CIP mappings.</strong> 
               If a value is TBD, leave it as TBD. Future console updates will dynamically map these fields once firmware endpoint contracts are finalized.
             </div>
+            <div className="border border-border/70 bg-muted/20 p-3 space-y-2 text-xs leading-relaxed">
+              <strong className="text-foreground block">Governed review handoff</strong>
+              <ol className="list-decimal ml-5 space-y-1.5">
+                <li><strong>Working Draft:</strong> a Firmware Admin validates mappings and saves shared draft changes.</li>
+                <li><strong>Submitted Review:</strong> Submit Working Draft saves the current valid revision and creates an immutable review snapshot.</li>
+                <li><strong>Manual notification:</strong> the Firmware Admin must tell the client to open Review. No email, external, or prominent pending-review notification is sent automatically.</li>
+                <li><strong>Reviewer Decision:</strong> the Client Reviewer inspects identity and classified diffs, uses only the isolated sandbox for experiments, records comments, then accepts or requests changes.</li>
+                <li><strong>Later publication:</strong> acceptance permits a Firmware Admin to publish Development later; it does not publish automatically.</li>
+              </ol>
+              <p className="text-warning">
+                Review acceptance and sandbox simulation are documentation and logical evidence only.
+                They do not prove firmware implementation, hardware behavior, physical safety, or regulatory compliance.
+              </p>
+            </div>
           </CardContent>
         </Card>
 
@@ -227,11 +242,13 @@ export default function Help() {
         </Card>
       </div>
 
-      <Card data-tour="help-reference" className="border-border bg-card/50">
+      <Card className="border-border bg-card/50">
         <CardHeader className="border-b border-border/50 bg-black/20 pb-4">
-          <CardTitle className="text-sm font-mono tracking-widest text-primary flex items-center gap-2">
-            <BookOpen className="w-4 h-4" />
-            Page Responsibilities
+          <CardTitle className="text-sm font-mono tracking-widest text-primary">
+            <span data-tour="help-reference" className="flex w-fit items-center gap-2">
+              <BookOpen className="w-4 h-4" />
+              Page Responsibilities
+            </span>
           </CardTitle>
         </CardHeader>
         <CardContent className="pt-6">

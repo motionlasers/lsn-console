@@ -694,6 +694,19 @@ async function firmwareAdminChecks(browser, seed) {
     `${label}: editor hydrates from the pre-existing governed server Draft`,
   );
 
+  const profileGuide = page.getByTestId('button-page-tour');
+  check(await profileGuide.isVisible(), `${label}: Profile page guide is available`);
+  await profileGuide.click();
+  await waitFor(
+    () => page.getByTestId('dialog-firmware-tour').isVisible().catch(() => false),
+    `${label}: Profile page guide opens`,
+  );
+  check(
+    (await page.locator('#tour-title').textContent())?.includes('Confirm enabled capabilities'),
+    `${label}: Profile guide starts with Firmware Admin guidance`,
+  );
+  await page.getByTestId('button-close-tour').click();
+
   // Change the timing RPI (reconnect interval) input.
   const rpiInput = page.getByTestId('input-timing-rpi');
   check(await rpiInput.isEditable(), `${label}: timing RPI input is editable`);
@@ -800,6 +813,23 @@ async function clientReviewerChecks(browser, seed) {
   const rpi = page.getByTestId('input-sandbox-rpi');
   await waitFor(() => rpi.isVisible().catch(() => false), `${label}: sandbox RPI input visible`);
   check(await rpi.isEditable(), `${label}: isolated sandbox RPI input is editable`);
+
+  const reviewGuide = page.getByTestId('button-page-tour');
+  check(await reviewGuide.isVisible(), `${label}: Review page guide is available`);
+  await reviewGuide.click();
+  await waitFor(
+    () => page.getByTestId('dialog-firmware-tour').isVisible().catch(() => false),
+    `${label}: Review page guide opens`,
+  );
+  check(
+    (await page.locator('#tour-title').textContent())?.includes('Verify the submitted snapshot'),
+    `${label}: Review guide starts with immutable-snapshot guidance`,
+  );
+  check(
+    page.url().includes('/profile-review'),
+    `${label}: Review page guide never routes the reviewer to hidden Profile`,
+  );
+  await page.getByTestId('button-close-tour').click();
 
   // Edit isolated RPI/timeout/tolerance and the expected-response override.
   await rpi.fill('500');

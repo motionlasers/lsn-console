@@ -15,6 +15,8 @@ import { LiveTelemetryBadge } from "@/components/TelemetryState";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useRoles } from "@/hooks/use-roles";
+import { useAuth } from "@/contexts/AuthContext";
+import { isTourStepAvailableForRole } from "@/lib/tour-data";
 
 /**
  * Overview group definitions for the tour opening phase.
@@ -37,6 +39,7 @@ export function Sidebar() {
   const { mode, connectionState, settings, updateSettings } = useStore();
   const { isTourActive, currentStep } = useTourStore();
   const { isFirmwareAdmin, isClientReviewer } = useRoles();
+  const { user } = useAuth();
   
   const NAV_ITEMS = [
     { path: "/", label: "Dashboard", icon: LayoutDashboard },
@@ -57,8 +60,12 @@ export function Sidebar() {
     { path: "/downloads", label: "Downloads", icon: Download },
     { path: "/settings", label: "Settings", icon: Settings },
   ];
-  const tourRoute = isTourActive ? TOUR_STEPS[currentStep]?.route : undefined;
-  const tourTarget = isTourActive ? TOUR_STEPS[currentStep]?.target : undefined;
+  const currentTourStep = TOUR_STEPS[currentStep];
+  const visibleTourStep = currentTourStep && isTourStepAvailableForRole(currentTourStep, user?.role)
+    ? currentTourStep
+    : undefined;
+  const tourRoute = isTourActive ? visibleTourStep?.route : undefined;
+  const tourTarget = isTourActive ? visibleTourStep?.target : undefined;
   const selectedBrandLogo = settings.brandLogo ?? 'sia';
   const isBlsBrand = selectedBrandLogo === 'bls';
   const isCollapsed = settings.navCollapsed ?? false;

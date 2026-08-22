@@ -299,7 +299,7 @@ export default function ProfileReview() {
             <Card className="border-border bg-card/50 backdrop-blur">
               <CardHeader className="border-b border-border/50 bg-black/20 pb-4">
                 <CardTitle className="text-sm font-mono tracking-widest text-primary flex items-center justify-between">
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2" data-tour="review-snapshot">
                     <GitBranch className="w-4 h-4" />
                     Reviewing #{activeReview.id} (Version {activeReview.versionId})
                   </div>
@@ -321,7 +321,7 @@ export default function ProfileReview() {
                       {diff ? `${diff.counts?.field ?? 0} field · ${diff.counts?.mapping ?? 0} mapping · ${diff.counts?.timing ?? 0} timing · ${diff.counts?.behavior ?? 0} behavior` : "Baseline unavailable"}
                     </div>
                   </div>
-                  <div className="border border-border p-3" data-testid="status-client-sandbox">
+                  <div className="border border-border p-3" data-testid="status-client-sandbox" data-tour="review-sandbox">
                     Private sandbox
                     <div className="mt-1 text-primary">{sandbox ? "ISOLATED OVERRIDES ACTIVE" : "CLEAN"}{inputsDirty ? " · UNSAVED EDITS" : ""}</div>
                   </div>
@@ -468,7 +468,7 @@ export default function ProfileReview() {
                 
                 <div className="grid grid-cols-2 gap-6">
                   <div className="flex flex-col gap-4">
-                    <div className="text-[10px] uppercase tracking-widest text-muted-foreground border-b border-border/50 pb-2 flex items-center gap-2">
+                    <div className="text-[10px] uppercase tracking-widest text-muted-foreground border-b border-border/50 pb-2 flex items-center gap-2" data-tour="review-comments">
                       <MessageSquare className="w-3 h-3" /> Comments
                     </div>
                     <div className="flex flex-col gap-3 max-h-64 overflow-y-auto pr-2 custom-scrollbar">
@@ -505,7 +505,7 @@ export default function ProfileReview() {
                   </div>
 
                   <div className="flex flex-col gap-4">
-                    <div className="text-[10px] uppercase tracking-widest text-muted-foreground border-b border-border/50 pb-2 flex items-center gap-2">
+                    <div className="text-[10px] uppercase tracking-widest text-muted-foreground border-b border-border/50 pb-2 flex items-center gap-2" data-tour="review-decision">
                       <CheckSquare className="w-3 h-3" /> Decision
                     </div>
                     {myDecision ? (

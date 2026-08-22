@@ -4,7 +4,14 @@ import { ChevronLeft, ChevronRight, Info, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { useTourStore } from "@/hooks/use-tour";
-import { getDetailStepsForRoute, getTourPageProgress, TOUR_STEPS } from "@/lib/tour-data";
+import { useAuth } from "@/contexts/AuthContext";
+import {
+  getDetailStepsForRoute,
+  getTourPageProgress,
+  getTourStepsForRole,
+  isTourStepAvailableForRole,
+  TOUR_STEPS,
+} from "@/lib/tour-data";
 import {
   computeTourPosition,
   getTourScrollBehavior,
@@ -96,7 +103,8 @@ function buildAnnouncement(
 }
 
 export function TourOverlay() {
-  const { isTourActive, currentStep, pageTourStart, endTour, nextStep, prevStep } = useTourStore();
+  const { user } = useAuth();
+  const { isTourActive, currentStep, pageTourStart, endTour, setStep } = useTourStore();
   const [location, setLocation] = useLocation();
   const [dontShowAgain, setDontShowAgain] = useState(false);
   const [targetRect, setTargetRect] = useState<TourRect | null>(null);
@@ -106,18 +114,25 @@ export function TourOverlay() {
   const cardRef = useRef<HTMLDivElement>(null);
   const previousFocusRef = useRef<HTMLElement | null>(null);
   const targetRef = useRef<HTMLElement | null>(null);
-  const stepData = TOUR_STEPS[currentStep];
+  const roleSteps = getTourStepsForRole(user?.role);
+  const roleStepIndexes = roleSteps.map((step) => TOUR_STEPS.indexOf(step));
+  const rawStepData = TOUR_STEPS[currentStep];
+  const stepData = rawStepData && isTourStepAvailableForRole(rawStepData, user?.role)
+    ? rawStepData
+    : undefined;
+  const rolePosition = stepData ? roleSteps.findIndex((step) => step.id === stepData.id) : -1;
   const isPageTour = pageTourStart !== null;
   const pageTourFirstStep = pageTourStart === null ? undefined : TOUR_STEPS[pageTourStart];
   const pageTourSteps = pageTourFirstStep
-    ? getDetailStepsForRoute(pageTourFirstStep.route)
+    ? getDetailStepsForRoute(pageTourFirstStep.route, user?.role)
     : [];
   const pageTourPosition = pageTourSteps.findIndex((step) => step.id === stepData?.id);
   const pageTourStepNumber = Math.max(0, pageTourPosition) + 1;
   const isLastStep = isPageTour
     ? pageTourPosition === pageTourSteps.length - 1
-    : currentStep === TOUR_STEPS.length - 1;
+    : rolePosition === roleSteps.length - 1;
   const pageProgress = getTourPageProgress(currentStep);
+  const overallStepNumber = Math.max(0, rolePosition) + 1;
   const finishTour = () => {
     if (isPageTour) {
       endTour(false);
@@ -127,16 +142,29 @@ export function TourOverlay() {
     endTour(dontShowAgain);
   };
   const goBack = () => {
-    if (isPageTour && pageTourStart !== null && currentStep <= pageTourStart) return;
-    prevStep();
+    if (isPageTour && pageTourPosition <= 0) return;
+    const previous = isPageTour
+      ? TOUR_STEPS.indexOf(pageTourSteps[pageTourPosition - 1])
+      : roleStepIndexes[rolePosition - 1];
+    if (previous !== undefined && previous >= 0) setStep(previous);
   };
   const goForward = () => {
     if (isLastStep) {
       finishTour();
       return;
     }
-    nextStep();
+    const next = isPageTour
+      ? TOUR_STEPS.indexOf(pageTourSteps[pageTourPosition + 1])
+      : roleStepIndexes[rolePosition + 1];
+    if (next !== undefined && next >= 0) setStep(next);
   };
+
+  useEffect(() => {
+    if (!isTourActive || stepData || roleStepIndexes.length === 0) return;
+    const nextAvailable = roleStepIndexes.find((index) => index >= currentStep)
+      ?? roleStepIndexes[roleStepIndexes.length - 1];
+    setStep(nextAvailable);
+  }, [currentStep, isTourActive, roleStepIndexes, setStep, stepData]);
 
   useEffect(() => {
     const media = window.matchMedia("(prefers-reduced-motion: reduce)");
@@ -377,7 +405,7 @@ export function TourOverlay() {
           isNarrowSidebarTarget
             ? "w-[calc(100vw-6rem)]"
             : "w-[min(440px,calc(100vw-1.5rem))]",
-          !reducedMotion && "transition-[left,top] duration-200",
+          !reducedMotion && stepData.target !== "help-reference" && "transition-[left,top] duration-200",
         )}
         style={{ left: position.x, top: position.y }}
       >
@@ -439,7 +467,7 @@ export function TourOverlay() {
           <div className="mt-4 text-[10px] text-muted-foreground/70">
             {isPageTour
               ? `PAGE GUIDE STEP ${pageTourStepNumber} OF ${pageTourSteps.length}`
-              : `OVERALL STEP ${currentStep + 1} OF ${TOUR_STEPS.length}`}
+              : `OVERALL STEP ${overallStepNumber} OF ${roleSteps.length}`}
           </div>
         </CardContent>
         <CardFooter className="flex flex-col gap-2 border-t border-border bg-black/20 pt-4 pb-4 shrink-0">
@@ -465,7 +493,7 @@ export function TourOverlay() {
                 variant="outline"
                 size="sm"
                 onClick={goBack}
-                disabled={isPageTour ? currentStep <= (pageTourStart ?? 0) : currentStep === 0}
+                disabled={isPageTour ? pageTourPosition <= 0 : rolePosition <= 0}
                 className="font-mono text-xs"
                 data-testid="button-tour-back"
               >
@@ -491,16 +519,16 @@ export function TourOverlay() {
           <div
             className="w-full h-1 bg-border/30 rounded-full overflow-hidden"
             role="progressbar"
-            aria-label={`Guided tour progress, step ${isPageTour ? pageTourStepNumber : currentStep + 1} of ${isPageTour ? pageTourSteps.length : TOUR_STEPS.length}`}
+            aria-label={`Guided tour progress, step ${isPageTour ? pageTourStepNumber : overallStepNumber} of ${isPageTour ? pageTourSteps.length : roleSteps.length}`}
             aria-valuemin={1}
-            aria-valuemax={isPageTour ? pageTourSteps.length : TOUR_STEPS.length}
-            aria-valuenow={isPageTour ? pageTourStepNumber : currentStep + 1}
+            aria-valuemax={isPageTour ? pageTourSteps.length : roleSteps.length}
+            aria-valuenow={isPageTour ? pageTourStepNumber : overallStepNumber}
           >
             <div
               className={cn("h-full bg-tour-accent", !reducedMotion && "transition-[width] duration-200")}
               style={{
                 width: `${(
-                  (isPageTour ? pageTourStepNumber / pageTourSteps.length : (currentStep + 1) / TOUR_STEPS.length)
+                  (isPageTour ? pageTourStepNumber / pageTourSteps.length : overallStepNumber / roleSteps.length)
                   * 100
                 )}%`,
               }}

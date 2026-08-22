@@ -2,6 +2,7 @@ import { CONSOLE_VERSION } from "./release.ts";
 
 export type TourPlacement = "top" | "right" | "bottom" | "left";
 export type TourPhase = "intro" | "overview" | "detail";
+export type TourRole = "SUPERADMIN" | "FIRMWARE_ADMIN" | "CLIENT_REVIEWER";
 
 export interface TourStep {
   id: string;
@@ -14,6 +15,7 @@ export interface TourStep {
   preferredPlacement?: TourPlacement;
   unavailableDescription?: string;
   steps?: string[]; // optional numbered sub-steps rendered as an inline list
+  roles?: readonly TourRole[];
 }
 
 /** All navigation destinations that must each appear in at least one overview step. */
@@ -29,6 +31,7 @@ export const OVERVIEW_NAV_PAGES = [
   "Stress",
   "Firmware",
   "Profile",
+  "Review",
   "Modules",
   "Logs",
   "Help",
@@ -103,7 +106,7 @@ export const TOUR_STEPS: TourStep[] = [
     page: "Overview",
     target: "overview-nav-management",
     title: "Firmware and profile pages",
-    description: "Firmware stages metadata and rehearses update and recovery scenarios. Profile confirms enabled capabilities, audits the active interface, and exports the firmware handoff. Modules reviews hardware and logical building blocks.",
+    description: "Firmware stages metadata and rehearses update and recovery scenarios. Profile lets Firmware Admins govern CIP mappings and submit them for review. Review lets Client Reviewers inspect the immutable handoff. Modules reviews hardware and logical building blocks.",
     phase: "overview",
     preferredPlacement: "right",
   },
@@ -380,6 +383,7 @@ export const TOUR_STEPS: TourStep[] = [
     title: "Confirm enabled capabilities",
     description: "Capabilities determine which interface fields, tests, controls, and modules participate in normal workflows. Future hardware remains disabled unless explicitly simulated.",
     preferredPlacement: "bottom",
+    roles: ["SUPERADMIN", "FIRMWARE_ADMIN"],
   },
   {
     id: "profile-interface",
@@ -389,6 +393,23 @@ export const TOUR_STEPS: TourStep[] = [
     title: "Audit the active interface",
     description: "Review symbolic fields, data types, access, mapping state, firmware status, and simulation evidence. Unresolved enum, layout, identity, byte, bit, and GPIO values remain TBD.",
     preferredPlacement: "top",
+    roles: ["SUPERADMIN", "FIRMWARE_ADMIN"],
+  },
+  {
+    id: "profile-governance-actions",
+    route: "/profile",
+    page: "Profile",
+    target: "profile-governance-actions",
+    title: "Save or submit the governed draft",
+    description: "Save Draft preserves valid CIP and profile edits without involving the client. Submit Working Draft first saves the latest valid revision, then creates an immutable snapshot and opens a Client Review.",
+    preferredPlacement: "bottom",
+    roles: ["SUPERADMIN", "FIRMWARE_ADMIN"],
+    steps: [
+      "Validate — Resolve profile validation errors before either action becomes available.",
+      "Save Draft — Preserve shared Firmware Admin work without creating a client review.",
+      "Submit Working Draft — Confirm the latest revision to create an immutable review snapshot.",
+      "Notify the client — External notifications are not automatic; tell the Client Reviewer to open Review.",
+    ],
   },
   {
     id: "profile-export",
@@ -398,6 +419,47 @@ export const TOUR_STEPS: TourStep[] = [
     title: "Export the firmware handoff",
     description: "Generate the versioned firmware integration ZIP. It includes active C interfaces plus the complete profile JSON without inventing unresolved mappings.",
     preferredPlacement: "left",
+    roles: ["SUPERADMIN", "FIRMWARE_ADMIN"],
+  },
+  {
+    id: "review-snapshot",
+    route: "/profile-review",
+    page: "Review",
+    target: "review-snapshot",
+    title: "Verify the submitted snapshot",
+    description: "Confirm the review number, immutable digest, version identity, and classified change counts before testing or deciding. The submitted snapshot cannot be changed by reviewer experiments.",
+    preferredPlacement: "bottom",
+    roles: ["CLIENT_REVIEWER"],
+  },
+  {
+    id: "review-sandbox",
+    route: "/profile-review",
+    page: "Review",
+    target: "review-sandbox",
+    title: "Experiment only in the private sandbox",
+    description: "Sandbox overrides are isolated from the governed draft and immutable review snapshot. Save optional inputs and run deterministic simulation evidence without claiming firmware or hardware validation.",
+    preferredPlacement: "left",
+    roles: ["CLIENT_REVIEWER"],
+  },
+  {
+    id: "review-comments",
+    route: "/profile-review",
+    page: "Review",
+    target: "review-comments",
+    title: "Record review feedback",
+    description: "Use comments to document questions and observations against this review. Comments do not modify the submitted CIP mappings or the Firmware Admin working draft.",
+    preferredPlacement: "right",
+    roles: ["CLIENT_REVIEWER"],
+  },
+  {
+    id: "review-decision",
+    route: "/profile-review",
+    page: "Review",
+    target: "review-decision",
+    title: "Accept or request changes",
+    description: "Approve only the immutable version you inspected, or provide a rationale and request changes. Acceptance permits the Firmware Admin to publish Development later; it is not physical validation.",
+    preferredPlacement: "left",
+    roles: ["CLIENT_REVIEWER"],
   },
   {
     id: "modules-overview",
@@ -546,15 +608,29 @@ export const TOUR_STEPS: TourStep[] = [
 ];
 
 /** Return the detailed walkthrough steps available on a specific route. */
-export function getDetailStepsForRoute(route: string): TourStep[] {
+export function isTourStepAvailableForRole(
+  step: TourStep,
+  role?: string | null,
+): boolean {
+  return !step.roles || (role !== undefined && role !== null && step.roles.includes(role as TourRole));
+}
+
+export function getTourStepsForRole(role?: string | null): TourStep[] {
+  return TOUR_STEPS.filter((step) => isTourStepAvailableForRole(step, role));
+}
+
+export function getDetailStepsForRoute(route: string, role?: string | null): TourStep[] {
   return TOUR_STEPS.filter(
-    (step) => (step.phase ?? "detail") === "detail" && step.route === route,
+    (step) =>
+      (step.phase ?? "detail") === "detail" &&
+      step.route === route &&
+      isTourStepAvailableForRole(step, role),
   );
 }
 
 /** Whether a route has at least one step suitable for a page-scoped guide. */
-export function hasPageTour(route: string): boolean {
-  return getDetailStepsForRoute(route).length > 0;
+export function hasPageTour(route: string, role?: string | null): boolean {
+  return getDetailStepsForRoute(route, role).length > 0;
 }
 
 /**
