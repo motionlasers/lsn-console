@@ -125,6 +125,7 @@ async function waitForProfileState(window, predicate, label) {
 }
 
 async function main() {
+  phase('starting installed profile update proof');
   if (process.platform !== 'win32') {
     throw new Error('Installed profile update smoke test must run on Windows');
   }
@@ -174,9 +175,22 @@ async function main() {
     return json(response, 404, { error: 'Not found' });
   });
 
-  await new Promise((resolve) => server.listen(0, 'localhost', resolve));
+  phase('starting mock publication server');
+  await Promise.race([
+    new Promise((resolve, reject) => {
+      const onError = (error) => reject(error);
+      server.once('error', onError);
+      server.listen(0, '127.0.0.1', () => {
+        server.off('error', onError);
+        resolve();
+      });
+    }),
+    sleep(15_000, undefined, { ref: false }).then(() => {
+      throw new Error('Timed out starting the mock publication server on 127.0.0.1');
+    }),
+  ]);
   const address = server.address();
-  const apiOrigin = `https://localhost:${address.port}`;
+  const apiOrigin = `https://127.0.0.1:${address.port}`;
   const userDataDir = path.join(evidenceDir, 'profile-smoke-user-data');
   phase('mock publication server listening');
   const electronApp = await electron.launch({
@@ -276,7 +290,7 @@ async function main() {
 
     const evidence = {
       proof: 'profile-only-publication-on-unchanged-installed-windows-executable',
-      apiOrigin: 'https://localhost:<ephemeral>',
+      apiOrigin: 'https://127.0.0.1:<ephemeral>',
       executableBefore,
       executableAfter,
       sameExecutableHash: executableBefore.sha256 === executableAfter.sha256,
