@@ -1,0 +1,2 @@
+d94931f8784bd06fe9b19572bc2a6aab67cab2f0c7f8bc62f2f212e7691080d1 *LSN-Engineering-Console-Portable-0.3.0.zip
+cffb64f3b6f18524a77090a3f3ecce8a823272902bbbc1223d0b6224cb25b8eb *LSN-Engineering-Console-Setup-0.3.0-dev.exe

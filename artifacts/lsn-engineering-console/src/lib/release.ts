@@ -64,8 +64,13 @@ export const CONSOLE_RELEASE_LABEL = VERSION_TRACKS.console.label;
 export const WINDOWS_ARTIFACTS = {
   installer: `LSN-Engineering-Console-Setup-${CONSOLE_VERSION}-dev.exe`,
   portable: `LSN-Engineering-Console-Portable-${CONSOLE_VERSION}.zip`,
+  checksumManifest: 'SHA256SUMS.txt',
   releaseTag: `lsn-console-v${CONSOLE_VERSION}`,
   signed: false,
+  verified: true,
+  verifiedAt: '2026-08-21',
+  installerSha256: 'cffb64f3b6f18524a77090a3f3ecce8a823272902bbbc1223d0b6224cb25b8eb',
+  portableSha256: 'd94931f8784bd06fe9b19572bc2a6aab67cab2f0c7f8bc62f2f212e7691080d1',
 } as const;
 
 const DEFAULT_RELEASE_ASSET_ROOT_URL =
@@ -93,7 +98,8 @@ export const RELEASE_ASSET_ROOT_URL = normalizeReleaseAssetRoot(
 export const RELEASE_ASSET_BASE_URL =
   `${RELEASE_ASSET_ROOT_URL}/${WINDOWS_ARTIFACTS.releaseTag}`;
 
-export function releaseAssetUrl(filename: string): string {
+export function releaseAssetUrl(filename: string): string | null {
+  if (!WINDOWS_ARTIFACTS.verified) return null;
   return `${RELEASE_ASSET_BASE_URL}/${filename}`;
 }
 

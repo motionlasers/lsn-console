@@ -1,0 +1,32 @@
+{
+  "runLabel": "clean-reinstall",
+  "executablePath": "C:\\Users\\runneradmin\\AppData\\Local\\LSN_Engineering_Console\\app-0.3.0\\LSN-Engineering-Console.exe",
+  "title": "LSN Engineering Console",
+  "runtime": {
+    "platform": "win32",
+    "packaged": true,
+    "appVersion": "0.3.0"
+  },
+  "hardware": {
+    "discoveryTransport": true,
+    "sessionTransport": true,
+    "profileControl": false,
+    "profileRead": false,
+    "maintenanceTransport": "MAINTENANCE ENDPOINT NOT YET IMPLEMENTED"
+  },
+  "expectedPhysicalTransport": true,
+  "expectedUpdater": true,
+  "updates": {
+    "status": "idle",
+    "currentVersion": "0.3.0"
+  },
+  "checks": [
+    "installed executable launched",
+    "packaged preload bridge available",
+    "login username/password/sign-in controls visible",
+    "physical discovery/session limited to packaged Windows",
+    "unresolved profile control/read fail closed",
+    "maintenance transport remains unavailable",
+    "Windows updater initialized"
+  ]
+}

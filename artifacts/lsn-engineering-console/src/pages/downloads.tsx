@@ -371,6 +371,9 @@ export default function Downloads() {
                   <div className="text-[10px] text-muted-foreground font-mono">
                     {WINDOWS_ARTIFACTS.installer}
                   </div>
+                  <div className="text-[9px] text-success font-mono" data-testid="text-verified-windows-release">
+                    VERIFIED {WINDOWS_ARTIFACTS.verifiedAt} · SHA-256 {WINDOWS_ARTIFACTS.installerSha256}
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-y-4 gap-x-4 text-[10px] font-mono mb-6">
@@ -394,6 +397,13 @@ export default function Downloads() {
                         <Download className="w-3 h-3 mr-2" /> PORTABLE ZIP (OPTIONAL)
                       </a>
                     </Button>
+                    <a
+                      href={releaseAssetUrl(WINDOWS_ARTIFACTS.checksumManifest)!}
+                      className="text-center text-[10px] font-mono text-muted-foreground underline underline-offset-4 hover:text-foreground"
+                      download
+                    >
+                      SHA256SUMS.txt
+                    </a>
                   </div>
                 ) : (
                   <div className="border border-border/50 bg-black/40 p-3 text-[10px] font-mono text-muted-foreground leading-relaxed rounded-sm" data-testid="text-release-assets-location">

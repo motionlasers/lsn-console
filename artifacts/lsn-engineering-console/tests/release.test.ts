@@ -52,8 +52,16 @@ describe('Release identity', () => {
   it('names the Windows artifacts for the current version', () => {
     expect(WINDOWS_ARTIFACTS.installer).toBe('LSN-Engineering-Console-Setup-0.3.0-dev.exe');
     expect(WINDOWS_ARTIFACTS.portable).toBe('LSN-Engineering-Console-Portable-0.3.0.zip');
+    expect(WINDOWS_ARTIFACTS.checksumManifest).toBe('SHA256SUMS.txt');
     expect(WINDOWS_ARTIFACTS.releaseTag).toBe('lsn-console-v0.3.0');
     expect(WINDOWS_ARTIFACTS.signed).toBe(false);
+    expect(WINDOWS_ARTIFACTS.verified).toBe(true);
+    expect(WINDOWS_ARTIFACTS.installerSha256).toBe(
+      'cffb64f3b6f18524a77090a3f3ecce8a823272902bbbc1223d0b6224cb25b8eb',
+    );
+    expect(WINDOWS_ARTIFACTS.portableSha256).toBe(
+      'd94931f8784bd06fe9b19572bc2a6aab67cab2f0c7f8bc62f2f212e7691080d1',
+    );
   });
 
   it('pins download URLs to the matching immutable release tag', () => {
@@ -68,6 +76,9 @@ describe('Release identity', () => {
     );
     expect(releaseAssetUrl(WINDOWS_ARTIFACTS.portable)).toBe(
       'https://github.com/motionlasers/lsn-console/releases/download/lsn-console-v0.3.0/LSN-Engineering-Console-Portable-0.3.0.zip',
+    );
+    expect(releaseAssetUrl(WINDOWS_ARTIFACTS.checksumManifest)).toBe(
+      'https://github.com/motionlasers/lsn-console/releases/download/lsn-console-v0.3.0/SHA256SUMS.txt',
     );
   });
 
@@ -279,5 +290,21 @@ describe('Release drift guard', () => {
     );
     expect(workflow).toContain('More info, then Run anyway');
     expect(workflow).toContain('body_path: windows-release-notes.md');
+  });
+
+  it('preserves v0.2.1 evidence separately from the v0.3.0 release proof', () => {
+    const historical = read('docs/WINDOWS_RELEASE_EVIDENCE.md');
+    const current = read('docs/WINDOWS_RELEASE_EVIDENCE_V0.3.0.md');
+    expect(historical).toContain('Published v0.2.1 Development Preview');
+    expect(historical).toContain(
+      '8f683e27a138bfe3f0a9199a45cf424304e7ed96e477ff388bdb08eacf0f68fd',
+    );
+    expect(current).toContain('READY');
+    expect(current).toContain(
+      'cffb64f3b6f18524a77090a3f3ecce8a823272902bbbc1223d0b6224cb25b8eb',
+    );
+    expect(current).toContain(
+      'a574327148de46d648787baefbc3fa150dedbdcce37f09878f326915c53b236c',
+    );
   });
 });

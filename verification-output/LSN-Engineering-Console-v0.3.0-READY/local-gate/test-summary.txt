@@ -1,0 +1,10 @@
+/tmp/lsn-v030-final-local/tests.txt: Test Files  17 passed (17)
+/tmp/lsn-v030-final-local/tests.txt:      Tests  352 passed (352)
+/tmp/lsn-v030-final-local/api-tests.txt: Test Files  5 passed (5)
+/tmp/lsn-v030-final-local/api-tests.txt:      Tests  85 passed (85)
+1180 checks, 0 failures
+Guided tour browser regression check PASSED
+25 checks, 0 failures
+Downloads warning browser regression check PASSED
+44 checks, 0 failures
+Role workflows browser regression check PASSED

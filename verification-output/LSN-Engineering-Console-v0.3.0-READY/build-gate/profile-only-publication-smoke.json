@@ -1,0 +1,727 @@
+{
+  "proof": "profile-only-publication-on-unchanged-installed-windows-executable",
+  "apiOrigin": "https://localhost:<ephemeral>",
+  "executableBefore": {
+    "appVersion": "0.3.0",
+    "sha256": "a574327148de46d648787baefbc3fa150dedbdcce37f09878f326915c53b236c",
+    "size": 225533952,
+    "modifiedAt": "2026-08-22T02:59:01.807Z"
+  },
+  "executableAfter": {
+    "appVersion": "0.3.0",
+    "sha256": "a574327148de46d648787baefbc3fa150dedbdcce37f09878f326915c53b236c",
+    "size": 225533952,
+    "modifiedAt": "2026-08-22T02:59:01.807Z"
+  },
+  "sameExecutableHash": true,
+  "sameExecutableVersion": true,
+  "sameProcess": true,
+  "noRebuildOrReinstallTriggered": true,
+  "publishedProfile": {
+    "profileVersion": "0.2.0",
+    "digest": "2a321cff15f2aeb42949a713835f877c9a218131967a759aed15bc7a8493b474",
+    "artificialMapping": {
+      "symbolicName": "Ready",
+      "cipService": "GetAttributeSingle",
+      "class": 150,
+      "instance": 7,
+      "attribute": 42,
+      "assembly": null
+    },
+    "mappingDiff": [
+      {
+        "symbolicName": "DeviceSerial",
+        "changeType": "removed",
+        "changes": [
+          {
+            "property": "cipService",
+            "from": "TBD",
+            "to": "REMOVED"
+          },
+          {
+            "property": "class",
+            "from": "UNRESOLVED",
+            "to": "REMOVED"
+          },
+          {
+            "property": "instance",
+            "from": "UNRESOLVED",
+            "to": "REMOVED"
+          },
+          {
+            "property": "attribute",
+            "from": "UNRESOLVED",
+            "to": "REMOVED"
+          },
+          {
+            "property": "assembly",
+            "from": "UNRESOLVED",
+            "to": "REMOVED"
+          },
+          {
+            "property": "wireType",
+            "from": "UNRESOLVED",
+            "to": "REMOVED"
+          }
+        ]
+      },
+      {
+        "symbolicName": "EmissionControlOutputActive",
+        "changeType": "changed",
+        "changes": [
+          {
+            "property": "cipService",
+            "from": "TBD",
+            "to": "GetAttributeSingle"
+          },
+          {
+            "property": "class",
+            "from": "UNRESOLVED",
+            "to": "150"
+          },
+          {
+            "property": "instance",
+            "from": "UNRESOLVED",
+            "to": "7"
+          },
+          {
+            "property": "attribute",
+            "from": "UNRESOLVED",
+            "to": "44"
+          },
+          {
+            "property": "wireType",
+            "from": "UNRESOLVED",
+            "to": "bool8"
+          }
+        ]
+      },
+      {
+        "symbolicName": "EmissionEnableRequest",
+        "changeType": "changed",
+        "changes": [
+          {
+            "property": "cipService",
+            "from": "TBD",
+            "to": "SetAttributeSingle"
+          },
+          {
+            "property": "class",
+            "from": "UNRESOLVED",
+            "to": "150"
+          },
+          {
+            "property": "instance",
+            "from": "UNRESOLVED",
+            "to": "7"
+          },
+          {
+            "property": "attribute",
+            "from": "UNRESOLVED",
+            "to": "47"
+          },
+          {
+            "property": "wireType",
+            "from": "UNRESOLVED",
+            "to": "bool8"
+          }
+        ]
+      },
+      {
+        "symbolicName": "EnableCount",
+        "changeType": "removed",
+        "changes": [
+          {
+            "property": "cipService",
+            "from": "TBD",
+            "to": "REMOVED"
+          },
+          {
+            "property": "class",
+            "from": "UNRESOLVED",
+            "to": "REMOVED"
+          },
+          {
+            "property": "instance",
+            "from": "UNRESOLVED",
+            "to": "REMOVED"
+          },
+          {
+            "property": "attribute",
+            "from": "UNRESOLVED",
+            "to": "REMOVED"
+          },
+          {
+            "property": "assembly",
+            "from": "UNRESOLVED",
+            "to": "REMOVED"
+          },
+          {
+            "property": "wireType",
+            "from": "UNRESOLVED",
+            "to": "REMOVED"
+          }
+        ]
+      },
+      {
+        "symbolicName": "FaultCode",
+        "changeType": "removed",
+        "changes": [
+          {
+            "property": "cipService",
+            "from": "TBD",
+            "to": "REMOVED"
+          },
+          {
+            "property": "class",
+            "from": "UNRESOLVED",
+            "to": "REMOVED"
+          },
+          {
+            "property": "instance",
+            "from": "UNRESOLVED",
+            "to": "REMOVED"
+          },
+          {
+            "property": "attribute",
+            "from": "UNRESOLVED",
+            "to": "REMOVED"
+          },
+          {
+            "property": "assembly",
+            "from": "UNRESOLVED",
+            "to": "REMOVED"
+          },
+          {
+            "property": "wireType",
+            "from": "UNRESOLVED",
+            "to": "REMOVED"
+          }
+        ]
+      },
+      {
+        "symbolicName": "FaultResetRequest",
+        "changeType": "removed",
+        "changes": [
+          {
+            "property": "cipService",
+            "from": "TBD",
+            "to": "REMOVED"
+          },
+          {
+            "property": "class",
+            "from": "UNRESOLVED",
+            "to": "REMOVED"
+          },
+          {
+            "property": "instance",
+            "from": "UNRESOLVED",
+            "to": "REMOVED"
+          },
+          {
+            "property": "attribute",
+            "from": "UNRESOLVED",
+            "to": "REMOVED"
+          },
+          {
+            "property": "assembly",
+            "from": "UNRESOLVED",
+            "to": "REMOVED"
+          },
+          {
+            "property": "wireType",
+            "from": "UNRESOLVED",
+            "to": "REMOVED"
+          }
+        ]
+      },
+      {
+        "symbolicName": "Faulted",
+        "changeType": "changed",
+        "changes": [
+          {
+            "property": "cipService",
+            "from": "TBD",
+            "to": "GetAttributeSingle"
+          },
+          {
+            "property": "class",
+            "from": "UNRESOLVED",
+            "to": "150"
+          },
+          {
+            "property": "instance",
+            "from": "UNRESOLVED",
+            "to": "7"
+          },
+          {
+            "property": "attribute",
+            "from": "UNRESOLVED",
+            "to": "43"
+          },
+          {
+            "property": "wireType",
+            "from": "UNRESOLVED",
+            "to": "bool8"
+          }
+        ]
+      },
+      {
+        "symbolicName": "FirmwareVersion",
+        "changeType": "removed",
+        "changes": [
+          {
+            "property": "cipService",
+            "from": "TBD",
+            "to": "REMOVED"
+          },
+          {
+            "property": "class",
+            "from": "UNRESOLVED",
+            "to": "REMOVED"
+          },
+          {
+            "property": "instance",
+            "from": "UNRESOLVED",
+            "to": "REMOVED"
+          },
+          {
+            "property": "attribute",
+            "from": "UNRESOLVED",
+            "to": "REMOVED"
+          },
+          {
+            "property": "assembly",
+            "from": "UNRESOLVED",
+            "to": "REMOVED"
+          },
+          {
+            "property": "wireType",
+            "from": "UNRESOLVED",
+            "to": "REMOVED"
+          }
+        ]
+      },
+      {
+        "symbolicName": "HardwareRevision",
+        "changeType": "removed",
+        "changes": [
+          {
+            "property": "cipService",
+            "from": "TBD",
+            "to": "REMOVED"
+          },
+          {
+            "property": "class",
+            "from": "UNRESOLVED",
+            "to": "REMOVED"
+          },
+          {
+            "property": "instance",
+            "from": "UNRESOLVED",
+            "to": "REMOVED"
+          },
+          {
+            "property": "attribute",
+            "from": "UNRESOLVED",
+            "to": "REMOVED"
+          },
+          {
+            "property": "assembly",
+            "from": "UNRESOLVED",
+            "to": "REMOVED"
+          },
+          {
+            "property": "wireType",
+            "from": "UNRESOLVED",
+            "to": "REMOVED"
+          }
+        ]
+      },
+      {
+        "symbolicName": "InterlockOK",
+        "changeType": "changed",
+        "changes": [
+          {
+            "property": "cipService",
+            "from": "TBD",
+            "to": "GetAttributeSingle"
+          },
+          {
+            "property": "class",
+            "from": "UNRESOLVED",
+            "to": "150"
+          },
+          {
+            "property": "instance",
+            "from": "UNRESOLVED",
+            "to": "7"
+          },
+          {
+            "property": "attribute",
+            "from": "UNRESOLVED",
+            "to": "45"
+          },
+          {
+            "property": "wireType",
+            "from": "UNRESOLVED",
+            "to": "bool8"
+          }
+        ]
+      },
+      {
+        "symbolicName": "LastDisableReason",
+        "changeType": "removed",
+        "changes": [
+          {
+            "property": "cipService",
+            "from": "TBD",
+            "to": "REMOVED"
+          },
+          {
+            "property": "class",
+            "from": "UNRESOLVED",
+            "to": "REMOVED"
+          },
+          {
+            "property": "instance",
+            "from": "UNRESOLVED",
+            "to": "REMOVED"
+          },
+          {
+            "property": "attribute",
+            "from": "UNRESOLVED",
+            "to": "REMOVED"
+          },
+          {
+            "property": "assembly",
+            "from": "UNRESOLVED",
+            "to": "REMOVED"
+          },
+          {
+            "property": "wireType",
+            "from": "UNRESOLVED",
+            "to": "REMOVED"
+          }
+        ]
+      },
+      {
+        "symbolicName": "LifetimeEmissionTimeMs",
+        "changeType": "removed",
+        "changes": [
+          {
+            "property": "cipService",
+            "from": "TBD",
+            "to": "REMOVED"
+          },
+          {
+            "property": "class",
+            "from": "UNRESOLVED",
+            "to": "REMOVED"
+          },
+          {
+            "property": "instance",
+            "from": "UNRESOLVED",
+            "to": "REMOVED"
+          },
+          {
+            "property": "attribute",
+            "from": "UNRESOLVED",
+            "to": "REMOVED"
+          },
+          {
+            "property": "assembly",
+            "from": "UNRESOLVED",
+            "to": "REMOVED"
+          },
+          {
+            "property": "wireType",
+            "from": "UNRESOLVED",
+            "to": "REMOVED"
+          }
+        ]
+      },
+      {
+        "symbolicName": "NetworkControlActive",
+        "changeType": "removed",
+        "changes": [
+          {
+            "property": "cipService",
+            "from": "TBD",
+            "to": "REMOVED"
+          },
+          {
+            "property": "class",
+            "from": "UNRESOLVED",
+            "to": "REMOVED"
+          },
+          {
+            "property": "instance",
+            "from": "UNRESOLVED",
+            "to": "REMOVED"
+          },
+          {
+            "property": "attribute",
+            "from": "UNRESOLVED",
+            "to": "REMOVED"
+          },
+          {
+            "property": "assembly",
+            "from": "UNRESOLVED",
+            "to": "REMOVED"
+          },
+          {
+            "property": "wireType",
+            "from": "UNRESOLVED",
+            "to": "REMOVED"
+          }
+        ]
+      },
+      {
+        "symbolicName": "ProtocolVersion",
+        "changeType": "removed",
+        "changes": [
+          {
+            "property": "cipService",
+            "from": "TBD",
+            "to": "REMOVED"
+          },
+          {
+            "property": "class",
+            "from": "UNRESOLVED",
+            "to": "REMOVED"
+          },
+          {
+            "property": "instance",
+            "from": "UNRESOLVED",
+            "to": "REMOVED"
+          },
+          {
+            "property": "attribute",
+            "from": "UNRESOLVED",
+            "to": "REMOVED"
+          },
+          {
+            "property": "assembly",
+            "from": "UNRESOLVED",
+            "to": "REMOVED"
+          },
+          {
+            "property": "wireType",
+            "from": "UNRESOLVED",
+            "to": "REMOVED"
+          }
+        ]
+      },
+      {
+        "symbolicName": "Ready",
+        "changeType": "changed",
+        "changes": [
+          {
+            "property": "cipService",
+            "from": "TBD",
+            "to": "GetAttributeSingle"
+          },
+          {
+            "property": "class",
+            "from": "UNRESOLVED",
+            "to": "150"
+          },
+          {
+            "property": "instance",
+            "from": "UNRESOLVED",
+            "to": "7"
+          },
+          {
+            "property": "attribute",
+            "from": "UNRESOLVED",
+            "to": "42"
+          },
+          {
+            "property": "wireType",
+            "from": "UNRESOLVED",
+            "to": "bool8"
+          }
+        ]
+      },
+      {
+        "symbolicName": "RemoteStopOK",
+        "changeType": "changed",
+        "changes": [
+          {
+            "property": "cipService",
+            "from": "TBD",
+            "to": "GetAttributeSingle"
+          },
+          {
+            "property": "class",
+            "from": "UNRESOLVED",
+            "to": "150"
+          },
+          {
+            "property": "instance",
+            "from": "UNRESOLVED",
+            "to": "7"
+          },
+          {
+            "property": "attribute",
+            "from": "UNRESOLVED",
+            "to": "46"
+          },
+          {
+            "property": "wireType",
+            "from": "UNRESOLVED",
+            "to": "bool8"
+          }
+        ]
+      },
+      {
+        "symbolicName": "TimerState",
+        "changeType": "removed",
+        "changes": [
+          {
+            "property": "cipService",
+            "from": "TBD",
+            "to": "REMOVED"
+          },
+          {
+            "property": "class",
+            "from": "UNRESOLVED",
+            "to": "REMOVED"
+          },
+          {
+            "property": "instance",
+            "from": "UNRESOLVED",
+            "to": "REMOVED"
+          },
+          {
+            "property": "attribute",
+            "from": "UNRESOLVED",
+            "to": "REMOVED"
+          },
+          {
+            "property": "assembly",
+            "from": "UNRESOLVED",
+            "to": "REMOVED"
+          },
+          {
+            "property": "wireType",
+            "from": "UNRESOLVED",
+            "to": "REMOVED"
+          }
+        ]
+      }
+    ]
+  },
+  "runtimeProfile": {
+    "profileVersion": "0.2.0",
+    "profileDigest": "2a321cff15f2aeb42949a713835f877c9a218131967a759aed15bc7a8493b474",
+    "artificialMapping": {
+      "symbolicName": "Ready",
+      "cipService": "GetAttributeSingle",
+      "class": 150,
+      "instance": 7,
+      "attribute": 42,
+      "assembly": null
+    }
+  },
+  "corruptProfileRejection": {
+    "rejected": true,
+    "code": "digest_mismatch",
+    "issues": [
+      {
+        "code": "digest_mismatch",
+        "message": "Recomputed SHA-256 digest does not match the manifest digest"
+      }
+    ],
+    "activeSourceAfterRejection": "bundled",
+    "stagedAfterRejection": null
+  },
+  "lastKnownGoodRollback": {
+    "succeeded": true,
+    "restoredSource": "bundled",
+    "restoredProfileVersion": "0.1.0"
+  },
+  "redactedAudit": [
+    {
+      "event": "PROFILE_APPLIED",
+      "timestamp": "2026-08-22T02:59:28.133Z",
+      "profileVersion": "0.2.0",
+      "digestPrefix": "2a321cff15f2",
+      "result": "success",
+      "target": "channel"
+    },
+    {
+      "event": "PROFILE_ROLLED_BACK",
+      "timestamp": "2026-08-22T02:59:28.773Z",
+      "profileVersion": "0.1.0",
+      "digestPrefix": "ff0b33a6ca1b",
+      "result": "success",
+      "target": "bundled"
+    }
+  ],
+  "installedAppBoundaryActions": [
+    "window.lsnDesktop.checkForProfileUpdate",
+    "window.lsnDesktop.activateProfileUpdate",
+    "window.lsnDesktop.rollbackProfile"
+  ],
+  "requests": [
+    {
+      "method": "GET",
+      "path": "/api/auth/session"
+    },
+    {
+      "method": "GET",
+      "path": "/api/profiles"
+    },
+    {
+      "method": "GET",
+      "path": "/api/desktop/profile-channel"
+    },
+    {
+      "method": "GET",
+      "path": "/api/desktop/profile-channel"
+    },
+    {
+      "method": "GET",
+      "path": "/api/desktop/profile-artifact/0.2.0"
+    },
+    {
+      "method": "GET",
+      "path": "/api/desktop/profile-channel"
+    },
+    {
+      "method": "GET",
+      "path": "/api/desktop/profile-artifact/0.2.0"
+    },
+    {
+      "method": "GET",
+      "path": "/api/auth/session"
+    },
+    {
+      "method": "GET",
+      "path": "/api/profiles"
+    },
+    {
+      "method": "GET",
+      "path": "/api/auth/session"
+    },
+    {
+      "method": "GET",
+      "path": "/api/profiles"
+    },
+    {
+      "method": "GET",
+      "path": "/api/auth/session"
+    },
+    {
+      "method": "GET",
+      "path": "/api/profiles"
+    }
+  ],
+  "screenshots": [
+    "profile-update-detected.png",
+    "profile-update-applied.png",
+    "profile-update-rolled-back.png"
+  ]
+}
