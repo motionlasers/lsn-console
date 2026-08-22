@@ -136,8 +136,14 @@ async function main() {
   await fs.mkdir(evidenceDir, { recursive: true });
   const profile = makePublishedProfile();
   const artifactRaw = JSON.stringify(profile);
+  const corruptArtifactRaw = JSON.stringify({
+    ...profile,
+    fields: profile.fields.map((field, index) =>
+      index === 0 ? { ...field, attribute: 99 } : field),
+  });
   const digest = sha256(Buffer.from(artifactRaw, 'utf8'));
   let published = false;
+  let serveCorruptArtifact = false;
   const requests = [];
   const server = https.createServer({
     cert: await fs.readFile(certificatePath),
@@ -166,11 +172,12 @@ async function main() {
       } : { available: false });
     }
     if (url.pathname === `/api/desktop/profile-artifact/${profile.profileVersion}`) {
+      const responseBody = serveCorruptArtifact ? corruptArtifactRaw : artifactRaw;
       response.writeHead(200, {
         'content-type': 'application/json',
-        'content-length': Buffer.byteLength(artifactRaw),
+        'content-length': Buffer.byteLength(responseBody),
       });
-      return response.end(artifactRaw);
+      return response.end(responseBody);
     }
     return json(response, 404, { error: 'Not found' });
   });
@@ -196,7 +203,12 @@ async function main() {
   const electronApp = await electron.launch({
     executablePath,
     args: ['--disable-gpu', `--user-data-dir=${userDataDir}`],
-    env: { ...process.env, LSN_API_BASE_URL: apiOrigin },
+    env: {
+      ...process.env,
+      LSN_API_BASE_URL: apiOrigin,
+      LSN_WINDOWS_PROFILE_SMOKE: '1',
+      NODE_EXTRA_CA_CERTS: certificatePath,
+    },
     timeout: 60_000,
   });
   phase('installed Electron application launched');
@@ -217,6 +229,20 @@ async function main() {
     await window.getByText('Staged update').waitFor();
     phase('unpublished channel state confirmed');
     published = true;
+    serveCorruptArtifact = true;
+    await window.getByTestId('button-check-profile-update').click();
+    const rejectedState = await waitForProfileState(
+      window,
+      (state) => state.error?.code === 'digest_mismatch' && !state.staged,
+      'corrupt profile rejection',
+    );
+    if (rejectedState.active?.source !== 'bundled') {
+      throw new Error(`Corrupt profile changed active state: ${JSON.stringify(rejectedState)}`);
+    }
+    phase('corrupt profile rejected without staging or activation');
+    await card.screenshot({ path: path.join(evidenceDir, 'profile-update-corrupt-rejected.png') });
+
+    serveCorruptArtifact = false;
     await window.getByTestId('button-check-profile-update').click();
 
     const available = window.getByTestId('new-profile-available');
@@ -307,9 +333,22 @@ async function main() {
         profileDigest: runtimeProfile.profileDigest,
         artificialMapping: readyMapping,
       },
+      corruptProfileRejection: {
+        rejected: true,
+        code: rejectedState.error?.code,
+        issues: rejectedState.error?.issues,
+        activeSourceAfterRejection: rejectedState.active?.source,
+        stagedAfterRejection: rejectedState.staged,
+      },
+      lastKnownGoodRollback: {
+        succeeded: rolledBackState.active?.source === 'bundled',
+        restoredSource: rolledBackState.active?.source,
+        restoredProfileVersion: rolledBackState.active?.profileVersion,
+      },
       redactedAudit: audit,
       requests,
       screenshots: [
+        'profile-update-corrupt-rejected.png',
         'profile-update-available-and-diff.png',
         'profile-update-applied.png',
         'profile-update-rolled-back.png',

@@ -239,12 +239,6 @@ jobs:
           if ($LASTEXITCODE -ne 0) {
             throw 'Unable to generate profile smoke HTTPS certificate.'
           }
-          $trustedCertificate = Import-Certificate `
-            -FilePath $certificate `
-            -CertStoreLocation 'Cert:\CurrentUser\Root'
-          if (-not $trustedCertificate) {
-            throw 'Unable to trust profile smoke HTTPS certificate.'
-          }
           try {
             $env:LSN_WINDOWS_SMOKE_CERT = $certificate
             $env:LSN_WINDOWS_SMOKE_KEY = $privateKey
@@ -253,9 +247,6 @@ jobs:
               throw 'Installed profile-only publication smoke failed.'
             }
           } finally {
-            Remove-Item `
-              -LiteralPath "Cert:\CurrentUser\Root\$($trustedCertificate.Thumbprint)" `
-              -Force -ErrorAction SilentlyContinue
             Remove-Item -LiteralPath $certificateDir -Recurse -Force
           }
       - uses: actions/upload-artifact@v4

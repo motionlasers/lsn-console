@@ -14,6 +14,7 @@ const {
   assertPhysicalHardwareRuntime,
 } = require('./hardware-runtime.cjs');
 const { ProfileUpdateService } = require('./profile-update-service.cjs');
+const { createCiProfileSmokeFetch } = require('./ci-profile-smoke-fetch.cjs');
 
 const isDev = !app.isPackaged;
 let hardwareService = null;
@@ -85,6 +86,16 @@ function isAllowedAuthRequest(pathname, method) {
   return authRoutes.some(
     (route) => route.pattern.test(pathname) && route.methods.has(method),
   );
+}
+
+function getCiProfileSmokeFetch() {
+  return createCiProfileSmokeFetch({
+    env: process.env,
+    isPackaged: app.isPackaged,
+    platform: process.platform,
+    apiOrigin: getApiOrigin(),
+    nodeFetch: globalThis.fetch.bind(globalThis),
+  });
 }
 
 function createWindow() {
@@ -221,12 +232,14 @@ async function applyActiveProfileToHardware(document, meta) {
 }
 
 function configureProfileUpdates() {
+  const ciProfileSmokeFetch = getCiProfileSmokeFetch();
   profileUpdateService = new ProfileUpdateService({
     apiOrigin: getApiOrigin(),
     // Network I/O stays in main and flows through the default persistent
     // session (net.fetch) so authenticated cookies are attached; the renderer
     // never chooses an origin, path, or supplies a profile document.
-    fetch: (url, options) => net.fetch(url, { ...options, credentials: 'include' }),
+    fetch: ciProfileSmokeFetch ??
+      ((url, options) => net.fetch(url, { ...options, credentials: 'include' })),
     profilesDir: path.join(app.getPath('userData'), 'profiles'),
     onStateChange: broadcastProfileState,
     onActivate: applyActiveProfileToHardware,
@@ -330,15 +343,17 @@ ipcMain.handle('desktop:auth-request', async (event, request) => {
     return { status: 400, body: { error: 'Invalid desktop auth request body' } };
   }
 
-  const response = await event.sender.session.fetch(
-    new URL(pathname, getApiOrigin()),
-    {
-      method,
-      credentials: 'include',
-      headers: body === undefined ? undefined : { 'Content-Type': 'application/json' },
-      body,
-    },
-  );
+  const url = new URL(pathname, getApiOrigin());
+  const options = {
+    method,
+    credentials: 'include',
+    headers: body === undefined ? undefined : { 'Content-Type': 'application/json' },
+    body,
+  };
+  const ciProfileSmokeFetch = getCiProfileSmokeFetch();
+  const response = ciProfileSmokeFetch
+    ? await ciProfileSmokeFetch(url, options)
+    : await event.sender.session.fetch(url, options);
   const responseBody = await response.json().catch(() => ({}));
   return { status: response.status, body: responseBody };
 });
